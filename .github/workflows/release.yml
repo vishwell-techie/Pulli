@@ -1,0 +1,50 @@
+# Pushing a tag such as v0.1.0 builds the firmware and the example games and
+# attaches them to a GitHub release. The checks have already passed on main:
+# a tag is only ever put on a commit that is there.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  PICO_SDK_TAG: 2.1.0
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsdl2-dev gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - name: Test
+        run: |
+          cmake -S . -B build -G Ninja
+          ninja -C build
+          cd build && ctest --output-on-failure
+      - name: Firmware
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          git clone --depth 1 --branch "$PICO_SDK_TAG" https://github.com/raspberrypi/pico-sdk.git pico-sdk
+          git -C pico-sdk submodule update --init --depth 1 lib/tinyusb
+          cmake -S firmware -B firmware/build -G Ninja
+          ninja -C firmware/build
+      - name: Gather the files
+        run: |
+          mkdir -p dist
+          cp firmware/build/pulli.uf2 dist/
+          for game in examples/*/; do python3 tools/pulli.py pack "$game" "dist/$(basename "$game").pulli"; done
+          (cd dist && sha256sum * > SHA256SUMS)
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes

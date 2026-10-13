@@ -154,6 +154,23 @@ Sound works the same way: `tools/refaudio.py` is the reference mixer and
 compares them, and `pulli-headless --dump-wav out.wav` saves what a game
 played.
 
+## Changes and checks
+
+Nothing is pushed to `main`. Work goes on a feature branch and reaches
+`main` through a pull request, squash-merged once the CI checks pass.
+
+- `.github/workflows/ci.yml` runs on every pull request and every push to
+  `main`: the `desktop` job builds and runs all the tests, and the
+  `firmware` job builds the Pico 2 image. Both must pass.
+- `.github/workflows/release.yml` runs when a tag such as `v0.1.0` is
+  pushed: it tests, builds and attaches the firmware and the example games
+  to a GitHub release.
+- `.github/rulesets/` holds the rules for `main` and for release tags.
+  Import each under Settings, Rules, Rulesets, New ruleset, Import a
+  ruleset. Collaborators can push branches and open pull requests; a pull
+  request needs a code-owner approval (`.github/CODEOWNERS`), which only
+  the owner can give, and only the owner can create release tags.
+
 ## Licence
 
 Planned: MIT or Apache-2.0 for software and CERN-OHL-S v2 for hardware.

@@ -1,0 +1,73 @@
+# Every pull request and every push to main must pass both jobs. The job
+# names, "desktop" and "firmware", are what the branch rules require
+# (.github/rulesets/main.json), so renaming one means updating the other.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PICO_SDK_TAG: 2.1.0
+
+jobs:
+  desktop:
+    name: desktop
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsdl2-dev
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja
+          ninja -C build
+      - name: Test
+        run: cd build && ctest --output-on-failure
+      - name: Package the examples
+        run: |
+          mkdir -p dist
+          for game in examples/*/; do python3 tools/pulli.py pack "$game" "dist/$(basename "$game").pulli"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: examples
+          path: dist/*.pulli
+
+  firmware:
+    name: firmware
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - name: Cache the Pico SDK
+        id: sdk
+        uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-${{ env.PICO_SDK_TAG }}
+      - name: Fetch the Pico SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$PICO_SDK_TAG" https://github.com/raspberrypi/pico-sdk.git pico-sdk
+          git -C pico-sdk submodule update --init --depth 1 lib/tinyusb
+      - name: Build
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+        run: |
+          cmake -S firmware -B firmware/build -G Ninja
+          ninja -C firmware/build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: firmware/build/pulli.uf2
