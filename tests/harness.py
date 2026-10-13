@@ -7,7 +7,7 @@ Every script takes:
 Checks that need the C runtime are skipped, loudly, when it is not built, so
 the Python-only checks still run on a machine with no compiler.
 """
-import argparse, os, subprocess, sys, tempfile
+import argparse, os, socket, subprocess, sys, tempfile, time
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 TESTS = os.path.join(ROOT, "tests")
@@ -55,29 +55,61 @@ class Suite:
         print(f"  SKIP  {what} (pulli-headless is not built)")
         return False
 
-    def run_package(self, data, frames=1, hold=None, tap=None, caps=None, saves=None):
-        """Run package bytes in the headless host and collect everything."""
+    def _start(self, tmp, data, frames=1, hold=None, tap=None, caps=None, saves=None, link=None):
+        os.makedirs(tmp)
+        pkg, fb, rgb = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb"))
+        with open(pkg, "wb") as f:
+            f.write(data)
+        cmd = [self.headless, pkg, "--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
+        for flag, value in (("--hold", hold), ("--tap", tap), ("--caps", caps), ("--saves", saves),
+                            ("--link", link)):
+            if value:
+                cmd += [flag, str(value)]
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE), fb, rgb
+
+    @staticmethod
+    def _finish(started):
+        proc, fb, rgb = started
+        try:
+            out, err = proc.communicate(timeout=120)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, err = proc.communicate()
+            err += b"\n(killed: still running after 120 s)"
+
+        def slurp(path):
+            return open(path, "rb").read() if os.path.exists(path) else b""
+        return Result(proc.returncode, out.decode("utf-8", "replace"),
+                      err.decode("utf-8", "replace"), slurp(fb), slurp(rgb))
+
+    def run_package(self, data, **opts):
+        """Run package bytes in the headless host and collect everything.
+        Options: frames, hold, tap, caps, saves, link."""
         with tempfile.TemporaryDirectory() as tmp:
-            pkg, fb, rgb = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb"))
-            with open(pkg, "wb") as f:
-                f.write(data)
-            cmd = [self.headless, pkg, "--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
-            for flag, value in (("--hold", hold), ("--tap", tap), ("--caps", caps), ("--saves", saves)):
-                if value:
-                    cmd += [flag, value]
-            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+            return self._finish(self._start(os.path.join(tmp, "a"), data, **opts))
 
-            def slurp(path):
-                return open(path, "rb").read() if os.path.exists(path) else b""
-            return Result(p.returncode, p.stdout.decode("utf-8", "replace"),
-                          p.stderr.decode("utf-8", "replace"), slurp(fb), slurp(rgb))
+    def run_linked(self, first, second, first_opts=None, second_opts=None):
+        """Run two packages linked to each other. `first` becomes side 1."""
+        with socket.socket() as s:                 # ask the system for a free port
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            a = self._start(os.path.join(tmp, "a"), first, link=port, **(first_opts or {}))
+            time.sleep(0.3)                        # let it claim the port, and so side 1
+            b = self._start(os.path.join(tmp, "b"), second, link=port, **(second_opts or {}))
+            return self._finish(a), self._finish(b)
 
-    def run_game(self, main, manifest=MANIFEST, extra=None, **opts):  # opts: see run_package
-        """Run a game given as Lua source text."""
+    @staticmethod
+    def package(main, manifest=MANIFEST, extra=None):
+        """Package a game given as Lua source text."""
         entries = {"manifest.lua": manifest, "main.lua": main}
         entries.update(extra or {})
-        blobs = [(n, v if isinstance(v, bytes) else v.encode()) for n, v in sorted(entries.items())]
-        return self.run_package(pulli.build_entries(blobs), **opts)
+        return pulli.build_entries(
+            [(n, v if isinstance(v, bytes) else v.encode()) for n, v in sorted(entries.items())])
+
+    def run_game(self, main, manifest=MANIFEST, extra=None, **opts):
+        """Run a game given as Lua source text."""
+        return self.run_package(self.package(main, manifest, extra), **opts)
 
     def finish(self):
         print()

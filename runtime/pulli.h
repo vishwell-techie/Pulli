@@ -26,6 +26,8 @@
 #define PULLI_SAVE_MAX        65536
 #define PULLI_ATLAS_MAX       (128 * 1024)  /* resident sprite atlas, SPEC §1 */
 #define PULLI_SCANOUT_ROWS    12   /* one strip: 12 rows x 320 px x 2 B = 7680 B */
+#define PULLI_LINK_MSG_MAX    64   /* bytes in one link message */
+#define PULLI_LINK_SENDS      8    /* messages a game may send per frame */
 
 /* ---- buttons ------------------------------------------------------- */
 typedef enum {
@@ -130,6 +132,13 @@ const char *pulli_pkg_open(pulli_pkg *pk, const void *data, size_t len);
 bool        pulli_pkg_find(const pulli_pkg *pk, const char *name, pulli_blob *out);
 uint32_t    pulli_crc32(const uint8_t *data, size_t len);
 
+/* ---- console-to-console link (SPEC §3, "Link") --------------------- */
+typedef enum {
+    PULLI_LINK_OFF = 0,     /* no link hardware */
+    PULLI_LINK_WAITING,     /* hardware present, no other console answering */
+    PULLI_LINK_CONNECTED
+} pulli_link_state;
+
 /* ---- backend hooks a port provides --------------------------------- */
 /* Any hook may be NULL: missing hardware degrades silently (SPEC §3a). */
 typedef struct {
@@ -141,6 +150,13 @@ typedef struct {
     int  (*save_read)(const char *game_id, void *blob, size_t max); /* <0: none */
     bool (*save_write)(const char *game_id, const void *blob, size_t len);
     void (*log)(const char *msg);
+    /* Link. The port carries whole messages, in order and without loss
+     * while connected. link_poll is called once at the start of every
+     * frame; it returns the state and, when connected, which side this
+     * console is (1 or 2, never the same on both). */
+    pulli_link_state (*link_poll)(int *side);
+    bool (*link_send)(const void *msg, size_t len);
+    int  (*link_recv)(void *msg, size_t max);         /* length, or <0: none */
 } pulli_backend;
 
 /* ---- engine --------------------------------------------------------- */
@@ -170,6 +186,9 @@ typedef struct {
     uint8_t *save;                               /* save blob, save_size bytes */
     uint32_t save_len;
     bool     save_dirty;
+    pulli_link_state link_state;                 /* as of this frame */
+    int      link_side;                          /* 1 or 2 while connected */
+    int      link_sent;                          /* messages sent this frame */
     bool     running;
     char     error[512];                         /* why boot/update/draw failed */
 } pulli_engine;

@@ -250,6 +250,12 @@ bool pulli_update(pulli_engine *e, uint32_t buttons) {
     for (int i = 0; i < PULLI_BTN_COUNT; i++)
         e->ctx.btn_held[i] = (e->ctx.btn_state >> i) & 1u ? e->ctx.btn_held[i] + 1 : 0;
     e->ctx.frame++;
+    e->link_sent = 0;
+    e->link_side = 0;
+    e->link_state = e->backend && e->backend->link_poll
+        ? e->backend->link_poll(&e->link_side) : PULLI_LINK_OFF;
+    if (e->link_state != PULLI_LINK_CONNECTED) e->link_side = 0;
+
     /* Step the GC every frame rather than letting it decide when to stop
      * the world. On the MCU this is not optional. */
     lua_gc(e->L, LUA_GCSTEP, 2);

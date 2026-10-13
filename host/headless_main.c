@@ -5,6 +5,7 @@
  *     --hold a,left     buttons held down for the whole run
  *     --tap a@1,start@90  buttons pressed for one frame each (frames count from 1)
  *     --caps wifi,cart  optional hardware reported through sys.has()
+ *     --link PORT       link to another host started with the same port
  *     --saves DIR       keep save data in DIR (default: discarded on exit)
  *     --dump-fb FILE    write the final indexed framebuffer, 76800 bytes
  *     --dump-rgb FILE   write the final screen as RGB565, little-endian
@@ -57,7 +58,7 @@ static bool parse_taps(const char *list) {
 static int usage(void) {
     fprintf(stderr,
         "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME,...]\n"
-        "                      [--caps CAPS]\n"
+        "                      [--caps CAPS] [--link PORT]\n"
         "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE]\n");
     return 2;
 }
@@ -65,7 +66,7 @@ static int usage(void) {
 int main(int argc, char **argv) {
     const char *game = NULL, *dump_fb = NULL, *dump_rgb = NULL;
     long frames = 60;
-    uint32_t held = 0;
+    uint32_t held = 0, caps = 0;
     pulli_backend backend = { 0 };
     backend.present = present;
     backend.save_read = host_save_read;
@@ -84,10 +85,12 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--dump-rgb")) dump_rgb = v;
         else if (!strcmp(a, "--hold"))     { if (!host_parse_buttons(v, &held)) return usage(); }
         else if (!strcmp(a, "--tap"))      { if (!parse_taps(v)) return usage(); }
-        else if (!strcmp(a, "--caps"))     { if (!host_parse_caps(v, &backend.caps)) return usage(); }
+        else if (!strcmp(a, "--caps"))     { if (!host_parse_caps(v, &caps)) return usage(); }
+        else if (!strcmp(a, "--link"))     { if (!host_use_link(&backend, v, true)) return usage(); }
         else return usage();
     }
     if (!game || frames < 0) return usage();
+    backend.caps |= caps;
 
     size_t len;
     uint8_t *data = host_read_file(game, &len);
@@ -121,6 +124,7 @@ int main(int argc, char **argv) {
             engine.manifest.title[0] ? engine.manifest.title : game, done, frames,
             engine.heap_used / 1024.0, engine.heap_peak / 1024.0, engine.manifest.lua_heap_kb);
     pulli_shutdown(&engine);
+    host_link_close();
     free(data);
     return ok ? 0 : 1;
 }

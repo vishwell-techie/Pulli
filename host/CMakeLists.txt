@@ -1,6 +1,6 @@
 # Desktop frontends. pulli-headless needs nothing but a C compiler;
 # pulli-host needs SDL2 and is skipped when SDL2 is not installed.
-add_library(pulli_host_common STATIC common.c)
+add_library(pulli_host_common STATIC common.c link.c)
 target_link_libraries(pulli_host_common PUBLIC pulli_runtime)
 if(NOT WIN32)
     target_link_libraries(pulli_host_common PUBLIC m)

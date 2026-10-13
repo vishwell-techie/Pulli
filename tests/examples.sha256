@@ -1,6 +1,6 @@
 hello frames=120 hold=- tap=- 89c7d74ded45b635733a506e9715a77cad1f063918f9aedc4686fb8e5dbd4dc4
 hello frames=120 hold=right,down,a tap=- 7c4470b4624c0fdc93f3e88de46511eca0d932aae2ea13b6621123c386bd2e6c
-pong frames=600 hold=- tap=- c982dc45cb499805d63eee4b0b0e355cb92e3742b7b00bb82c6c4fbbf7d8d51e
+pong frames=600 hold=- tap=- feb1b6832b21ff5693923d7a7fc32912ed9573e011546546b1ceff84fda7d563
 pong frames=3600 hold=a tap=- 3b5a33d3650a012149e4d9ba5faee2492276d52e668c33ba27d9ac2c4a6f2105
 pong frames=3600 hold=up tap=a@5 2164a7f902d78c58efe1cdf108831a83c704b3b9c0892a5b00eda9a6d9f31e22
 pong frames=3600 hold=x tap=down@1,a@5 81b99b15c947b9c1116e1e1ab881905bb9b57bb3b2888d6ac26fdac4f9d5cccd

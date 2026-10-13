@@ -167,6 +167,37 @@ static int l_sys_has(lua_State *L) {
     return 1;
 }
 
+/* ---- link ---------------------------------------------------------- */
+static bool link_up(void) {
+    return E->link_state == PULLI_LINK_CONNECTED;
+}
+static int l_link_status(lua_State *L) {
+    static const char *const NAMES[] = { "off", "waiting", "connected" };
+    lua_pushstring(L, NAMES[E->link_state]);
+    return 1;
+}
+static int l_link_side(lua_State *L) {
+    if (link_up()) lua_pushinteger(L, E->link_side); else lua_pushnil(L);
+    return 1;
+}
+static int l_link_send(lua_State *L) {
+    size_t len;
+    const char *msg = luaL_checklstring(L, 1, &len);
+    const pulli_backend *B = E->backend;
+    bool ok = link_up() && len <= PULLI_LINK_MSG_MAX && E->link_sent < PULLI_LINK_SENDS &&
+              B->link_send && B->link_send(msg, len);
+    if (ok) E->link_sent++;
+    lua_pushboolean(L, ok);
+    return 1;
+}
+static int l_link_recv(lua_State *L) {
+    char msg[PULLI_LINK_MSG_MAX];
+    const pulli_backend *B = E->backend;
+    int n = link_up() && B->link_recv ? B->link_recv(msg, sizeof(msg)) : -1;
+    if (n < 0) lua_pushnil(L); else lua_pushlstring(L, msg, (size_t)n);
+    return 1;
+}
+
 /* ---- map ----------------------------------------------------------- */
 static int l_map_draw(lua_State *L) {
     pulli_map_draw(&E->ctx, arg_i(L,1,0), arg_i(L,2,0), arg_i(L,3,0));
@@ -200,6 +231,11 @@ static const luaL_Reg MAP[] = {
 
 static const luaL_Reg SYS[] = {
     {"has",l_sys_has},{NULL,NULL}
+};
+
+static const luaL_Reg LINK[] = {
+    {"status",l_link_status},{"side",l_link_side},
+    {"send",l_link_send},{"recv",l_link_recv},{NULL,NULL}
 };
 
 /* Sandbox by construction: the io, os, package and debug libraries are
@@ -245,6 +281,8 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
     lua_setglobal(L, "map");
     luaL_newlib(L, SYS);
     lua_setglobal(L, "sys");
+    luaL_newlib(L, LINK);
+    lua_setglobal(L, "link");
 
     /* Deliberately NOT exposing button names as bare globals: "x", "y", "a"
      * and "b" are the most common variable names in game code. Buttons are
