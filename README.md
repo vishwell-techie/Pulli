@@ -97,7 +97,8 @@ as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.
 `python3 tools/pulli.py palette pulli.gpl` writes the 64 colours for the
 paint program to load. For a map, make one in [Tiled](https://www.mapeditor.org)
 with 8x8 tiles and `sprites.png` as its tileset, and save it as `map.tmx`
-beside it. `examples/walk` does both.
+beside it. `examples/walk` does both, and is the fullest example: three
+levels, enemies, sound effects and music.
 
 For sound, put `.wav` files in a `sfx/` folder and a `music/` folder inside
 the game. `pack` and `run` number them from 0 in order of file name, so

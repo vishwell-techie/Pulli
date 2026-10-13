@@ -3,7 +3,8 @@
  *   pulli-headless <game.pulli> [options]
  *     --frames N        frames to run (default 60)
  *     --hold a,left     buttons held down for the whole run
- *     --tap a@1,start@90  buttons pressed for one frame each (frames count from 1)
+ *     --tap a@1,right@90-150  buttons pressed on one frame, or held from one
+ *                       frame to another (frames count from 1)
  *     --caps wifi,cart  optional hardware reported through sys.has()
  *     --link PORT       link to another host started with the same port
  *     --saves DIR       keep save data in DIR (default: discarded on exit)
@@ -64,11 +65,11 @@ static bool write_file(const char *path, const uint8_t *data, size_t len) {
     return fclose(f) == 0 && ok;
 }
 
-#define MAX_TAPS 64
-static struct { long frame; uint32_t buttons; } taps[MAX_TAPS];
+#define MAX_TAPS 512
+static struct { long frame, last; uint32_t buttons; } taps[MAX_TAPS];
 static int tap_count;
 
-/* "a@1,start@90" */
+/* "a@1,right@90-150" */
 static bool parse_taps(const char *list) {
     while (*list) {
         char name[16];
@@ -80,6 +81,13 @@ static bool parse_taps(const char *list) {
         long frame = strtol(list + n + 1, &end, 10);
         if (end == list + n + 1 || frame < 1 || !host_parse_buttons(name, &taps[tap_count].buttons))
             return false;
+        long last = frame;
+        if (*end == '-') {
+            const char *from = end + 1;
+            last = strtol(from, &end, 10);
+            if (end == from || last < frame) return false;
+        }
+        taps[tap_count].last = last;
         taps[tap_count++].frame = frame;
         list = *end == ',' ? end + 1 : end;
         if (*end && *end != ',') return false;
@@ -89,7 +97,7 @@ static bool parse_taps(const char *list) {
 
 static int usage(void) {
     fprintf(stderr,
-        "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME,...]\n"
+        "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME[-FRAME],...]\n"
         "                      [--caps CAPS] [--link PORT]\n"
         "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE] [--dump-wav FILE]\n");
     return 2;
@@ -145,7 +153,7 @@ int main(int argc, char **argv) {
     while (ok && done < frames) {
         uint32_t buttons = held;
         for (int i = 0; i < tap_count; i++)
-            if (taps[i].frame == done + 1) buttons |= taps[i].buttons;
+            if (taps[i].frame <= done + 1 && done + 1 <= taps[i].last) buttons |= taps[i].buttons;
         ok = pulli_update(&engine, buttons) && pulli_draw(&engine);
         if (ok) done++;
     }

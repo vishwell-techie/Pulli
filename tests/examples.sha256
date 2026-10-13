@@ -10,13 +10,13 @@ pong frames=3600 hold=up tap=a@5 2164a7f902d78c58efe1cdf108831a83c704b3b9c0892a5
 pong frames=3600 hold=up tap=a@5 sound 3705d36e885c75be179fc85308157f58b85acd16217c1298e4227b26aa160a79
 pong frames=3600 hold=x tap=down@1,a@5 81b99b15c947b9c1116e1e1ab881905bb9b57bb3b2888d6ac26fdac4f9d5cccd
 pong frames=3600 hold=x tap=down@1,a@5 sound 3705d36e885c75be179fc85308157f58b85acd16217c1298e4227b26aa160a79
-walk frames=300 hold=- tap=- 01c3747e61f18f6684beb3482661903cf3cc166380b93e0374652b3f566c3a22
-walk frames=300 hold=- tap=- sound 728d8a027848aa5be1c3cbd20a1de4de177472efab72174d0f34bccfd3ec46e2
-walk frames=600 hold=right,down tap=- 3f22f67a8333b89aabec0870d5e6f52528adaaa8ea5a621711a256ef5fd3ed27
-walk frames=600 hold=right,down tap=- sound 59a6466ca2844d2aab8e0fb04f5dc71cf1104f04b254cf2280db08a944560bf7
-walk frames=900 hold=down tap=- fdbd23a22555998fa7d07ae66dc64c320cb5c4f8324d39487b27a2ae736ab48b
-walk frames=900 hold=down tap=- sound 72d8c87265d57bb14e83277f6b866157dc6d58c16d3df035640692369daeb038
-walk frames=1500 hold=right tap=- fbc9dcc298fdbb927a7416516385c06a80c346d05fbb82d766b934445c5015ee
-walk frames=1500 hold=right tap=- sound ae4ae2646d50e07c1b5764389d2399449d2bbc7dde5cad7b88bdf9bd5c514e03
-walk frames=7300 hold=- tap=a@7000 1f7c2fc0de9fc8d5ab4172fec1a156be3701781aa3e87d51ecbaa710b304418d
-walk frames=7300 hold=- tap=a@7000 sound 3e8f4d680cd083fe90e16981d1b287be55587e55fe3453e7824ddbcbbe1c9909
+walk frames=120 hold=- tap=- 2e6c5c1855855b855ad3785b33b0432f16a9db1326b8a8b9f73285288e6a034c
+walk frames=120 hold=- tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
+walk frames=300 hold=- tap=a@5 afa9e74c7957c7cf7d70cb42b1476f02fd032064573b6b9f50fec2aa213d0a84
+walk frames=300 hold=- tap=a@5 sound 03212d3665d3323c8313b89c060bed2790bb62f42b1155fc862bc43411f76312
+walk frames=600 hold=right,down tap=a@5 8e420e4bcdcc7d24d6189993c5c37e5fd823ad8a9d6c90fcdb5c3ad8eb4b7d7c
+walk frames=600 hold=right,down tap=a@5 sound e8af5b18857304f0cbcf9582a70c20f196ab431ea7c5a6d081acebffa96a4c8b
+walk frames=3000 hold=- tap=a@5,a@2900 c2d538146e496cca3bec601e520e77033a9cfc4dd26106a8b14f8f723a2c2811
+walk frames=3000 hold=- tap=a@5,a@2900 sound f1c9b594c972e488f8e9dca7a6778cbbd822d539c49ef103b919fd4e883284c3
+walk level 1 cleared 2021342123fc4198c2578f66b1691b4068eac865523389f1ca56f9bbfab2105d
+walk level 2 reached 2a77eb601ae5a1d78a494f7f62ffbf4429df73790c50cfc8e4363e383e0039c5
