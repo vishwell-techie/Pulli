@@ -15,9 +15,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PICO_SDK_TAG: 2.1.0
-
 jobs:
   desktop:
     name: desktop
@@ -50,20 +47,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
-      - name: Cache the Pico SDK
-        id: sdk
-        uses: actions/cache@v4
-        with:
-          path: pico-sdk
-          key: pico-sdk-${{ env.PICO_SDK_TAG }}
-      - name: Fetch the Pico SDK
-        if: steps.sdk.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 --branch "$PICO_SDK_TAG" https://github.com/raspberrypi/pico-sdk.git pico-sdk
-          git -C pico-sdk submodule update --init --depth 1 lib/tinyusb
+      # No Pico SDK is installed here, so the build downloads the pinned one
+      # (firmware/CMakeLists.txt), exactly as it does on a fresh machine.
       - name: Build
-        env:
-          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
         run: |
           cmake -S firmware -B firmware/build -G Ninja
           ninja -C firmware/build
