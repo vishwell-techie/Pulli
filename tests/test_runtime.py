@@ -82,6 +82,33 @@ def main():
            ["PH-H-H\ttrue\tfalse\ttrue\tfalse\tfalse\tfalse"])
     r = t.run_game(src, frames=3)
     expect("nothing held reads as nothing pressed", r, ["------\tfalse\tfalse\tfalse\tfalse\tfalse\tfalse"])
+    src = """
+        local hits = { a = '', left = '', r = '', start = '', select = '' }
+        function update()
+          for name, log in pairs(hits) do
+            if btnp(name) then hits[name] = log .. stat('frame') .. ' ' end
+          end
+        end
+        function draw()
+          if stat('frame') == 45 then dbg(hits.a, hits.left, hits.r, hits.start, hits.select) end
+        end
+    """
+    r = t.run_game(src, frames=45, hold="a,left,r,start,select")
+    expect("a held button repeats after 24 frames, then every 6; start and select never do", r,
+           ["1 25 31 37 43 \t1 25 31 37 43 \t1 25 31 37 43 \t1 \t1 "])
+    r = t.run_game(src, frames=45, tap="a@3,a@4,a@5,a@20,start@7,start@30")
+    expect("letting go and pressing again counts as a new press", r, ["3 20 \t\t\t7 30 \t"])
+
+    src = """
+        local log = ''
+        function update() if btnp('a') then log = log .. stat('frame') .. ' ' end end
+        function draw() if stat('frame') == 9 then dbg(log, btn('b')) end end
+    """
+    expect("--tap presses a button for exactly one frame", t.run_game(src, frames=9, tap="a@2,a@5,b@9"),
+           ["2 5 \ttrue"])
+    for bad in ("@5", "a@0", "a@x", "nope@3", "a@1,@2", "a"):
+        r = t.run_game(src, frames=9, tap=bad)
+        t.check(f"--tap refuses {bad!r}", r.code == 2 and "usage" in r.err, f"exit {r.code} {r.err}")
 
     # ---- drawing arguments --------------------------------------------
     r = t.run_game("""

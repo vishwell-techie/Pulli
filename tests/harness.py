@@ -55,14 +55,14 @@ class Suite:
         print(f"  SKIP  {what} (pulli-headless is not built)")
         return False
 
-    def run_package(self, data, frames=1, hold=None, caps=None, saves=None):
+    def run_package(self, data, frames=1, hold=None, tap=None, caps=None, saves=None):
         """Run package bytes in the headless host and collect everything."""
         with tempfile.TemporaryDirectory() as tmp:
             pkg, fb, rgb = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb"))
             with open(pkg, "wb") as f:
                 f.write(data)
             cmd = [self.headless, pkg, "--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
-            for flag, value in (("--hold", hold), ("--caps", caps), ("--saves", saves)):
+            for flag, value in (("--hold", hold), ("--tap", tap), ("--caps", caps), ("--saves", saves)):
                 if value:
                     cmd += [flag, value]
             p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
@@ -72,7 +72,7 @@ class Suite:
             return Result(p.returncode, p.stdout.decode("utf-8", "replace"),
                           p.stderr.decode("utf-8", "replace"), slurp(fb), slurp(rgb))
 
-    def run_game(self, main, manifest=MANIFEST, extra=None, **opts):
+    def run_game(self, main, manifest=MANIFEST, extra=None, **opts):  # opts: see run_package
         """Run a game given as Lua source text."""
         entries = {"manifest.lua": manifest, "main.lua": main}
         entries.update(extra or {})

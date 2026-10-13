@@ -34,7 +34,7 @@ Measured against `docs/SPEC.md`:
 - Maps: `map.load`, `map.set` and `map.flags` are missing and the map file
   format is undefined, so `map.draw` has nothing to draw.
 - `save` refuses tables; numbers, strings and booleans work.
-- `stat("fps")` and `stat("cpu")` return nil; `btnp` does not repeat.
+- `stat("fps")` and `stat("cpu")` return nil.
 - No way to load a custom palette.
 - Packages hold Lua source only: bytecode, encrypted and signed packages
   are refused.
@@ -118,7 +118,9 @@ ninja -C firmware/build                           # firmware/build/pulli.uf2
 
 It runs Pong with no display and prints update, draw and screen-conversion
 times and Lua memory over USB serial once a second. `-DPULLI_GAME=<folder>`
-links in a different game.
+links in a different game. The board has no buttons yet: for Pong the
+firmware taps A every two seconds to get past the title screen, and
+`-DPULLI_AUTO_A_SECONDS=<n>` does the same for another game (0 turns it off).
 
 ## Changing how things draw
 

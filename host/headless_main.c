@@ -3,6 +3,7 @@
  *   pulli-headless <game.pulli> [options]
  *     --frames N        frames to run (default 60)
  *     --hold a,left     buttons held down for the whole run
+ *     --tap a@1,start@90  buttons pressed for one frame each (frames count from 1)
  *     --caps wifi,cart  optional hardware reported through sys.has()
  *     --saves DIR       keep save data in DIR (default: discarded on exit)
  *     --dump-fb FILE    write the final indexed framebuffer, 76800 bytes
@@ -30,9 +31,33 @@ static bool write_file(const char *path, const uint8_t *data, size_t len) {
     return fclose(f) == 0 && ok;
 }
 
+#define MAX_TAPS 64
+static struct { long frame; uint32_t buttons; } taps[MAX_TAPS];
+static int tap_count;
+
+/* "a@1,start@90" */
+static bool parse_taps(const char *list) {
+    while (*list) {
+        char name[16];
+        size_t n = strcspn(list, "@,");
+        if (n == 0 || list[n] != '@' || n >= sizeof(name) || tap_count == MAX_TAPS) return false;
+        memcpy(name, list, n);
+        name[n] = 0;
+        char *end;
+        long frame = strtol(list + n + 1, &end, 10);
+        if (end == list + n + 1 || frame < 1 || !host_parse_buttons(name, &taps[tap_count].buttons))
+            return false;
+        taps[tap_count++].frame = frame;
+        list = *end == ',' ? end + 1 : end;
+        if (*end && *end != ',') return false;
+    }
+    return true;
+}
+
 static int usage(void) {
     fprintf(stderr,
-        "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--caps CAPS]\n"
+        "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME,...]\n"
+        "                      [--caps CAPS]\n"
         "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE]\n");
     return 2;
 }
@@ -58,6 +83,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--dump-fb"))  dump_fb = v;
         else if (!strcmp(a, "--dump-rgb")) dump_rgb = v;
         else if (!strcmp(a, "--hold"))     { if (!host_parse_buttons(v, &held)) return usage(); }
+        else if (!strcmp(a, "--tap"))      { if (!parse_taps(v)) return usage(); }
         else if (!strcmp(a, "--caps"))     { if (!host_parse_caps(v, &backend.caps)) return usage(); }
         else return usage();
     }
@@ -70,7 +96,10 @@ int main(int argc, char **argv) {
     bool ok = pulli_boot(&engine, data, len, &backend);
     long done = 0;
     while (ok && done < frames) {
-        ok = pulli_update(&engine, held) && pulli_draw(&engine);
+        uint32_t buttons = held;
+        for (int i = 0; i < tap_count; i++)
+            if (taps[i].frame == done + 1) buttons |= taps[i].buttons;
+        ok = pulli_update(&engine, buttons) && pulli_draw(&engine);
         if (ok) done++;
     }
 
