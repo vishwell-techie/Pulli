@@ -246,8 +246,9 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
 
 bool pulli_update(pulli_engine *e, uint32_t buttons) {
     if (!e->running) return false;
-    e->ctx.btn_prev = e->ctx.btn_state;
     e->ctx.btn_state = buttons & ((1u << PULLI_BTN_COUNT) - 1);
+    for (int i = 0; i < PULLI_BTN_COUNT; i++)
+        e->ctx.btn_held[i] = (e->ctx.btn_state >> i) & 1u ? e->ctx.btn_held[i] + 1 : 0;
     e->ctx.frame++;
     /* Step the GC every frame rather than letting it decide when to stop
      * the world. On the MCU this is not optional. */

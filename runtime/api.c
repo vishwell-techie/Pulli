@@ -75,9 +75,20 @@ static int l_btn(lua_State *L) {
     lua_pushboolean(L, b >= 0 && (E->ctx.btn_state & (1u << b)));
     return 1;
 }
+/* True on the frame a button goes down. Held, it then repeats, the way a
+ * keyboard does, so a menu can be scrolled by holding a direction. START
+ * and SELECT never repeat: they pause, confirm and quit, where a second
+ * firing from a held button would undo the first. */
 static int l_btnp(lua_State *L) {
     int b = btn_index(L, 1);
-    lua_pushboolean(L, b >= 0 && (E->ctx.btn_state & (1u<<b)) && !(E->ctx.btn_prev & (1u<<b)));
+    bool hit = false;
+    if (b >= 0) {
+        uint32_t held = E->ctx.btn_held[b];
+        bool repeats = b != PULLI_BTN_START && b != PULLI_BTN_SELECT;
+        hit = held == 1 || (repeats && held > PULLI_REPEAT_DELAY &&
+                            (held - 1 - PULLI_REPEAT_DELAY) % PULLI_REPEAT_RATE == 0);
+    }
+    lua_pushboolean(L, hit);
     return 1;
 }
 

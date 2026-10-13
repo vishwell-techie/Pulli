@@ -20,6 +20,8 @@
 #define PULLI_COLOR_MASK      (PULLI_PALETTE_LEN - 1)
 #define PULLI_SPRITE_CELL     8    /* base cell, see SPEC §8.1 */
 #define PULLI_TICK_HZ         60
+#define PULLI_REPEAT_DELAY    24   /* frames a button is held before btnp() repeats */
+#define PULLI_REPEAT_RATE     6    /* frames between repeats after that */
 #define PULLI_LUA_HEAP_MAX_KB 256  /* SPEC §1 memory budget */
 #define PULLI_SAVE_MAX        65536
 #define PULLI_ATLAS_MAX       (128 * 1024)  /* resident sprite atlas, SPEC §1 */
@@ -65,7 +67,8 @@ typedef struct {
 /* ---- what the Lua API reads and writes ----------------------------- */
 typedef struct {
     pulli_gfx   g;
-    uint32_t    btn_state, btn_prev;
+    uint32_t    btn_state;
+    uint32_t    btn_held[PULLI_BTN_COUNT];   /* frames each button has been down */
     uint32_t    frame;
     pulli_layer layers[2];
 } pulli_ctx;

@@ -223,8 +223,13 @@ map.flags(tile)                    -- 8 collision/meta bits per tile
 
 ```lua
 btn(b)    -- held.  b = "left","right","up","down","a","b","x","y","l","r","start","select"
-btnp(b)   -- pressed this frame (with repeat)
+btnp(b)   -- pressed this frame (with repeat, except "start" and "select")
 ```
+
+`btnp` is true on the frame a button goes down. If the button stays down it
+is true again 24 frames later and every 6 frames after that, so holding a
+direction scrolls a menu. `start` and `select` never repeat: they pause,
+confirm and quit, where a second firing would undo the first.
 
 ### Audio
 
@@ -401,6 +406,8 @@ covered by `tests/`; none is frozen.
    `lua_heap` up to 256 KB to match the memory budget in §1.
 7. **Save data** (§3): key rules, return values, typed values, and one blob
    per game as the only thing a backend stores.
-8. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+8. **`btnp` repeat** (§3): the timing is now defined, and `start` and
+   `select` are excluded from it.
+9. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

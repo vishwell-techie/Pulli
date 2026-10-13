@@ -10,6 +10,16 @@ cmake_minimum_required(VERSION 3.16)
 if(NOT PICO_BOARD)
     set(PICO_BOARD pico2 CACHE STRING "Board to build for")
 endif()
+# The board has no buttons yet. The default game, Pong, waits on a title
+# screen, so for it alone the firmware taps A every two seconds; any other
+# game gets no input unless this is set.
+if(DEFINED PULLI_GAME)
+    set(auto_a_default 0)
+else()
+    set(auto_a_default 2)
+endif()
+set(PULLI_AUTO_A_SECONDS ${auto_a_default} CACHE STRING
+    "Tap the A button every this many seconds; 0 for never")
 set(PULLI_GAME "${CMAKE_CURRENT_LIST_DIR}/../examples/pong" CACHE PATH
     "Game directory linked into the firmware")
 
@@ -50,6 +60,7 @@ target_compile_definitions(pulli PRIVATE
     # instead of silent corruption.
     PICO_STACK_SIZE=0x4000
     PICO_USE_STACK_GUARDS=1
+    PULLI_AUTO_A_SECONDS=${PULLI_AUTO_A_SECONDS}
 )
 target_link_libraries(pulli PRIVATE pulli_runtime pico_stdlib)
 pico_enable_stdio_usb(pulli 1)

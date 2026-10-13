@@ -47,9 +47,15 @@ static void run_game(void) {
     unsigned frames = 0, late = 0;
     absolute_time_t next = get_absolute_time();
 
-    for (;;) {
+    for (uint32_t tick = 0;; tick++) {
+        /* No buttons yet. PULLI_AUTO_A_SECONDS (a build option, 0 = off)
+         * taps A at that interval, so a game that waits on a title screen
+         * starts, and starts again when it ends. */
+        uint32_t buttons = 0;
+        if (PULLI_AUTO_A_SECONDS > 0 && tick % (PULLI_AUTO_A_SECONDS * PULLI_TICK_HZ) == 0)
+            buttons = 1u << PULLI_BTN_A;
         uint64_t t0 = time_us_64();
-        bool ok = pulli_update(&engine, 0);
+        bool ok = pulli_update(&engine, buttons);
         uint64_t t1 = time_us_64();
         ok = ok && pulli_draw(&engine);
         uint64_t t2 = time_us_64();
