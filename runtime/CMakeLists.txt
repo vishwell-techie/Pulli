@@ -7,6 +7,7 @@ add_library(pulli_runtime STATIC
     gfx.c
     pkg.c
     save.c
+    sha256.c
 )
 target_include_directories(pulli_runtime PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(pulli_runtime PUBLIC pulli_lua)

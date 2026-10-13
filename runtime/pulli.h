@@ -116,6 +116,14 @@ void    pulli_scanout  (const pulli_gfx *g, int y0, int rows, uint16_t *out);
 #define PULLI_PKG_SIGNED       0x02
 #define PULLI_PKG_DEVBUILD     0x04
 
+/* The seal: a licence and a signature that follow the package, outside its
+ * size and checksum, so they can be replaced without touching the package. */
+#define PULLI_SEAL_MAGIC       "SEAL"
+#define PULLI_SEAL_VERSION     1
+#define PULLI_SEAL_HEADER      12
+#define PULLI_LICENCE_DEVELOPER   0   /* runs on any device; not for sale */
+#define PULLI_SIGNATURE_DEVELOPER 0   /* SHA-256 of the package: catches damage, proves nothing */
+
 typedef struct { const uint8_t *data; uint32_t len; } pulli_blob;
 
 /* A package is read in place and never copied, so `data` must outlive it.
@@ -125,6 +133,8 @@ typedef struct {
     uint32_t size;
     uint16_t count;
     uint8_t  flags;
+    uint8_t  licence_kind, signature_kind;      /* PULLI_LICENCE_*, PULLI_SIGNATURE_* */
+    pulli_blob licence, signature;
 } pulli_pkg;
 
 /* Validates the whole container. Returns NULL on success, else the reason. */

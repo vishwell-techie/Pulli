@@ -99,6 +99,7 @@ offset  size  field
 12      4     crc32 of payload (u32 LE)
 16      N*40  entry table
 ...           payload (each entry 4-byte aligned)
+total   ...   the seal: licence and signature (see below)
 
 entry (40 bytes):
 0       32    name, NUL-padded ASCII
@@ -108,20 +109,52 @@ entry (40 bytes):
 
 A package holds at most 64 entries. Entry names are 1 to 32 printable ASCII
 characters with no path separators; a 32-character name has no terminating
-NUL. The checksum covers every byte after the 16-byte header. A reader must
-check every offset and length before using it, and must accept a file that
-is longer than `total size` (a cartridge holds the package at the start of a
-larger flash region).
+NUL. `total size` and the checksum cover the header, table and payload: the
+checksum is over every byte from offset 16 to `total size`. The seal comes
+after and is covered by neither. A reader must check every offset and
+length before using it, and must accept a file that is longer than the
+package and its seal (a cartridge holds them at the start of a larger flash
+region).
 
 Required entries: `manifest.lua`, `main.lua`.
 Conventional: `sprites.kolam`, `map.ooru`, `sfx.oli`, `music.isai`, `icon.kolam`.
 The asset extensions follow the tools that make them: Kolam
 for sprites, Ooru for maps, Oli for sound effects, Isai for music.
-Reserved: `license.bin` (per-device key wrapping), `signature.bin` (publisher
-signature). Both optional, both defined now rather than later — see ADR-005.
-A package can gain a licence block without being rebuilt.
-*Not yet true: only the two names are reserved, and the present layout
-cannot take a new entry without moving the others.*
+
+### The seal: licence and signature
+
+Every package is followed by a seal, starting at offset `total size`. It
+says how the package is licensed and signed; header flags 0x02 and 0x04 are
+reserved and unused.
+
+```
+offset  size  field
+0       4     magic "SEAL"
+4       1     seal version (u8), 1
+5       1     licence kind (u8)
+6       1     signature kind (u8)
+7       1     reserved, 0
+8       2     licence length L (u16 LE)
+10      2     signature length S (u16 LE)
+12      L     licence
+12+L    S     signature
+```
+
+The signature is made over the package, bytes 0 to `total size`. Because
+the seal lies outside the package's size and checksum, a licence or a
+signature can be replaced without changing one byte of the package: the
+store keeps one build of a game and attaches a seal per purchase.
+
+| Kind | Licence | Signature |
+|---|---|---|
+| 0, developer | empty; the game runs on any device | the SHA-256 of the package, 32 bytes |
+| 1 and up | reserved for the store | reserved for the store |
+
+Every package a developer builds gets the developer seal automatically. A
+developer signature catches a damaged or altered file; it proves nothing
+about who made the package, since anyone can compute it. A runtime refuses
+a package with no seal, with a signature that does not match, or with a
+kind it does not know.
 
 Lua sources are stored as **precompiled bytecode** (`luac -s`) in release
 builds and as plain source in dev builds. The loader accepts either.
@@ -442,8 +475,11 @@ covered by `tests/`; none is frozen.
    per game as the only thing a backend stores.
 8. **`btnp` repeat** (§3): the timing is now defined, and `start` and
    `select` are excluded from it.
-9. **Link API** (§3): `link.status`, `link.side`, `link.send`, `link.recv`,
+9. **The seal** (§2): licence and signature follow the package instead of
+   being entries inside it; `license.bin` and `signature.bin` are no longer
+   reserved names. Developer builds carry a default licence and signature.
+10. **Link API** (§3): `link.status`, `link.side`, `link.send`, `link.recv`,
    with their limits and delivery rules.
-10. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+11. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.
