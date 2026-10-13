@@ -27,4 +27,17 @@ if(NOT text MATCHES "Pulli configuration")
         "** Pulli configuration (see cmake/patch_lua.cmake in the Pulli tree).\n*/\n#define luai_makeseed(L)\t0x50554C49u\n\n/*\n${marker}"
         patched "${patched}")
     file(WRITE "${conf}" "${patched}")
+    set(text "${patched}")
+endif()
+
+if(NOT text MATCHES "lua_math.h")
+    # sin, cos, exp, log, ^ and the rest come from runtime/pmath.c, not from
+    # the C library, whose answers differ between machines in the last bit.
+    set(seed "#define luai_makeseed(L)\t0x50554C49u\n")
+    string(FIND "${text}" "${seed}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "patch_lua: Pulli configuration not found in ${conf}")
+    endif()
+    string(REPLACE "${seed}" "${seed}#include \"lua_math.h\"\n" text "${text}")
+    file(WRITE "${conf}" "${text}")
 endif()

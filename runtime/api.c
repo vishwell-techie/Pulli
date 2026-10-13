@@ -2,6 +2,7 @@
  * This file is the platform's public contract. Changing a signature here
  * breaks every game ever written for Pulli, so it changes slowly. */
 #include "internal.h"
+#include "pmath.h"
 #include <math.h>
 #include <string.h>
 
@@ -238,6 +239,49 @@ static const luaL_Reg LINK[] = {
     {"send",l_link_send},{"recv",l_link_recv},{NULL,NULL}
 };
 
+/* ---- 16.16 fixed point ---------------------------------------------- */
+/* A fixed-point number is an ordinary Lua integer, so a float passed where
+ * one belongs is refused unless it happens to be whole. */
+static int32_t arg_fix(lua_State *L, int i) { return (int32_t)luaL_checkinteger(L, i); }
+
+static int l_fix_from(lua_State *L) {
+    if (lua_isinteger(L, 1)) lua_pushinteger(L, (lua_Integer)((lua_Unsigned)lua_tointeger(L, 1) << 16));
+    else lua_pushinteger(L, pulli_fix_from((float)luaL_checknumber(L, 1)));
+    return 1;
+}
+static int l_fix_to(lua_State *L)    { lua_pushnumber(L, pulli_fix_to(arg_fix(L, 1))); return 1; }
+static int l_fix_floor(lua_State *L) {
+    int32_t a = arg_fix(L, 1);
+    lua_pushinteger(L, a < 0 ? -(lua_Integer)((0xFFFFu - (uint32_t)a) >> 16) : a >> 16);   /* rounds down */
+    return 1;
+}
+static int l_fix_mul(lua_State *L)   { lua_pushinteger(L, pulli_fix_mul(arg_fix(L, 1), arg_fix(L, 2))); return 1; }
+static int l_fix_div(lua_State *L) {
+    int32_t a = arg_fix(L, 1), b = arg_fix(L, 2);
+    if (!b) return luaL_error(L, "fix.div: attempt to divide by zero");
+    lua_pushinteger(L, pulli_fix_div(a, b));
+    return 1;
+}
+static int l_fix_sqrt(lua_State *L) {
+    int32_t a = arg_fix(L, 1);
+    if (a < 0) return luaL_error(L, "fix.sqrt: square root of a negative number");
+    lua_pushinteger(L, pulli_fix_sqrt(a));
+    return 1;
+}
+static int l_fix_sin(lua_State *L)   { lua_pushinteger(L, pulli_fix_sin(arg_fix(L, 1))); return 1; }
+static int l_fix_cos(lua_State *L)   { lua_pushinteger(L, pulli_fix_cos(arg_fix(L, 1))); return 1; }
+static int l_fix_atan(lua_State *L) {
+    int32_t x = lua_isnoneornil(L, 2) ? PULLI_FIX_ONE : arg_fix(L, 2);
+    lua_pushinteger(L, pulli_fix_atan2(arg_fix(L, 1), x));
+    return 1;
+}
+
+static const luaL_Reg FIX[] = {
+    {"from",l_fix_from},{"to",l_fix_to},{"floor",l_fix_floor},
+    {"mul",l_fix_mul},{"div",l_fix_div},{"sqrt",l_fix_sqrt},
+    {"sin",l_fix_sin},{"cos",l_fix_cos},{"atan",l_fix_atan},{NULL,NULL}
+};
+
 /* Sandbox by construction: the io, os, package and debug libraries are
  * never opened, rather than opened and then hidden. */
 static const luaL_Reg LIBS[] = {
@@ -283,6 +327,12 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
     lua_setglobal(L, "sys");
     luaL_newlib(L, LINK);
     lua_setglobal(L, "link");
+    luaL_newlib(L, FIX);
+    lua_pushinteger(L, PULLI_FIX_ONE);
+    lua_setfield(L, -2, "one");
+    lua_pushinteger(L, PULLI_FIX_PI);
+    lua_setfield(L, -2, "pi");
+    lua_setglobal(L, "fix");
 
     /* Deliberately NOT exposing button names as bare globals: "x", "y", "a"
      * and "b" are the most common variable names in game code. Buttons are
