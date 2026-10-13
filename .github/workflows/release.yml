@@ -10,9 +10,6 @@ on:
 permissions:
   contents: write
 
-env:
-  PICO_SDK_TAG: 2.1.0
-
 jobs:
   release:
     # Only the owner publishes releases. Anyone with write access can push a
@@ -36,11 +33,7 @@ jobs:
           ninja -C build
           cd build && ctest --output-on-failure
       - name: Firmware
-        env:
-          PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
         run: |
-          git clone --depth 1 --branch "$PICO_SDK_TAG" https://github.com/raspberrypi/pico-sdk.git pico-sdk
-          git -C pico-sdk submodule update --init --depth 1 lib/tinyusb
           cmake -S firmware -B firmware/build -G Ninja
           ninja -C firmware/build
       - name: Gather the files

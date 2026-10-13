@@ -134,8 +134,10 @@ function draw()      end   -- after each update
 
 ## Firmware
 
-Needs the [Pico SDK](https://github.com/raspberrypi/pico-sdk) 2.x with
-`PICO_SDK_PATH` set, and `arm-none-eabi-gcc`.
+Needs `arm-none-eabi-gcc`. The [Pico SDK](https://github.com/raspberrypi/pico-sdk)
+is pinned at 2.3.1 and downloaded on the first build (about 120 MB, into
+`firmware/build`). To use a copy of your own, set `PICO_SDK_PATH`; it must
+be 2.3.0 or newer.
 
 ```bash
 cmake -S firmware -B firmware/build -G Ninja      # board: pico2
