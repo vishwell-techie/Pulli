@@ -106,7 +106,14 @@ def main():
     """
     expect("--tap presses a button for exactly one frame", t.run_game(src, frames=9, tap="a@2,a@5,b@9"),
            ["2 5 \ttrue"])
-    for bad in ("@5", "a@0", "a@x", "nope@3", "a@1,@2", "a"):
+    src = """
+        local log = ''
+        function update() log = log .. (btn('a') and 'A' or '.') .. (btn('b') and 'B' or '.') .. ' ' end
+        function draw() if stat('frame') == 6 then dbg(log) end end
+    """
+    expect("--tap with a range holds a button from one frame to another",
+           t.run_game(src, frames=6, tap="a@2-4,b@4-5,b@1"), [".B A. A. AB .B .. "])
+    for bad in ("@5", "a@0", "a@x", "nope@3", "a@1,@2", "a", "a@5-2", "a@3-", "a@3-x"):
         r = t.run_game(src, frames=9, tap=bad)
         t.check(f"--tap refuses {bad!r}", r.code == 2 and "usage" in r.err, f"exit {r.code} {r.err}")
 

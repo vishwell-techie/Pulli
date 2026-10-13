@@ -10,7 +10,7 @@ runtime is deterministic (SPEC §4), so a changed hash means the engine, the
 Lua build or the example itself changed behaviour. If that was intended,
 rerun with --update. The same hashes must come out on every machine.
 """
-import hashlib, os, sys, tempfile
+import hashlib, os, struct, sys, tempfile
 
 from harness import Suite, ROOT, TESTS, pulli
 
@@ -21,11 +21,65 @@ RUNS = [("hello", 120,    None,           None),
         ("pong",  3600,   "a",            None),                  # a whole match; the console wins
         ("pong",  3600,   "up",           "a@5"),
         ("pong",  3600,   "x",            "down@1,a@5"),          # two players
-        ("walk",  300,    None,           None),                  # sprites and a map from Tiled
-        ("walk",  600,    "right,down",   None),                  # walks until a wall stops it
-        ("walk",  900,    "down",         None),                  # walks over a gem and takes it
-        ("walk",  1500,   "right",        None),                  # a slime sees the player and closes in
-        ("walk",  7300,   None,           "a@7000")]              # stands still, loses to the slimes, plays again
+        ("walk",  120,    None,           None),                  # waits on the title screen
+        ("walk",  300,    None,           "a@5"),                 # sprites, a map from Tiled, music
+        ("walk",  600,    "right,down",   "a@5"),                 # walks until a wall stops it
+        ("walk",  3000,   None,           "a@5,a@2900")]          # runs out of time, then tries again
+
+WALK_START = 5          # the frame on which A leaves Walk's title screen; it also seeds the scattering
+
+
+def walk_gems(fb, package):
+    """Where Walk has scattered the gems, read off a picture of level 1.
+    That level is one screen, so a tile's place on the map is its place on
+    the screen. The game scatters them at random; this is how the test
+    learns where they went."""
+    sheet = dict(pulli.parse(package))["sprites.kolam"]
+    width = struct.unpack("<H", sheet[4:6])[0]
+    gem = [sheet[8 + (6 // (width // 8) * 8 + y) * width + 6 % (width // 8) * 8 + x]
+           for y in range(8) for x in range(8)]                    # the gem is sprite 6
+    return {(tx, ty) for ty in range(2, 30) for tx in range(40)
+            if all(not c or fb[(ty * 8 + i // 8) * 320 + tx * 8 + i % 8] == c for i, c in enumerate(gem))}
+
+
+def walk_route(gems, first_frame):
+    """Button presses that walk Walk's level 1 and pick up every gem: the
+    nearest gem each time, by the shortest way round the walls. Returns the
+    presses for --tap and the frame on which the last gem is taken."""
+    from collections import deque
+    path = os.path.join(ROOT, "examples", "walk", "level1.tmx")
+    w, h, layers, flags = pulli.read_ooru(pulli.ooru_from_tmx(path, 8))
+    ground, things = ([c & pulli.TILE_MAX for c in layer] for layer in layers)
+    solid = lambda x, y: ground[y * w + x] < len(flags) and flags[ground[y * w + x]] & 1
+    at = divmod(things.index(8), w)[::-1]                          # the player's tile on the sheet is 8
+    gems = set(gems)
+    moves = []
+    while gems:
+        came, todo, goal = {at: None}, deque([at]), None
+        while todo and goal is None:
+            x, y = todo.popleft()
+            for step, nxt in (("right", (x + 1, y)), ("left", (x - 1, y)), ("down", (x, y + 1)), ("up", (x, y - 1))):
+                if nxt not in came and not solid(*nxt):
+                    came[nxt] = ((x, y), step)
+                    todo.append(nxt)
+                    if nxt in gems:
+                        goal = nxt
+                        break
+        leg, node = [], goal
+        while came[node]:
+            node, step = came[node]
+            leg.append(step)
+        moves += leg[::-1]
+        gems.discard(goal)
+        at = goal
+    taps, frame = [], first_frame                                  # a tile is 8 pixels, a pixel a frame
+    for i, step in enumerate(moves):
+        if i and moves[i - 1] == step:
+            taps[-1][2] += 8
+        else:
+            taps.append([step, frame, frame + 7])
+        frame += 8
+    return ",".join(f"{b}@{a}-{z}" for b, a, z in taps), frame - 1
 
 # Pong seeds its random numbers from the frame on which A is pressed. Pressed
 # on frame 6, the first serve goes to the console, which returns it: that
@@ -71,6 +125,54 @@ def main():
                         "behaviour changed; if that was intended, rerun with --update")
                 t.check(f"{key}: sounds as it sounded before", seen[key + " sound"] == pinned.get(key + " sound"),
                         "the sound changed; if that was intended, rerun with --update")
+
+        # Walk scatters its gems at random, seeded by the frame on which A
+        # is pressed on the title screen.
+        walk = pulli.build(os.path.join(ROOT, "examples", "walk"))
+        begin = f"a@{WALK_START}"
+        look = lambda tap: walk_gems(t.run_package(walk, frames=40, tap=tap).fb, walk)
+        gems = look(begin)
+        t.check("walk: level 1 starts with its 8 gems, scattered the same way for the same start",
+                len(gems) == 8 and look(begin) == gems, sorted(gems))
+        t.check("walk: starting at another moment scatters them differently",
+                len(look("a@6")) == 8 and len({frozenset(look(f"a@{n}")) for n in (5, 6, 17, 30)}) == 4)
+
+        # Pause: START freezes the level and START again carries on, to the
+        # same picture a run with no pause reaches.
+        plain = t.run_package(walk, frames=300, hold="right,down", tap=begin)
+        held = t.run_package(walk, frames=150, hold="right,down", tap=f"{begin},start@100")
+        resumed = t.run_package(walk, frames=360, hold="right,down", tap=f"{begin},start@100,start@160")
+        t.check("walk: START pauses and START again carries on where it left off",
+                plain.code == 0 and held.fb != t.run_package(walk, frames=150, hold="right,down", tap=begin).fb
+                and resumed.fb == plain.fb, plain.err)
+        # The music is the same in both, so any difference in the frame
+        # where START is pressed is the pause tone.
+        pressed = t.run_package(walk, frames=105, tap=f"{begin},start@100", sound=True).sound[99 * 735:]
+        unpressed = t.run_package(walk, frames=105, tap=begin, sound=True).sound[99 * 735:]
+        t.check("walk: pausing plays a tone", pressed != unpressed and pressed[:735] != unpressed[:735])
+
+        # Level 1: follow a route to every gem, then press A for level 2.
+        # The pictures are compared with a run that does not press A, and
+        # the sound with silence, so this fails if the level did not end.
+        taps, last = walk_route(gems, WALK_START + 1)
+        taps = f"{begin},{taps}"
+        cleared = t.run_package(walk, frames=last + 90, tap=taps, sound=True)
+        onward = t.run_package(walk, frames=last + 90, tap=f"{taps},a@{last + 30}", sound=True)
+        idle = t.run_package(walk, frames=last + 90, tap=begin, sound=True)
+        ok = t.check("walk: a route to every gem runs without error",
+                     cleared.code == 0 and onward.code == 0 and idle.code == 0, cleared.err + onward.err)
+        if ok:
+            quiet = lambda r, n: max(abs(s) for pair in r.sound[-n:] for s in pair) == 0
+            t.check("walk: music plays during a level and stops when the level is cleared",
+                    not quiet(idle, 735) and quiet(cleared, 735) and not quiet(cleared, 80 * 735))
+            t.check("walk: pressing A after clearing a level starts the next one, with its music",
+                    onward.fb != cleared.fb and not quiet(onward, 735))
+            seen["walk level 1 cleared"] = hashlib.sha256(cleared.fb + cleared.rgb).hexdigest()
+            seen["walk level 2 reached"] = hashlib.sha256(onward.fb + onward.rgb).hexdigest()
+            if not t.update:
+                for key in ("walk level 1 cleared", "walk level 2 reached"):
+                    t.check(f"{key}: draws what it drew before", seen[key] == pinned.get(key),
+                            "behaviour changed; if that was intended, rerun with --update")
 
         pong = pulli.build(os.path.join(ROOT, "examples", "pong"))
 
