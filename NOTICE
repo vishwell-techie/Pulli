@@ -1,0 +1,10 @@
+Pulli
+Copyright 2026 VishWell
+
+This product includes software developed by VishWell and contributors,
+licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It downloads and builds these projects, which keep their own licences:
+  Lua 5.4        MIT      https://www.lua.org
+  Pico SDK       BSD-3    https://github.com/raspberrypi/pico-sdk   (firmware only)
+  SDL2           zlib     https://libsdl.org                        (desktop window only)
