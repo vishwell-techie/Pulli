@@ -173,5 +173,9 @@ Nothing is pushed to `main`. Work goes on a feature branch and reaches
 
 ## Licence
 
-Planned: MIT or Apache-2.0 for software and CERN-OHL-S v2 for hardware.
-The licence files have not been added yet.
+The software is licensed under the Apache License 2.0 (`LICENSE`, with
+credits in `NOTICE`). Contributions are accepted under the same terms.
+
+Hardware designs will be released under CERN-OHL-S v2 when they are added;
+there are none in this repository yet. The names Pulli, Vaasal and the rest
+are not covered by the licence.
