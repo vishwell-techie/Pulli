@@ -24,6 +24,17 @@ static void present(const uint16_t *rgb565, int y0, int rows) {
     SDL_UpdateTexture(texture, &r, rgb565, PULLI_SCREEN_W * (int)sizeof(uint16_t));
 }
 
+/* The game keeps time by the screen and the sound card by its own clock,
+ * so the two drift. When more than a tenth of a second of sound is waiting,
+ * a frame's worth is dropped rather than letting the sound fall behind. */
+static SDL_AudioDeviceID speaker;
+#define SOUND_WAITING_MAX (6 * PULLI_AUDIO_FRAMES * 2 * (int)sizeof(int16_t))
+
+static void audio(const int16_t *stereo, int frames) {
+    if (SDL_GetQueuedAudioSize(speaker) > SOUND_WAITING_MAX) return;
+    SDL_QueueAudio(speaker, stereo, (Uint32)frames * 2 * sizeof(int16_t));
+}
+
 static const SDL_Scancode KEYMAP[PULLI_BTN_COUNT] = {
     SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
     SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_A, SDL_SCANCODE_S,
@@ -67,7 +78,21 @@ int main(int argc, char **argv) {
     backend.present = present;
     backend.save_read = host_save_read;
     backend.save_write = host_save_write;
-    backend.log = host_log;                 /* audio hooks stay NULL: silent for now */
+    backend.log = host_log;
+    /* No sound card is not an error: the game runs silently. */
+    SDL_AudioSpec want = { 0 };
+    want.freq = PULLI_AUDIO_RATE;
+    want.format = AUDIO_S16SYS;
+    want.channels = 2;
+    want.samples = 512;
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0)
+        speaker = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    if (speaker) {
+        backend.audio = audio;
+        SDL_PauseAudioDevice(speaker, 0);
+    } else {
+        fprintf(stderr, "pulli-host: no sound (%s)\n", SDL_GetError());
+    }
     if (link_port && !host_use_link(&backend, link_port, false)) {
         fprintf(stderr, "pulli-host: cannot open a link on port %s (use 1024 to 65535)\n", link_port);
         SDL_Quit();

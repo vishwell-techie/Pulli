@@ -93,20 +93,17 @@ static int l_btnp(lua_State *L) {
     return 1;
 }
 
-/* ---- audio (backend-delegated) ------------------------------------- */
+/* ---- audio ---------------------------------------------------------- */
 static int l_sfx(lua_State *L) {
-    const pulli_backend *B = E->backend;
-    if (B && B->audio_sfx) B->audio_sfx(arg_i(L,1,0), arg_i(L,2,-1));
+    pulli_audio_sfx(&E->audio, arg_i(L,1,0), arg_i(L,2,-1));
     return 0;
 }
 static int l_music(lua_State *L) {
-    const pulli_backend *B = E->backend;
-    if (B && B->audio_music) B->audio_music(arg_i(L,1,0), arg_i(L,2,0));
+    pulli_audio_music(&E->audio, arg_i(L,1,0), arg_i(L,2,0), arg_b(L,3,true));
     return 0;
 }
 static int l_music_stop(lua_State *L) {
-    const pulli_backend *B = E->backend;
-    if (B && B->audio_music) B->audio_music(-1, arg_i(L,1,0));
+    pulli_audio_music_stop(&E->audio, arg_i(L,1,0));
     return 0;
 }
 

@@ -207,8 +207,8 @@ local function move_ball(dt)
   local before = ball.x
   ball.x = ball.x + ball.vx * dt
   ball.y = ball.y + ball.vy * dt
-  if ball.y < R then ball.y = R; ball.vy = -ball.vy end
-  if ball.y > H - R then ball.y = H - R; ball.vy = -ball.vy end
+  if ball.y < R then ball.y = R; ball.vy = -ball.vy; sfx(3) end
+  if ball.y > H - R then ball.y = H - R; ball.vy = -ball.vy; sfx(3) end
 
   -- A paddle returns the ball only if the ball crossed its face this frame,
   -- so a fast ball cannot pass through and a ball already behind is lost.
@@ -268,6 +268,9 @@ local function guest_frame(dt)
       state = STATE_NAME[code] or "menu"
       if was == "menu" and state ~= "menu" then right.y = H / 2 - PAD_H / 2 end
       ball.x, ball.y, left.y = bx, by, ly
+      -- Side 1 sends the court, not its sounds: work them out from what changed.
+      if ls ~= left.score or rs ~= right.score then sfx(2) end
+      if flags & 2 ~= 0 and shake <= 0 then sfx(0) end
       if ls ~= left.score then set_score(left, ls) end
       if rs ~= right.score then set_score(right, rs) end
       paused = flags & 1 ~= 0

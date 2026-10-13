@@ -16,6 +16,12 @@ typedef char pulli_needs_32bit_lua_number[sizeof(lua_Number) == 4 ? 1 : -1];
 /* sha256.c */
 void pulli_sha256(const uint8_t *data, size_t len, uint8_t out[32]);
 
+/* audio.c */
+const char *pulli_audio_boot(pulli_engine *e, const char **which);   /* NULL, or why a bank is bad */
+void pulli_audio_sfx(pulli_audio *a, int n, int channel);
+void pulli_audio_music(pulli_audio *a, int n, int fade_ms, bool looping);
+void pulli_audio_music_stop(pulli_audio *a, int fade_ms);
+
 /* api.c */
 void pulli_api_open(lua_State *L, pulli_engine *e);
 

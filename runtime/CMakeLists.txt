@@ -2,6 +2,7 @@
 # CMakeLists.txt) and by the firmware (firmware/CMakeLists.txt).
 add_library(pulli_runtime STATIC
     api.c
+    audio.c
     engine.c
     font.c
     gfx.c

@@ -39,6 +39,24 @@ LICENCE_DEVELOPER = 0     # runs on any device; not for sale
 SIGNATURE_DEVELOPER = 0   # SHA-256 of the package: catches damage, proves nothing
 KIND_NAMES = {0: "developer"}
 
+# Sound banks (SPEC §2). `pack` builds them from the .wav files in a game's
+# sfx/ and music/ folders, in order of file name.
+BANKS = {"sfx": ("sfx.oli", b"OLI1"), "music": ("music.isai", b"ISA1")}
+BANK_HEADER = 8
+CLIP_ENTRY = 28
+CLIP_MAX = 256
+CLIP_RATES = (4000, 48000)
+PCM, ADPCM = 0, 1
+ADPCM_STEP = (
+    7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
+    50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230,
+    253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963,
+    1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327,
+    3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442,
+    11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+    32767)
+ADPCM_INDEX = (-1, -1, -1, -1, 2, 4, 6, 8)
+
 
 class PackageError(Exception):
     pass
@@ -132,7 +150,14 @@ def build(srcdir: str, flags: int = 0) -> bytes:
     for n in names:
         with open(os.path.join(srcdir, n), "rb") as f:
             entries.append((n, f.read()))
-    return build_entries(entries, flags)
+    for kind, (entry, _) in BANKS.items():
+        folder = os.path.join(srcdir, kind)
+        if not os.path.isdir(folder) or not any(f.lower().endswith(".wav") for f in os.listdir(folder)):
+            continue
+        if entry in names:
+            raise PackageError(f"{srcdir} has both {entry} and a {kind}/ folder; keep one")
+        entries.append((entry, bank_from_folder(kind, folder)))
+    return build_entries(sorted(entries), flags)
 
 
 def parse(data: bytes):
@@ -170,6 +195,143 @@ def kolam(width: int, height: int, pixels: bytes) -> bytes:
     if len(pixels) != width * height:
         raise PackageError(f"expected {width * height} pixels, got {len(pixels)}")
     return b"KLM1" + struct.pack("<HH", width, height) + bytes(pixels)
+
+
+# ---- sound --------------------------------------------------------------
+
+def read_wav(data: bytes, name: str = "sound"):
+    """Read a .wav file. Returns (rate, channels, samples, loop start), with
+    `samples` a flat list of 16-bit values, left then right when stereo, and
+    the loop start a frame number or None if the file marks no loop."""
+    if len(data) < 12 or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise PackageError(f"{name}: not a WAV file")
+    fmt = body = loop = None
+    at = 12
+    while at + 8 <= len(data):
+        tag, size = data[at:at + 4], struct.unpack("<I", data[at + 4:at + 8])[0]
+        chunk = data[at + 8:at + 8 + size]
+        if tag == b"fmt ":
+            fmt = chunk
+        elif tag == b"data":
+            body = chunk
+        elif tag == b"smpl" and len(chunk) >= 60 and struct.unpack("<I", chunk[28:32])[0] >= 1:
+            loop = struct.unpack("<I", chunk[44:48])[0]
+        at += 8 + size + (size & 1)
+    if fmt is None or body is None or len(fmt) < 16:
+        raise PackageError(f"{name}: WAV file has no sound in it")
+    kind, channels, rate, _, _, bits = struct.unpack("<HHIIHH", fmt[:16])
+    if kind == 0xFFFE and len(fmt) >= 26:               # "extensible": the real kind is further in
+        kind = struct.unpack("<H", fmt[24:26])[0]
+    if kind != 1 or bits not in (8, 16, 24, 32):
+        raise PackageError(f"{name}: only plain PCM WAV files are supported (8, 16, 24 or 32 bit)")
+    if channels not in (1, 2):
+        raise PackageError(f"{name}: {channels} channels; a sound must be mono or stereo")
+    if not CLIP_RATES[0] <= rate <= CLIP_RATES[1]:
+        raise PackageError(f"{name}: {rate} Hz; the sample rate must be {CLIP_RATES[0]} to {CLIP_RATES[1]}")
+    width = bits // 8
+    count = len(body) // width // channels * channels
+    if width == 1:                                      # 8-bit WAV is unsigned
+        samples = [(b - 128) << 8 for b in body[:count]]
+    elif width == 2:
+        samples = list(struct.unpack(f"<{count}h", body[:count * 2]))
+    else:                                               # keep the top 16 bits
+        samples = [int.from_bytes(body[i * width + width - 2:i * width + width], "little", signed=True)
+                   for i in range(count)]
+    if not samples:
+        raise PackageError(f"{name}: WAV file has no sound in it")
+    if loop is not None and loop >= count // channels:
+        loop = None
+    return rate, channels, samples, loop
+
+
+def adpcm_step(nibble: int, pred: int, index: int):
+    """Advance an IMA ADPCM decoder by one 4-bit code."""
+    step = ADPCM_STEP[index]
+    diff = step >> 3
+    if nibble & 4:
+        diff += step
+    if nibble & 2:
+        diff += step >> 1
+    if nibble & 1:
+        diff += step >> 2
+    pred = max(-32768, min(32767, pred - diff if nibble & 8 else pred + diff))
+    return pred, max(0, min(88, index + ADPCM_INDEX[nibble & 7]))
+
+
+def adpcm_encode(samples, channels: int, loop: int):
+    """Squeeze 16-bit samples to 4 bits each. Returns the bytes and, for
+    each channel, the decoder's (value, step index) just before the loop
+    frame, which a player needs in order to jump back there."""
+    state = [(0, 0)] * channels
+    at_loop = list(state)
+    nibbles = []
+    for k, sample in enumerate(samples):
+        ch = k % channels
+        if k // channels == loop:
+            at_loop[ch] = state[ch]
+        pred, index = state[ch]
+        step = ADPCM_STEP[index]
+        diff = sample - pred
+        nibble = 8 if diff < 0 else 0
+        diff = abs(diff)
+        if diff >= step:
+            nibble |= 4
+            diff -= step
+        if diff >= step >> 1:
+            nibble |= 2
+            diff -= step >> 1
+        if diff >= step >> 2:
+            nibble |= 1
+        nibbles.append(nibble)
+        state[ch] = adpcm_step(nibble, pred, index)
+    nibbles.append(0)
+    packed = bytes(nibbles[i] | nibbles[i + 1] << 4 for i in range(0, len(nibbles) - 1, 2))
+    return packed, at_loop
+
+
+def bank(kind: str, clips) -> bytes:
+    """Build sfx.oli or music.isai. Each clip is (rate, channels, samples,
+    loop start or None, encoding)."""
+    if len(clips) > CLIP_MAX:
+        raise PackageError(f"{len(clips)} sounds in one bank, max {CLIP_MAX}")
+    table, payload = b"", b""
+    offset = BANK_HEADER + CLIP_ENTRY * len(clips)
+    for rate, channels, samples, loop, encoding in clips:
+        frames, loop = len(samples) // channels, loop or 0
+        state = [(0, 0), (0, 0)]
+        if encoding == ADPCM:
+            blob, at_loop = adpcm_encode(samples, channels, loop)
+            state[:channels] = at_loop
+        else:
+            blob = struct.pack(f"<{len(samples)}h", *samples)
+        payload += b"\0" * (_align4(offset) - offset)
+        offset = _align4(offset)
+        table += struct.pack("<IIIIHBBhBxhBx", offset, len(blob), frames, loop, rate, channels, encoding,
+                             state[0][0], state[0][1], state[1][0], state[1][1])
+        payload += blob
+        offset += len(blob)
+    return BANKS[kind][1] + struct.pack("<HH", len(clips), 0) + table + payload
+
+
+def bank_from_folder(kind: str, folder: str) -> bytes:
+    """Sound effects are kept exact; music is squeezed to a quarter the size."""
+    clips = []
+    for n in sorted(f for f in os.listdir(folder) if f.lower().endswith(".wav")):
+        with open(os.path.join(folder, n), "rb") as f:
+            rate, channels, samples, loop = read_wav(f.read(), f"{kind}/{n}")
+        clips.append((rate, channels, samples, loop, ADPCM if kind == "music" else PCM))
+    return bank(kind, clips)
+
+
+def read_bank(data: bytes):
+    """The clips in a sound bank, as (rate, channels, frames, loop, encoding, bytes)."""
+    count = struct.unpack("<H", data[4:6])[0]
+    out = []
+    for i in range(count):
+        e = data[BANK_HEADER + CLIP_ENTRY * i:BANK_HEADER + CLIP_ENTRY * (i + 1)]
+        _, size, frames, loop, rate, channels, encoding = struct.unpack("<IIIIHBB", e[:20])
+        out.append((rate, channels, frames, loop, encoding, size))
+    return out
 
 
 # ---- commands -----------------------------------------------------------
@@ -232,6 +394,11 @@ def cmd_pack(srcdir, out=None):
 def cmd_list(path):
     for name, blob in read(path):
         print(f"{len(blob):>8}  {name}")
+        if blob[:4] in (magic for _, magic in BANKS.values()):
+            for i, (rate, channels, frames, loop, encoding, size) in enumerate(read_bank(blob)):
+                print(f"{size:>8}    {i}: {frames / rate:.2f} s, {rate} Hz, "
+                      f"{'stereo' if channels == 2 else 'mono'}, {'squeezed 4:1' if encoding else 'exact'}"
+                      + (f", loops from {loop / rate:.2f} s" if loop else ""))
     with open(path, "rb") as f:
         lic_kind, licence, sig_kind, signature = read_seal(f.read())
     print(f"licence: {KIND_NAMES.get(lic_kind, lic_kind)} ({len(licence)} bytes)   "

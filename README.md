@@ -25,7 +25,7 @@ Software first; hardware comes last.
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Examples | hello, pong |
-| Audio | silent |
+| Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
 
@@ -33,7 +33,6 @@ Software first; hardware comes last.
 
 Measured against `docs/SPEC.md`:
 
-- Sound: `sfx` and `music` are accepted and silent.
 - Maps: `map.load`, `map.set` and `map.flags` are missing and the map file
   format is undefined, so `map.draw` has nothing to draw.
 - `save` refuses tables; numbers, strings and booleans work.
@@ -52,8 +51,8 @@ docs/        SPEC.md, the platform contract
 runtime/     the engine, shared unchanged by every port
 host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
 firmware/    RP2350 port (bring-up stage)
-tools/       pulli.py command line, reference rasterizer, font generator
-tests/       conformance, package, runtime, maths, link and example tests
+tools/       pulli.py command line, reference rasterizer and mixer, font generator
+tests/       conformance, package, runtime, maths, audio, link and example tests
 examples/    hello, pong
 cmake/       pinned Lua build shared by host and firmware
 ```
@@ -92,6 +91,11 @@ python3 tools/pulli.py pack mygame         # write mygame.pulli
 
 python3 tools/pulli.py run examples/pong 3 # 3 = window scale
 ```
+
+For sound, put `.wav` files in a `sfx/` folder and a `music/` folder inside
+the game. `pack` and `run` number them from 0 in order of file name, so
+`sfx/0-jump.wav` plays with `sfx(0)` and `music/0-theme.wav` with
+`music(0)`. See `examples/pong/sfx`.
 
 To try link play, start two windows with the same port and pick LINK PLAY
 in both:
@@ -137,13 +141,18 @@ links in a different game. The board has no buttons yet: for Pong the
 firmware taps A every two seconds to get past the title screen, and
 `-DPULLI_AUTO_A_SECONDS=<n>` does the same for another game (0 turns it off).
 
-## Changing how things draw
+## Changing how things draw or sound
 
 `tools/refgfx.py` is the reference for every drawing call and
 `runtime/gfx.c` must match it. After an intended change, update both, run
 `python3 tests/test_conformance.py --update`, and look at the new
 `tests/golden.png` before committing it. The font lives in
 `runtime/font.txt`; `python3 tools/mkfont.py` regenerates `runtime/font.c`.
+
+Sound works the same way: `tools/refaudio.py` is the reference mixer and
+`runtime/audio.c` must produce the same samples. `tests/test_audio.py`
+compares them, and `pulli-headless --dump-wav out.wav` saves what a game
+played.
 
 ## Licence
 

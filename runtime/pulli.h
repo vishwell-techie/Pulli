@@ -26,6 +26,13 @@
 #define PULLI_SAVE_MAX        65536
 #define PULLI_ATLAS_MAX       (128 * 1024)  /* resident sprite atlas, SPEC §1 */
 #define PULLI_SCANOUT_ROWS    12   /* one strip: 12 rows x 320 px x 2 B = 7680 B */
+#define PULLI_AUDIO_RATE      44100
+#define PULLI_AUDIO_FRAMES    (PULLI_AUDIO_RATE / PULLI_TICK_HZ)  /* stereo frames mixed per game frame: 735 */
+#define PULLI_SFX_CHANNELS    8    /* sound effects at once; music is mixed on top */
+#define PULLI_CLIP_MAX        256  /* sounds in one bank */
+#define PULLI_CLIP_RATE_MIN   4000
+#define PULLI_CLIP_RATE_MAX   48000
+#define PULLI_CLIP_FRAMES_MAX 0x0FFFFFFF
 #define PULLI_LINK_MSG_MAX    64   /* bytes in one link message */
 #define PULLI_LINK_SENDS      8    /* messages a game may send per frame */
 
@@ -142,6 +149,34 @@ const char *pulli_pkg_open(pulli_pkg *pk, const void *data, size_t len);
 bool        pulli_pkg_find(const pulli_pkg *pk, const char *name, pulli_blob *out);
 uint32_t    pulli_crc32(const uint8_t *data, size_t len);
 
+/* ---- audio (SPEC §3 "Audio") --------------------------------------- */
+/* One sound being played. */
+typedef struct {
+    bool     active, looping, last;         /* last: nxt is the silence after the end */
+    const uint8_t *data;
+    uint32_t frames, loop, at;              /* at: the next frame to read */
+    uint32_t frac, step;                    /* position between cur and nxt, 16.16 */
+    uint8_t  channels, adpcm;
+    int16_t  cur[2], nxt[2];
+    int16_t  pred[2], loop_pred[2];         /* ADPCM decoder state, now and at the loop point */
+    uint8_t  index[2], loop_index[2];
+    int32_t  gain, gain_step;               /* music fades; full volume is 1 << 24 */
+    uint32_t started;                       /* order of starting, to find the oldest */
+} pulli_voice;
+
+typedef struct {
+    pulli_blob  sfx, music;                 /* sfx.oli and music.isai, read in place */
+    uint16_t    sfx_count, music_count;
+    pulli_voice ch[PULLI_SFX_CHANNELS];
+    pulli_voice tune[2];                    /* [0] the music playing, [1] music fading out */
+    uint32_t    serial;
+    int16_t     out[PULLI_AUDIO_FRAMES * 2];
+} pulli_audio;
+
+/* Mixes the next `frames` stereo frames (left, right, left, ...). The
+ * engine calls this once per game frame; a port only receives the result. */
+void pulli_audio_mix(pulli_audio *a, int16_t *out, int frames);
+
 /* ---- console-to-console link (SPEC §3, "Link") --------------------- */
 typedef enum {
     PULLI_LINK_OFF = 0,     /* no link hardware */
@@ -154,8 +189,9 @@ typedef enum {
 typedef struct {
     uint32_t caps;                                    /* PULLI_CAP_* present  */
     void (*present)(const uint16_t *rgb565, int y0, int rows);
-    void (*audio_sfx)(int n, int channel);
-    void (*audio_music)(int n, int fade_ms);          /* n < 0 stops          */
+    /* Called once per game frame with PULLI_AUDIO_FRAMES stereo frames of
+     * 16-bit sound at PULLI_AUDIO_RATE, already mixed. */
+    void (*audio)(const int16_t *stereo, int frames);
     /* Save data is one blob per game, keyed by manifest id. */
     int  (*save_read)(const char *game_id, void *blob, size_t max); /* <0: none */
     bool (*save_write)(const char *game_id, const void *blob, size_t len);
@@ -196,6 +232,7 @@ typedef struct {
     uint8_t *save;                               /* save blob, save_size bytes */
     uint32_t save_len;
     bool     save_dirty;
+    pulli_audio audio;
     pulli_link_state link_state;                 /* as of this frame */
     int      link_side;                          /* 1 or 2 while connected */
     int      link_sent;                          /* messages sent this frame */

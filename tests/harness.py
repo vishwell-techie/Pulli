@@ -7,7 +7,7 @@ Every script takes:
 Checks that need the C runtime are skipped, loudly, when it is not built, so
 the Python-only checks still run on a machine with no compiler.
 """
-import argparse, os, socket, subprocess, sys, tempfile, time
+import argparse, os, socket, struct, subprocess, sys, tempfile, time
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 TESTS = os.path.join(ROOT, "tests")
@@ -18,9 +18,16 @@ MANIFEST = 'return { id = "test.game", title = "Test", spec = 1 }\n'
 
 
 class Result:
-    def __init__(self, code, out, err, fb, rgb):
+    def __init__(self, code, out, err, fb, rgb, wav=b""):
         self.code, self.out, self.err, self.fb, self.rgb = code, out, err, fb, rgb
         self.lines = out.splitlines()
+        self.wav = wav                      # the whole WAV file, when sound was asked for
+
+    @property
+    def sound(self):
+        """What the game played, as a list of (left, right) samples."""
+        flat = struct.unpack(f"<{(len(self.wav) - 44) // 2}h", self.wav[44:])
+        return list(zip(flat[0::2], flat[1::2]))
 
 
 class Suite:
@@ -55,9 +62,10 @@ class Suite:
         print(f"  SKIP  {what} (pulli-headless is not built)")
         return False
 
-    def _start(self, tmp, data, frames=1, hold=None, tap=None, caps=None, saves=None, link=None):
+    def _start(self, tmp, data, frames=1, hold=None, tap=None, caps=None, saves=None, link=None,
+               sound=False):
         os.makedirs(tmp)
-        pkg, fb, rgb = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb"))
+        pkg, fb, rgb, wav = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb", "wav"))
         with open(pkg, "wb") as f:
             f.write(data)
         cmd = [self.headless, pkg, "--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
@@ -65,11 +73,13 @@ class Suite:
                             ("--link", link)):
             if value:
                 cmd += [flag, str(value)]
-        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE), fb, rgb
+        if sound:
+            cmd += ["--dump-wav", wav]
+        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE), fb, rgb, wav
 
     @staticmethod
     def _finish(started):
-        proc, fb, rgb = started
+        proc, fb, rgb, wav = started
         try:
             out, err = proc.communicate(timeout=120)
         except subprocess.TimeoutExpired:
@@ -80,11 +90,11 @@ class Suite:
         def slurp(path):
             return open(path, "rb").read() if os.path.exists(path) else b""
         return Result(proc.returncode, out.decode("utf-8", "replace"),
-                      err.decode("utf-8", "replace"), slurp(fb), slurp(rgb))
+                      err.decode("utf-8", "replace"), slurp(fb), slurp(rgb), slurp(wav))
 
     def run_package(self, data, **opts):
         """Run package bytes in the headless host and collect everything.
-        Options: frames, hold, tap, caps, saves, link."""
+        Options: frames, hold, tap, caps, saves, link, sound."""
         with tempfile.TemporaryDirectory() as tmp:
             return self._finish(self._start(os.path.join(tmp, "a"), data, **opts))
 

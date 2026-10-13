@@ -4,7 +4,8 @@
 Run: python3 tests/test_examples.py [--update]
 
 Each example is run for a fixed number of frames with fixed input, and the
-final framebuffer and screen are hashed against tests/examples.sha256. The
+final framebuffer and screen, and all the sound the run made, are hashed
+against tests/examples.sha256. The
 runtime is deterministic (SPEC §4), so a changed hash means the engine, the
 Lua build or the example itself changed behaviour. If that was intended,
 rerun with --update. The same hashes must come out on every machine.
@@ -55,13 +56,16 @@ def main():
         for name, frames, hold, tap in RUNS:
             key = f"{name} frames={frames} hold={hold or '-'} tap={tap or '-'}"
             r = t.run_package(pulli.build(os.path.join(ROOT, "examples", name)),
-                              frames=frames, hold=hold, tap=tap)
+                              frames=frames, hold=hold, tap=tap, sound=True)
             if not t.check(f"{key}: runs without error", r.code == 0, r.err):
                 continue
             seen[key] = hashlib.sha256(r.fb + r.rgb).hexdigest()
+            seen[key + " sound"] = hashlib.sha256(r.wav).hexdigest()
             if not t.update:
                 t.check(f"{key}: draws what it drew before", seen[key] == pinned.get(key),
                         "behaviour changed; if that was intended, rerun with --update")
+                t.check(f"{key}: sounds as it sounded before", seen[key + " sound"] == pinned.get(key + " sound"),
+                        "the sound changed; if that was intended, rerun with --update")
 
         pong = pulli.build(os.path.join(ROOT, "examples", "pong"))
 
