@@ -4,7 +4,7 @@
  * pointers into the caller's memory. That is what lets cartridge flash be
  * read through XIP instead of being loaded into RAM. Packages come from
  * strangers, so every offset and length is checked before it is used. */
-#include "pulli.h"
+#include "internal.h"
 #include <string.h>
 
 static uint32_t rd32(const uint8_t *p) {
@@ -67,6 +67,35 @@ const char *pulli_pkg_open(pulli_pkg *pk, const void *data, size_t len) {
     if (pk->flags & PULLI_PKG_ENCRYPTED)
         /* Needs the licence block unwrapped with a device key. */
         return "package is encrypted; this runtime cannot unwrap it yet";
+
+    /* The seal follows the package. */
+    const uint8_t *s = b + total;
+    size_t room = len - total;
+    if (room < PULLI_SEAL_HEADER || memcmp(s, PULLI_SEAL_MAGIC, 4) != 0)
+        return "package has no licence and signature";
+    if (s[4] != PULLI_SEAL_VERSION)
+        return "unsupported licence and signature version";
+    uint32_t lic_len = (uint32_t)s[8] | ((uint32_t)s[9] << 8);
+    uint32_t sig_len = (uint32_t)s[10] | ((uint32_t)s[11] << 8);
+    if (lic_len + sig_len > room - PULLI_SEAL_HEADER)
+        return "licence and signature are truncated";
+    pk->licence_kind = s[5];
+    pk->signature_kind = s[6];
+    pk->licence.data = s + PULLI_SEAL_HEADER;
+    pk->licence.len = lic_len;
+    pk->signature.data = pk->licence.data + lic_len;
+    pk->signature.len = sig_len;
+
+    /* Only the developer kinds exist so far. The store's kinds will add a
+     * real signature and a licence tied to the buyer's devices. */
+    if (pk->licence_kind != PULLI_LICENCE_DEVELOPER)
+        return "package carries a kind of licence this runtime does not know";
+    if (pk->signature_kind != PULLI_SIGNATURE_DEVELOPER)
+        return "package carries a kind of signature this runtime does not know";
+    uint8_t digest[32];
+    pulli_sha256(b, total, digest);
+    if (sig_len != sizeof(digest) || memcmp(pk->signature.data, digest, sizeof(digest)) != 0)
+        return "signature does not match: the package was changed after it was signed";
     return NULL;
 }
 

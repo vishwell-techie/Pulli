@@ -13,6 +13,9 @@
 typedef char pulli_needs_32bit_lua_integer[sizeof(lua_Integer) == 4 ? 1 : -1];
 typedef char pulli_needs_32bit_lua_number[sizeof(lua_Number) == 4 ? 1 : -1];
 
+/* sha256.c */
+void pulli_sha256(const uint8_t *data, size_t len, uint8_t out[32]);
+
 /* api.c */
 void pulli_api_open(lua_State *L, pulli_engine *e);
 

@@ -13,7 +13,7 @@ Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
 built (see README.md).
 """
-import os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
+import hashlib, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
 
 MAGIC = b"PULI"
 VERSION = 1
@@ -26,12 +26,18 @@ EXT = ".pulli"
 
 # Header flags. Reserved now, before the format ships, because adding them
 # later would break every package and every device in the field.
-FLAG_ENCRYPTED = 0x01   # payload entries are wrapped; see license.bin
+FLAG_ENCRYPTED = 0x01   # payload entries are wrapped; the licence unwraps them
 FLAG_SIGNED    = 0x02   # package carries a publisher signature
 FLAG_DEVBUILD  = 0x04   # unsigned developer build, never store-distributed
 
-# Entry names reserved for licence and signature blocks. Not produced yet.
-RESERVED = ("license.bin", "signature.bin")
+# The seal: a licence and a signature that follow the package, outside its
+# size and checksum, so a store can replace them without rebuilding it.
+SEAL_MAGIC = b"SEAL"
+SEAL_VERSION = 1
+SEAL_HEADER = 12
+LICENCE_DEVELOPER = 0     # runs on any device; not for sale
+SIGNATURE_DEVELOPER = 0   # SHA-256 of the package: catches damage, proves nothing
+KIND_NAMES = {0: "developer"}
 
 
 class PackageError(Exception):
@@ -42,8 +48,46 @@ def _align4(n: int) -> int:
     return (n + 3) & ~3
 
 
+def seal(body: bytes, licence_kind: int = LICENCE_DEVELOPER, licence: bytes = b"",
+         signature_kind: int = SIGNATURE_DEVELOPER, signature: bytes = None) -> bytes:
+    """Return `body` with a licence and signature attached. By default these
+    are the developer ones, which is what every locally built package gets."""
+    if signature is None:
+        signature = hashlib.sha256(body).digest()
+    return (body + SEAL_MAGIC +
+            struct.pack("<BBBBHH", SEAL_VERSION, licence_kind, signature_kind, 0,
+                        len(licence), len(signature)) + licence + signature)
+
+
+def split(data: bytes):
+    """Separate a package file into the package itself and whatever follows it."""
+    if len(data) < HEADER or data[:4] != MAGIC:
+        raise PackageError("not a Pulli package")
+    total = struct.unpack("<I", data[8:12])[0]
+    if total > len(data):
+        raise PackageError(f"package is truncated (header says {total}, file is {len(data)})")
+    return data[:total], data[total:]
+
+
+def read_seal(data: bytes):
+    """Check the seal and return (licence kind, licence, signature kind, signature)."""
+    body, tail = split(data)
+    if len(tail) < SEAL_HEADER or tail[:4] != SEAL_MAGIC:
+        raise PackageError("package has no licence and signature")
+    version, lic_kind, sig_kind, _, lic_len, sig_len = struct.unpack("<BBBBHH", tail[4:SEAL_HEADER])
+    if version != SEAL_VERSION:
+        raise PackageError(f"unsupported licence and signature version {version}")
+    if SEAL_HEADER + lic_len + sig_len != len(tail):
+        raise PackageError("licence and signature are the wrong length")
+    licence = tail[SEAL_HEADER:SEAL_HEADER + lic_len]
+    signature = tail[SEAL_HEADER + lic_len:]
+    if sig_kind == SIGNATURE_DEVELOPER and signature != hashlib.sha256(body).digest():
+        raise PackageError("signature does not match: the package was changed after it was signed")
+    return lic_kind, licence, sig_kind, signature
+
+
 def build_entries(entries, flags: int = 0) -> bytes:
-    """Lay out (name, bytes) pairs as a package. No policy, just the format."""
+    """Lay out (name, bytes) pairs as a sealed package. No policy, just the format."""
     if len(entries) > MAX_ENTRIES:
         raise PackageError(f"{len(entries)} entries, max {MAX_ENTRIES}")
     for name, _ in entries:
@@ -70,7 +114,7 @@ def build_entries(entries, flags: int = 0) -> bytes:
     body = table + table_pad + payload
     total = HEADER + len(body)
     crc = zlib.crc32(body) & 0xFFFFFFFF
-    return MAGIC + struct.pack("<BBHII", VERSION, flags, len(entries), total, crc) + body
+    return seal(MAGIC + struct.pack("<BBHII", VERSION, flags, len(entries), total, crc) + body)
 
 
 def build(srcdir: str, flags: int = 0) -> bytes:
@@ -92,14 +136,12 @@ def build(srcdir: str, flags: int = 0) -> bytes:
 
 
 def parse(data: bytes):
-    """Validate a package and return its (name, bytes) entries."""
-    if len(data) < HEADER or data[:4] != MAGIC:
-        raise PackageError("not a Pulli package")
+    """Validate a package and its seal, and return its (name, bytes) entries."""
+    whole = data
+    data, _ = split(data)
     version, flags, count, total, crc = struct.unpack("<BBHII", data[4:16])
     if version != VERSION:
         raise PackageError(f"unsupported package version {version}")
-    if total != len(data):
-        raise PackageError(f"size mismatch (header says {total}, file is {len(data)})")
     if count > MAX_ENTRIES or HEADER + count * ENTRY > total:
         raise PackageError("entry table runs past the end of the package")
     if (zlib.crc32(data[HEADER:]) & 0xFFFFFFFF) != crc:
@@ -112,8 +154,7 @@ def parse(data: bytes):
         if off < HEADER + count * ENTRY or off + length > len(data):
             raise PackageError(f"entry {name} lies outside the package")
         entries.append((name, data[off:off + length]))
-    if flags & FLAG_ENCRYPTED and not any(n == "license.bin" for n, _ in entries):
-        raise PackageError("package marked encrypted but has no license.bin")
+    read_seal(whole)
     return entries
 
 
@@ -191,6 +232,10 @@ def cmd_pack(srcdir, out=None):
 def cmd_list(path):
     for name, blob in read(path):
         print(f"{len(blob):>8}  {name}")
+    with open(path, "rb") as f:
+        lic_kind, licence, sig_kind, signature = read_seal(f.read())
+    print(f"licence: {KIND_NAMES.get(lic_kind, lic_kind)} ({len(licence)} bytes)   "
+          f"signature: {KIND_NAMES.get(sig_kind, sig_kind)} ({len(signature)} bytes)")
 
 
 def cmd_unpack(path, dest):
