@@ -1,0 +1,13 @@
+build/
+build-*/
+__pycache__/
+*.pulli
+saves/
+
+# sensitive notes and brainstorming: never committed
+private/
+
+# Claude Code files: kept on this machine only
+CLAUDE.md
+CLAUDE.local.md
+.claude/
