@@ -25,6 +25,11 @@
 #define PULLI_LUA_HEAP_MAX_KB 256  /* SPEC §1 memory budget */
 #define PULLI_SAVE_MAX        65536
 #define PULLI_ATLAS_MAX       (128 * 1024)  /* resident sprite atlas, SPEC §1 */
+#define PULLI_MAP_LAYERS      2
+#define PULLI_MAP_CELLS_MAX   32768         /* tiles in the loaded map, all layers: 64 KB (SPEC §1) */
+#define PULLI_TILE_MASK       0x3FFF        /* a map cell: the tile number... */
+#define PULLI_TILE_FLIP_Y     0x4000        /* ...and how it is turned over */
+#define PULLI_TILE_FLIP_X     0x8000
 #define PULLI_SCANOUT_ROWS    12   /* one strip: 12 rows x 320 px x 2 B = 7680 B */
 #define PULLI_AUDIO_RATE      44100
 #define PULLI_AUDIO_FRAMES    (PULLI_AUDIO_RATE / PULLI_TICK_HZ)  /* stereo frames mixed per game frame: 735 */
@@ -67,11 +72,13 @@ typedef struct {
     const uint8_t *font;                   /* 8x8 1bpp, 96 glyphs from ' '   */
 } pulli_gfx;
 
-/* ---- sprite/tile data ---------------------------------------------- */
+/* ---- the loaded map (SPEC §3 "Map") --------------------------------- */
 typedef struct {
-    const uint8_t *tiles;   /* layer data, tile indices, row-major */
-    int w, h;               /* in tiles */
-} pulli_layer;
+    uint16_t cells[PULLI_MAP_CELLS_MAX];    /* layer 0 row by row, then layer 1 */
+    int      w, h, layers;                  /* in tiles; layers is 0 when nothing is loaded */
+    const uint8_t *flags;                   /* one byte per tile number, read in place */
+    int      flag_count;
+} pulli_map;
 
 /* ---- what the Lua API reads and writes ----------------------------- */
 typedef struct {
@@ -79,7 +86,7 @@ typedef struct {
     uint32_t    btn_state;
     uint32_t    btn_held[PULLI_BTN_COUNT];   /* frames each button has been down */
     uint32_t    frame;
-    pulli_layer layers[2];
+    pulli_map   map;
 } pulli_ctx;
 
 /* ---- gfx primitives (pure, no platform deps) ----------------------- */
@@ -105,7 +112,7 @@ void    pulli_clip     (pulli_gfx *g, int x, int y, int w, int h);
 void    pulli_pal      (pulli_gfx *g, int a, int b);      /* a < 0 resets */
 void    pulli_palt     (pulli_gfx *g, int c, bool t);     /* c < 0 resets */
 void    pulli_fade     (pulli_gfx *g, float amount);      /* 0 = normal, 1 = black */
-void    pulli_map_draw (pulli_ctx *ctx, int layer, int sx, int sy);
+void    pulli_map_draw (pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy);
 
 /* Scanout: convert one strip of indexed pixels to RGB565.
  * The device DMAs the result straight to the panel; the host uploads it as

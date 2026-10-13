@@ -8,12 +8,14 @@
     python3 tools/pulli.py run    <dir|game.pulli> [scale] [--link PORT]
                                                            play it in a window
     python3 tools/pulli.py check  <dir|game.pulli> [frames] run it with no window
+    python3 tools/pulli.py palette <out.gpl|out.hex|out.png> the 64 colours, for a paint program
 
 Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
 built (see README.md).
 """
-import hashlib, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
+import base64, gzip, hashlib, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
+import xml.etree.ElementTree as ET
 
 MAGIC = b"PULI"
 VERSION = 1
@@ -56,6 +58,15 @@ ADPCM_STEP = (
     11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
     32767)
 ADPCM_INDEX = (-1, -1, -1, -1, 2, 4, 6, 8)
+
+# Pictures and maps (SPEC §2). `pack` turns every .png in a game folder into
+# a .kolam sprite sheet and every Tiled .tmx map into a .ooru.
+CELL = 8
+ATLAS_MAX = 128 * 1024
+MAP_CELLS_MAX = 32768
+TILE_MAX = 0x3FFF
+FLIP_X, FLIP_Y = 0x8000, 0x4000
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 class PackageError(Exception):
@@ -135,8 +146,10 @@ def build_entries(entries, flags: int = 0) -> bytes:
     return seal(MAGIC + struct.pack("<BBHII", VERSION, flags, len(entries), total, crc) + body)
 
 
-def build(srcdir: str, flags: int = 0) -> bytes:
-    """Package every file in a game directory."""
+def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
+    """Package every file in a game directory, turning .png, .tmx and .wav
+    files into the formats the console reads. Anything worth telling the
+    developer is added to `notes`."""
     if not os.path.isdir(srcdir):
         raise PackageError(f"{srcdir} is not a directory")
     names = sorted(
@@ -146,10 +159,29 @@ def build(srcdir: str, flags: int = 0) -> bytes:
     for req in REQUIRED:
         if req not in names:
             raise PackageError(f"{srcdir} is missing {req}")
-    entries = []
+    entries, made = [], {}
     for n in names:
-        with open(os.path.join(srcdir, n), "rb") as f:
-            entries.append((n, f.read()))
+        stem, ext = os.path.splitext(n)
+        ext = ext.lower()
+        if ext in (".png", ".tmx"):
+            made[stem + (".kolam" if ext == ".png" else ".ooru")] = n
+        elif ext != ".tsx":                             # a Tiled tileset is read through its map
+            with open(os.path.join(srcdir, n), "rb") as f:
+                entries.append((n, f.read()))
+    for entry, source in made.items():
+        if entry in names:
+            raise PackageError(f"{srcdir} has both {entry} and {source}; keep one")
+    sheet_columns = None                                # tiles across the sheet, for checking maps
+    for entry, source in sorted(made.items()):
+        if entry.endswith(".kolam"):
+            with open(os.path.join(srcdir, source), "rb") as f:
+                entries.append((entry, kolam_from_png(f.read(), source, notes)))
+    for name, blob in entries:
+        if name == "sprites.kolam":
+            sheet_columns = struct.unpack("<H", blob[4:6])[0] // CELL
+    for entry, source in sorted(made.items()):
+        if entry.endswith(".ooru"):
+            entries.append((entry, ooru_from_tmx(os.path.join(srcdir, source), sheet_columns, notes)))
     for kind, (entry, _) in BANKS.items():
         folder = os.path.join(srcdir, kind)
         if not os.path.isdir(folder) or not any(f.lower().endswith(".wav") for f in os.listdir(folder)):
@@ -195,6 +227,267 @@ def kolam(width: int, height: int, pixels: bytes) -> bytes:
     if len(pixels) != width * height:
         raise PackageError(f"expected {width * height} pixels, got {len(pixels)}")
     return b"KLM1" + struct.pack("<HH", width, height) + bytes(pixels)
+
+
+# ---- pictures -----------------------------------------------------------
+
+def palette():
+    """The 64 colours as (red, green, blue), in palette order."""
+    import refgfx
+    return [((c >> 16) & 255, (c >> 8) & 255, c & 255) for c in refgfx.DEFAULT_PALETTE]
+
+
+def read_png(data: bytes, name: str = "picture"):
+    """Read a .png file. Returns (width, height, pixels), with `pixels` a
+    list of (red, green, blue, alpha), each 0 to 255, row by row."""
+    if data[:8] != PNG_MAGIC:
+        raise PackageError(f"{name}: not a PNG file")
+    header = colours = clear = None
+    packed, at = b"", 8
+    while at + 8 <= len(data):
+        size, tag = struct.unpack(">I4s", data[at:at + 8])
+        chunk = data[at + 8:at + 8 + size]
+        if tag == b"IHDR":
+            header = chunk
+        elif tag == b"PLTE":
+            colours = chunk
+        elif tag == b"tRNS":
+            clear = chunk
+        elif tag == b"IDAT":
+            packed += chunk
+        at += 12 + size
+    if header is None or len(header) != 13 or not packed:
+        raise PackageError(f"{name}: PNG file has no picture in it")
+    w, h, depth, kind, _, _, interlaced = struct.unpack(">IIBBBBB", header)
+    if interlaced:
+        raise PackageError(f"{name}: interlaced PNG files are not supported; save it without interlacing")
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(kind)
+    if channels is None or depth not in (1, 2, 4, 8, 16) or (depth < 8 and kind not in (0, 3)) \
+            or (kind == 3 and (depth == 16 or colours is None)):
+        raise PackageError(f"{name}: unsupported kind of PNG file")
+    step = max(1, channels * depth // 8)            # bytes between a value and the one to its left
+    stride = (w * channels * depth + 7) // 8
+    try:
+        raw = zlib.decompress(packed)
+    except zlib.error:
+        raise PackageError(f"{name}: PNG file is damaged")
+    if w == 0 or h == 0 or len(raw) != h * (stride + 1):
+        raise PackageError(f"{name}: PNG file is damaged")
+
+    # Each row is stored as differences from its neighbours; undo that.
+    rows, above = [], bytearray(stride)
+    for y in range(h):
+        kind_of_row = raw[y * (stride + 1)]
+        row = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride):
+            left = row[i - step] if i >= step else 0
+            up = above[i]
+            corner = above[i - step] if i >= step else 0
+            if kind_of_row == 1:
+                row[i] = (row[i] + left) & 255
+            elif kind_of_row == 2:
+                row[i] = (row[i] + up) & 255
+            elif kind_of_row == 3:
+                row[i] = (row[i] + (left + up) // 2) & 255
+            elif kind_of_row == 4:
+                p = left + up - corner
+                near = min((abs(p - left), 0, left), (abs(p - up), 1, up), (abs(p - corner), 2, corner))
+                row[i] = (row[i] + near[2]) & 255
+            elif kind_of_row != 0:
+                raise PackageError(f"{name}: PNG file is damaged")
+        rows.append(row)
+        above = row
+
+    pixels = []
+    for row in rows:
+        if depth == 16:
+            values = row[0::2]                      # keep the top 8 bits
+        elif depth == 8:
+            values = row
+        else:
+            values = [(row[i * depth // 8] >> (8 - depth - i * depth % 8)) & ((1 << depth) - 1)
+                      for i in range(w * channels)]
+            if kind == 0:
+                values = [v * 255 // ((1 << depth) - 1) for v in values]
+        for x in range(w):
+            v = values[x * channels:(x + 1) * channels]
+            if kind == 0:
+                pixels.append((v[0], v[0], v[0], 255))
+            elif kind == 2:
+                pixels.append((v[0], v[1], v[2], 255))
+            elif kind == 3:
+                if 3 * v[0] + 2 >= len(colours):
+                    raise PackageError(f"{name}: PNG file is damaged")
+                alpha = clear[v[0]] if clear is not None and v[0] < len(clear) else 255
+                pixels.append((colours[3 * v[0]], colours[3 * v[0] + 1], colours[3 * v[0] + 2], alpha))
+            elif kind == 4:
+                pixels.append((v[0], v[0], v[0], v[1]))
+            else:
+                pixels.append(tuple(v))
+    return w, h, pixels
+
+
+def write_png(width: int, height: int, rgb: bytes) -> bytes:
+    """A PNG file from 8-bit red, green, blue values, row by row."""
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
+    rows = b"".join(b"\0" + rgb[y * width * 3:(y + 1) * width * 3] for y in range(height))
+    return (PNG_MAGIC + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+def kolam_from_png(data: bytes, name: str = "picture", notes=None) -> bytes:
+    """Turn a PNG into a sprite sheet. A see-through pixel becomes colour 0;
+    any other becomes the nearest of colours 1 to 63, so solid black is
+    colour 32 and stays visible. Says so in `notes` if colours had to move."""
+    w, h, pixels = read_png(data, name)
+    if w % CELL or h % CELL:
+        raise PackageError(f"{name}: {w}x{h}; a sprite sheet's width and height must be multiples of {CELL}")
+    if w * h > ATLAS_MAX:
+        raise PackageError(f"{name}: {w}x{h} is {w * h} pixels; a sprite sheet holds at most {ATLAS_MAX}")
+    colours, found, moved = palette(), {}, set()
+    out = bytearray()
+    for r, g, b, a in pixels:
+        if a < 128:
+            out.append(0)
+            continue
+        if (r, g, b) not in found:
+            far, index = min(((r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2, i)
+                             for i, (pr, pg, pb) in enumerate(colours) if i)
+            found[(r, g, b)] = index
+            if far:
+                moved.add((r, g, b))
+        out.append(found[(r, g, b)])
+    if moved and notes is not None:
+        notes.append(f"{name}: {len(moved)} colour(s) are not in the Pulli palette and were changed to the "
+                     f"nearest one (`pulli.py palette` writes the palette for a paint program)")
+    return kolam(w, h, bytes(out))
+
+
+# ---- maps ---------------------------------------------------------------
+
+def ooru(width: int, height: int, layers, flags: bytes = b"") -> bytes:
+    """A map.ooru: one or two layers of cells, row by row, then one byte of
+    flags per tile number (SPEC §2). A cell is a tile number, plus FLIP_X
+    and FLIP_Y."""
+    if not 1 <= len(layers) <= 2:
+        raise PackageError(f"{len(layers)} layers; a map has one or two")
+    if width < 1 or height < 1 or width * height * len(layers) > MAP_CELLS_MAX:
+        raise PackageError(f"{width}x{height} tiles in {len(layers)} layer(s); "
+                           f"a map holds at most {MAP_CELLS_MAX} tiles in all")
+    if any(len(layer) != width * height for layer in layers):
+        raise PackageError("a layer does not match the map's size")
+    if len(flags) > TILE_MAX + 1:
+        raise PackageError("flags for more tiles than there can be")
+    cells = [c for layer in layers for c in layer]
+    return (b"ORU1" + struct.pack("<HHBBH", width, height, len(layers), 0, len(flags))
+            + struct.pack(f"<{len(cells)}H", *cells) + bytes(flags))
+
+
+def read_ooru(data: bytes):
+    """A map as (width, height, layers, flags)."""
+    w, h, count, _, nflags = struct.unpack("<HHBBH", data[4:12])
+    cells = struct.unpack(f"<{w * h * count}H", data[12:12 + 2 * w * h * count])
+    return w, h, [list(cells[i * w * h:(i + 1) * w * h]) for i in range(count)], data[12 + 2 * w * h * count:]
+
+
+def ooru_from_tmx(path: str, sheet_columns: int = None, notes=None) -> bytes:
+    """Turn a map made in Tiled into a map.ooru. The map must use 8x8 tiles
+    from one tileset, which should be the game's sprite sheet: tile number n
+    is drawn as sprite n. The first two tile layers become layers 0 and 1."""
+    name = os.path.basename(path)
+
+    def fail(why):
+        raise PackageError(f"{name}: {why}")
+
+    def number(element, key, default=None):
+        try:
+            return int(element.get(key, default))
+        except (TypeError, ValueError):
+            fail(f"'{key}' is missing or not a number")
+
+    try:
+        root = ET.parse(path).getroot()
+    except ET.ParseError:
+        fail("not a Tiled map")
+    if root.tag != "map":
+        fail("not a Tiled map")
+    if root.get("orientation", "orthogonal") != "orthogonal":
+        fail("only square-grid (orthogonal) maps are supported")
+    if root.get("infinite", "0") == "1":
+        fail("infinite maps are not supported; turn off 'Infinite' in Map Properties")
+    if number(root, "tilewidth") != CELL or number(root, "tileheight") != CELL:
+        fail(f"tiles must be {CELL}x{CELL} pixels")
+    w, h = number(root, "width"), number(root, "height")
+
+    tilesets = root.findall("tileset")
+    if len(tilesets) != 1:
+        fail(f"{len(tilesets)} tilesets; a map must use exactly one, the game's sprite sheet")
+    first = number(tilesets[0], "firstgid", 1)
+    tileset = tilesets[0]
+    if tileset.get("source"):
+        try:
+            tileset = ET.parse(os.path.join(os.path.dirname(path), tileset.get("source"))).getroot()
+        except (OSError, ET.ParseError):
+            fail(f"cannot read its tileset, {tilesets[0].get('source')}")
+    columns = number(tileset, "columns", 0)
+    if sheet_columns and columns and columns != sheet_columns:
+        fail(f"its tileset is {columns} tiles wide but the sprite sheet is {sheet_columns}: "
+             f"tile numbers would not match sprite numbers")
+
+    flags = bytearray()
+    for tile in tileset.findall("tile"):
+        value = 0
+        for prop in tile.iter("property"):
+            if prop.get("name") == "flags":
+                value |= number(prop, "value", 0) & 255
+            elif prop.get("name") == "solid" and prop.get("value") == "true":
+                value |= 1
+        if value:
+            n = number(tile, "id")
+            if n > TILE_MAX:
+                fail(f"tile {n} is past the highest tile number, {TILE_MAX}")
+            flags.extend(bytes(n + 1 - len(flags)))
+            flags[n] = value
+
+    layers, used_first = [], False
+    for layer in root.iter("layer"):
+        data = layer.find("data")
+        if data is None:
+            fail(f"layer '{layer.get('name')}' has no tiles")
+        text, encoding, squeeze = (data.text or "").strip(), data.get("encoding"), data.get("compression")
+        try:
+            if encoding == "csv":
+                gids = [int(v) for v in text.split(",") if v.strip()]
+            elif encoding == "base64" and squeeze in (None, "zlib", "gzip"):
+                raw = base64.b64decode(text)
+                raw = zlib.decompress(raw) if squeeze == "zlib" else gzip.decompress(raw) if squeeze else raw
+                gids = list(struct.unpack(f"<{len(raw) // 4}I", raw[:len(raw) // 4 * 4]))
+            else:
+                fail("unsupported layer format; in Map Properties set Tile Layer Format to CSV")
+        except (ValueError, OSError, zlib.error):
+            fail(f"layer '{layer.get('name')}' is damaged")
+        if len(gids) != w * h:
+            fail(f"layer '{layer.get('name')}' has {len(gids)} tiles, not {w}x{h}")
+        cells = []
+        for gid in gids:
+            if gid & 0x20000000:
+                fail("a tile is rotated; only flipping left-right and up-down is supported")
+            n = (gid & 0x0FFFFFFF) - first if gid & 0x0FFFFFFF else 0
+            if n < 0 or n > TILE_MAX:
+                fail(f"a tile number is outside 0 to {TILE_MAX}")
+            used_first = used_first or (gid & 0x0FFFFFFF) == first
+            cells.append(n | (FLIP_X if gid & 0x80000000 else 0) | (FLIP_Y if gid & 0x40000000 else 0) if n else 0)
+        layers.append(cells)
+    if used_first and notes is not None:
+        notes.append(f"{name}: uses the first tile of the sheet, which maps never draw; keep that tile blank")
+    others = [e.tag for e in root.iter() if e.tag in ("objectgroup", "imagelayer")]
+    if others and notes is not None:
+        notes.append(f"{name}: object and image layers are not imported")
+    try:
+        return ooru(w, h, layers, bytes(flags))
+    except PackageError as e:
+        fail(str(e))
 
 
 # ---- sound --------------------------------------------------------------
@@ -383,8 +676,15 @@ def cmd_new(path):
     print(f"created {path}/  (try: python3 {shlex.quote(sys.argv[0])} run {shlex.quote(path)})")
 
 
+def _tell(notes):
+    for note in notes:
+        print(f"note: {note}", file=sys.stderr)
+
+
 def cmd_pack(srcdir, out=None):
-    data = build(srcdir)
+    notes = []
+    data = build(srcdir, notes=notes)
+    _tell(notes)
     out = out or os.path.basename(os.path.normpath(srcdir)) + EXT
     with open(out, "wb") as f:
         f.write(data)
@@ -394,6 +694,12 @@ def cmd_pack(srcdir, out=None):
 def cmd_list(path):
     for name, blob in read(path):
         print(f"{len(blob):>8}  {name}")
+        if blob[:4] == b"KLM1":
+            w, h = struct.unpack("<HH", blob[4:8])
+            print(f"            {w}x{h} pixels, sprites 0 to {(w // CELL) * (h // CELL) - 1}")
+        if blob[:4] == b"ORU1":
+            w, h, layers, flags = read_ooru(blob)
+            print(f"            {w}x{h} tiles, {len(layers)} layer(s), flags for {len(flags)} tile(s)")
         if blob[:4] in (magic for _, magic in BANKS.values()):
             for i, (rate, channels, frames, loop, encoding, size) in enumerate(read_bank(blob)):
                 print(f"{size:>8}    {i}: {frames / rate:.2f} s, {rate} Hz, "
@@ -411,6 +717,25 @@ def cmd_unpack(path, dest):
         with open(os.path.join(dest, name), "wb") as f:
             f.write(blob)
     print(f"unpacked to {dest}")
+
+
+def cmd_palette(out):
+    colours = palette()
+    ext = os.path.splitext(out)[1].lower()
+    if ext == ".gpl":                                   # GIMP, Aseprite, Krita, Inkscape
+        text = "GIMP Palette\nName: Pulli\nColumns: 8\n#\n" + "".join(
+            f"{r:3} {g:3} {b:3}\t{i}\n" for i, (r, g, b) in enumerate(colours))
+        data = text.encode()
+    elif ext == ".hex":                                 # one colour per line
+        data = "".join(f"{r:02x}{g:02x}{b:02x}\n" for r, g, b in colours).encode()
+    elif ext == ".png":                                 # one pixel per colour, 8 across
+        data = write_png(8, 8, bytes(v for c in colours for v in c))
+    else:
+        raise PackageError("the palette can be written as .gpl, .hex or .png")
+    with open(out, "wb") as f:
+        f.write(data)
+    print(f"wrote the 64 colours to {out}. Colour 0 is see-through in sprites; "
+          f"for solid black use colour 32.")
 
 
 def find_host(name):
@@ -431,8 +756,10 @@ def _launch(name, target, extra):
     if os.path.isdir(target):
         with tempfile.TemporaryDirectory() as tmp:
             pkg = os.path.join(tmp, os.path.basename(os.path.normpath(target)) + EXT)
+            notes = []
             with open(pkg, "wb") as f:
-                f.write(build(target))
+                f.write(build(target, notes=notes))
+            _tell(notes)
             return subprocess.call([host, pkg] + extra)
     return subprocess.call([host, target] + extra)
 
@@ -448,6 +775,7 @@ def cmd_check(target, frames="600"):
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
     "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 4), "check": (cmd_check, 1, 2),
+    "palette": (cmd_palette, 1, 1),
 }
 
 

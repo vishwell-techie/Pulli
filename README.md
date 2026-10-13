@@ -24,7 +24,8 @@ Software first; hardware comes last.
 | Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; tested on desktop, not yet run on a board |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
-| Examples | hello, pong |
+| Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed |
+| Examples | hello, pong, walk |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
@@ -33,14 +34,13 @@ Software first; hardware comes last.
 
 Measured against `docs/SPEC.md`:
 
-- Maps: `map.load`, `map.set` and `map.flags` are missing and the map file
-  format is undefined, so `map.draw` has nothing to draw.
 - `save` refuses tables; numbers, strings and booleans work.
 - `stat("fps")` and `stat("cpu")` return nil.
 - No way to load a custom palette.
 - Packages hold Lua source only: bytecode, encrypted and signed packages
   are refused.
-- No PNG or Tiled importers, and `check` does no static analysis.
+- `check` does no static analysis.
+- Maps made in Tiled bring across tile layers only, not objects.
 - The desktop's Lua heap limit is stricter than the device's will be,
   because Lua values are larger on a 64-bit machine.
 
@@ -53,7 +53,7 @@ host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 tools/       pulli.py command line, reference rasterizer and mixer, font generator
 tests/       conformance, package, runtime, maths, audio, link and example tests
-examples/    hello, pong
+examples/    hello, pong, walk
 cmake/       pinned Lua build shared by host and firmware
 ```
 
@@ -92,6 +92,13 @@ python3 tools/pulli.py pack mygame         # write mygame.pulli
 python3 tools/pulli.py run examples/pong 3 # 3 = window scale
 ```
 
+For pictures, draw an 8x8 grid of sprites in any paint program and save it
+as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.
+`python3 tools/pulli.py palette pulli.gpl` writes the 64 colours for the
+paint program to load. For a map, make one in [Tiled](https://www.mapeditor.org)
+with 8x8 tiles and `sprites.png` as its tileset, and save it as `map.tmx`
+beside it. `examples/walk` does both.
+
 For sound, put `.wav` files in a `sfx/` folder and a `music/` folder inside
 the game. `pack` and `run` number them from 0 in order of file name, so
 `sfx/0-jump.wav` plays with `sfx(0)` and `music/0-theme.wav` with
@@ -117,6 +124,7 @@ function draw()      end   -- after each update
 
 -- cls pset pget line rect rectfill circ circfill spr sspr print
 -- camera clip pal palt fade   btn btnp   sfx music   save load   time dbg
+-- map.load map.size map.draw map.get map.set map.flags
 -- link.status link.side link.send link.recv   sys.has
 -- fix.from fix.to fix.floor fix.mul fix.div fix.sqrt fix.sin fix.cos fix.atan
 ```

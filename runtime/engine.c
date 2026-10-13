@@ -222,6 +222,18 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
     if (pulli_pkg_find(&e->pkg, "sprites.kolam", &sprites) && !load_sprites(e, sprites)) return false;
     const char *bank, *why_not = pulli_audio_boot(e, &bank);
     if (why_not) return fail(e, "%s: %s", bank, why_not);
+    /* Every map is checked now, so map.load() cannot meet a bad one later.
+     * A game with a map.ooru starts with it loaded. */
+    for (unsigned i = 0; i < e->pkg.count; i++) {
+        char name[PULLI_PKG_NAME_MAX + 1] = { 0 };          /* a full-length name has no terminator */
+        memcpy(name, e->pkg.base + PULLI_PKG_HEADER + PULLI_PKG_ENTRY * i, PULLI_PKG_NAME_MAX);
+        size_t n = strlen(name);
+        pulli_blob map;
+        if (n < 5 || strcmp(name + n - 5, ".ooru") != 0) continue;
+        pulli_pkg_find(&e->pkg, name, &map);
+        if ((why_not = pulli_map_check(map)) != NULL) return fail(e, "%s: %s", name, why_not);
+        if (strcmp(name, "map.ooru") == 0) pulli_map_load(&e->ctx.map, map);
+    }
 
     if (e->manifest.save_target != PULLI_SAVE_NONE) {
         e->save = malloc((size_t)e->manifest.save_size);

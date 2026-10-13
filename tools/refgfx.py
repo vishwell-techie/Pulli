@@ -172,6 +172,17 @@ class RefGfx:
                     continue
                 self._put(dx + i, dy + j, c)
 
+    def map_draw(self, cells, w, h, sx=0, sy=0):
+        """One layer of a map (SPEC §3): `cells` row by row, each a tile
+        number plus 0x8000 to flip it left-right and 0x4000 up-down. The
+        layer's corner is at (-sx, -sy), under the camera. Tile 0 is empty."""
+        for my in range(h):
+            for mx in range(w):
+                c = cells[my * w + mx]
+                if c & 0x3FFF:
+                    self.spr(c & 0x3FFF, mx * CELL - sx, my * CELL - sy, 1, 1,
+                             bool(c & 0x8000), bool(c & 0x4000))
+
     def print(self, text, x, y, c):
         ox = x
         for ch in text.encode("latin-1"):

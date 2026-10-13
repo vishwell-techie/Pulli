@@ -197,18 +197,50 @@ static int l_link_recv(lua_State *L) {
 }
 
 /* ---- map ----------------------------------------------------------- */
+/* The cell a game names, or NULL if it is outside the loaded map. */
+static uint16_t *map_cell(lua_State *L) {
+    pulli_map *m = &E->ctx.map;
+    int layer = arg_i(L,1,0), cx = arg_i(L,2,0), cy = arg_i(L,3,0);
+    if (layer < 0 || layer >= m->layers || cx < 0 || cy < 0 || cx >= m->w || cy >= m->h) return NULL;
+    return &m->cells[((size_t)layer * m->h + cy) * m->w + cx];
+}
+static int l_map_load(lua_State *L) {
+    const char *name = luaL_optstring(L, 1, "map.ooru");
+    pulli_blob b;
+    if (!pulli_pkg_find(&E->pkg, name, &b)) return luaL_error(L, "map.load: the package has no '%s'", name);
+    const char *why = pulli_map_check(b);
+    if (why) return luaL_error(L, "map.load: %s: %s", name, why);
+    pulli_map_load(&E->ctx.map, b);
+    return 0;
+}
 static int l_map_draw(lua_State *L) {
-    pulli_map_draw(&E->ctx, arg_i(L,1,0), arg_i(L,2,0), arg_i(L,3,0));
+    pulli_map_draw(&E->ctx.g, &E->ctx.map, arg_i(L,1,0), arg_i(L,2,0), arg_i(L,3,0));
     return 0;
 }
 static int l_map_get(lua_State *L) {
-    int layer = arg_i(L,1,0), cx = arg_i(L,2,0), cy = arg_i(L,3,0);
-    pulli_layer *lay = &E->ctx.layers[layer < 0 || layer > 1 ? 0 : layer];
-    if (!lay->tiles || cx < 0 || cy < 0 || cx >= lay->w || cy >= lay->h)
-        lua_pushinteger(L, 0);
-    else
-        lua_pushinteger(L, lay->tiles[cy * lay->w + cx]);
+    const uint16_t *c = map_cell(L);
+    lua_pushinteger(L, c ? *c & PULLI_TILE_MASK : 0);
+    lua_pushboolean(L, c && (*c & PULLI_TILE_FLIP_X));
+    lua_pushboolean(L, c && (*c & PULLI_TILE_FLIP_Y));
+    return 3;
+}
+static int l_map_set(lua_State *L) {
+    uint16_t *c = map_cell(L);
+    int tile = arg_i(L,4,0);
+    if (!c || tile < 0 || tile > PULLI_TILE_MASK) return 0;
+    *c = (uint16_t)(tile | (arg_b(L,5,false) ? PULLI_TILE_FLIP_X : 0) | (arg_b(L,6,false) ? PULLI_TILE_FLIP_Y : 0));
+    return 0;
+}
+static int l_map_flags(lua_State *L) {
+    const pulli_map *m = &E->ctx.map;
+    int tile = arg_i(L,1,0);
+    lua_pushinteger(L, tile >= 0 && tile < m->flag_count ? m->flags[tile] : 0);
     return 1;
+}
+static int l_map_size(lua_State *L) {
+    lua_pushinteger(L, E->ctx.map.layers ? E->ctx.map.w : 0);
+    lua_pushinteger(L, E->ctx.map.layers ? E->ctx.map.h : 0);
+    return 2;
 }
 
 static const luaL_Reg CORE[] = {
@@ -224,7 +256,8 @@ static const luaL_Reg CORE[] = {
 };
 
 static const luaL_Reg MAP[] = {
-    {"draw",l_map_draw},{"get",l_map_get},{NULL,NULL}
+    {"load",l_map_load},{"draw",l_map_draw},{"get",l_map_get},{"set",l_map_set},
+    {"flags",l_map_flags},{"size",l_map_size},{NULL,NULL}
 };
 
 static const luaL_Reg SYS[] = {
