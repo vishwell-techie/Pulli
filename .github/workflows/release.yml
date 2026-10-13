@@ -15,6 +15,11 @@ env:
 
 jobs:
   release:
+    # Only the owner publishes releases. Anyone with write access can push a
+    # tag, and this job holds permission to create releases, so it ignores
+    # tags pushed by anyone else. Branch rules would also stop the push, but
+    # they are only enforced on a paid plan or a public repository.
+    if: github.actor == 'vishwell-techie'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
