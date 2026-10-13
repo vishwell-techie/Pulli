@@ -22,6 +22,10 @@ void pulli_audio_sfx(pulli_audio *a, int n, int channel);
 void pulli_audio_music(pulli_audio *a, int n, int fade_ms, bool looping);
 void pulli_audio_music_stop(pulli_audio *a, int fade_ms);
 
+/* map.c */
+const char *pulli_map_check(pulli_blob b);              /* NULL, or why it is not a map */
+void pulli_map_load(pulli_map *m, pulli_blob b);        /* b must have passed the check */
+
 /* api.c */
 void pulli_api_open(lua_State *L, pulli_engine *e);
 

@@ -220,21 +220,24 @@ void pulli_fade(pulli_gfx *g, float amount) {
     refresh_shown(g);
 }
 
-void pulli_map_draw(pulli_ctx *ctx, int layer, int sx, int sy) {
-    if (layer < 0 || layer > 1) return;
-    pulli_layer *L = &ctx->layers[layer];
-    if (!L->tiles) return;
+/* Draws one layer with its top-left corner at (-sx, -sy), under the camera
+ * like everything else. Only the tiles that can reach the screen are
+ * visited, so a large map costs no more than a small one. */
+void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
+    if (layer < 0 || layer >= m->layers) return;
     const int cell = PULLI_SPRITE_CELL;
-    int first_tx = sx / cell, first_ty = sy / cell;
-    int cols = PULLI_SCREEN_W / cell + 2, rows = PULLI_SCREEN_H / cell + 2;
-    for (int ty = 0; ty < rows; ty++) {
-        for (int tx = 0; tx < cols; tx++) {
-            int mx = first_tx + tx, my = first_ty + ty;
-            if (mx < 0 || my < 0 || mx >= L->w || my >= L->h) continue;
-            uint8_t t = L->tiles[my * L->w + mx];
-            if (t == 0) continue;                 /* tile 0 = empty */
-            pulli_spr(&ctx->g, t, mx*cell - sx + ctx->g.cam_x,
-                      my*cell - sy + ctx->g.cam_y, 1, 1, false, false);
+    const uint16_t *cells = m->cells + (size_t)layer * m->w * m->h;
+    /* The first tile on screen. Division rounds toward zero, which is only
+     * wrong left of and above the map, where there are no tiles to miss. */
+    int first_x = (g->cam_x + sx) / cell, first_y = (g->cam_y + sy) / cell;
+    for (int my = first_y; my <= first_y + PULLI_SCREEN_H / cell; my++) {
+        if (my < 0 || my >= m->h) continue;
+        for (int mx = first_x; mx <= first_x + PULLI_SCREEN_W / cell; mx++) {
+            if (mx < 0 || mx >= m->w) continue;
+            uint16_t c = cells[my * m->w + mx];
+            if (!(c & PULLI_TILE_MASK)) continue;         /* tile 0 is empty */
+            pulli_spr(g, c & PULLI_TILE_MASK, mx * cell - sx, my * cell - sy, 1, 1,
+                      c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
         }
     }
 }

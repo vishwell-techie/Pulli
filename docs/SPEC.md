@@ -173,8 +173,47 @@ offset  size  field
 ```
 
 At most 128 KB of pixels (§1). The pixels are used in place, never copied.
-`spr(n)` counts 8x8 cells left to right, top to bottom. The format of
-`map.ooru` is not yet defined.
+`spr(n)` counts 8x8 cells left to right, top to bottom.
+
+`pulli pack` turns every `.png` in a game's folder into a `.kolam` of the
+same name, so a game keeps `sprites.png` and never handles the format.
+A pixel less than half opaque becomes colour 0, which sprites treat as
+see-through. Any other pixel becomes the nearest of colours 1 to 63, so
+solid black is colour 32 and stays visible. `pulli palette` writes the 64
+colours as a `.gpl`, `.hex` or `.png` for a paint program; a picture drawn
+with them imports unchanged, and `pack` says so when colours had to move.
+PNG files of any colour type and depth are read, except interlaced ones.
+
+### map.ooru (draft)
+
+```
+offset  size     field
+0       4        magic "ORU1"
+4       2        width in tiles (u16 LE)
+6       2        height in tiles
+8       1        layers: 1 or 2
+9       1        reserved, 0
+10      2        count F of tile flags, at most 16384
+12      2*w*h*L  cells (u16 LE): layer 0 row by row, then layer 1
+...     F        flags: one byte for each tile number from 0 to F-1
+```
+
+A cell holds a tile number in its low 14 bits; bit 15 turns the tile over
+left to right and bit 14 top to bottom. Tile `n` is drawn as sprite `n`
+from the sprite sheet, and tile 0 is empty, so maps never draw the sheet's
+first cell. A map holds at most 32,768 cells over all its layers (64 KB,
+§1). A file whose length is not exactly what its header implies stops the
+game from starting. A package may hold several maps; `map.ooru` is the one
+loaded at the start.
+
+`pulli pack` turns every Tiled `.tmx` map in a game's folder into a
+`.ooru` of the same name. The map must be orthogonal, not infinite, with
+8x8 tiles from a single tileset, which is the game's sprite sheet. Its
+first two tile layers become layers 0 and 1. Tiles flipped in Tiled stay
+flipped; rotated tiles are refused. A tile's flags come from two custom
+properties on the tileset's tiles: `flags`, a number from 0 to 255, and
+`solid`, a tick box that sets bit 0. Object and image layers are not
+imported.
 
 ### sfx.oli and music.isai (draft)
 
@@ -286,11 +325,28 @@ does not accumulate: `fade(0.5)` every frame holds half brightness, and
 ### Map
 
 ```lua
-map.load("map.ooru")
-map.draw(layer, sx, sy)            -- layer 0 = bg, 1 = fg
-map.get(layer, cx, cy)  map.set(layer, cx, cy, tile)
+map.load(name)                     -- load another map from the package (default "map.ooru")
+map.size()                         -- width, height in tiles; 0, 0 with no map
+map.draw(layer, sx, sy)            -- layer 0 = behind, 1 = in front; sx, sy optional
+map.get(layer, cx, cy)             -- tile, flip_x, flip_y
+map.set(layer, cx, cy, tile, flip_x, flip_y)
 map.flags(tile)                    -- 8 collision/meta bits per tile
 ```
+
+- A game with a `map.ooru` starts with it loaded. `map.load` replaces the
+  loaded map, and is an error if the package has no map of that name.
+- `map.draw` draws a layer with its top-left corner at `(-sx, -sy)`. Like
+  every other drawing call it is moved by `camera()` and cut by `clip()`,
+  so `camera(x, y)` followed by `map.draw(0)` scrolls the map and the
+  sprites together, and a layer given a different `sx, sy` moves at its
+  own speed. Only tiles that reach the screen are drawn.
+- Tile 0 is empty. Tile `n` is sprite `n`, 8x8 pixels, and sprite
+  transparency applies, so layer 1 shows layer 0 through its gaps.
+- `map.set` changes the loaded map, not the package: loading the map again
+  brings the original back. A tile number above 16383 is ignored.
+- Outside the map, `map.get` gives 0 and `map.set` does nothing. With no
+  map loaded every function is harmless.
+- `map.flags` gives 0 for a tile that has no flags.
 
 ### Input
 
@@ -610,6 +666,11 @@ covered by `tests/`; none is frozen.
    `pack` builds them from WAV files, 8 effect channels with music on top,
    `sfx(-1)` to silence, a third `loop` argument to `music`, and a mixer
    inside the runtime that produces 735 samples per frame.
-14. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+14. **Pictures and maps** (§2, §3): PNG files become sprite sheets and
+   Tiled maps become `map.ooru` when a game is packed; the `map.ooru`
+   format, with 16-bit cells, flips and tile flags; `map.load`, `map.set`,
+   `map.flags` and the new `map.size`; `map.get` also returns the flips;
+   and `map.draw` now follows `camera()`, which it used to ignore.
+15. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

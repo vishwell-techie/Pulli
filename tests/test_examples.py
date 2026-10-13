@@ -20,7 +20,10 @@ RUNS = [("hello", 120,    None,           None),
         ("pong",  600,    None,           None),                  # sits on the menu
         ("pong",  3600,   "a",            None),                  # a whole match; the console wins
         ("pong",  3600,   "up",           "a@5"),
-        ("pong",  3600,   "x",            "down@1,a@5")]          # two players
+        ("pong",  3600,   "x",            "down@1,a@5"),          # two players
+        ("walk",  300,    None,           None),                  # sprites and a map from Tiled
+        ("walk",  600,    "right,down",   None),                  # walks until a wall stops it
+        ("walk",  900,    "down",         None)]                  # walks over a gem and takes it
 
 # Pong seeds its random numbers from the frame on which A is pressed. Pressed
 # on frame 6, the first serve goes to the console, which returns it: that
