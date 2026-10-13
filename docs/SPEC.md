@@ -173,8 +173,48 @@ offset  size  field
 ```
 
 At most 128 KB of pixels (§1). The pixels are used in place, never copied.
-`spr(n)` counts 8x8 cells left to right, top to bottom. The formats of
-`map.ooru`, `sfx.oli` and `music.isai` are not yet defined.
+`spr(n)` counts 8x8 cells left to right, top to bottom. The format of
+`map.ooru` is not yet defined.
+
+### sfx.oli and music.isai (draft)
+
+Two sound banks with one layout: `sfx.oli` holds the sounds `sfx(n)`
+plays, `music.isai` the tracks `music(n)` plays. Numbers are little-endian.
+
+```
+offset  size  field
+0       4     magic: "OLI1" for sfx.oli, "ISA1" for music.isai
+4       2     count of sounds, at most 256
+6       2     reserved, 0
+8       28*N  one entry per sound:
+                +0   4  offset of its data from the start of the bank
+                +4   4  size of its data in bytes
+                +8   4  length in frames (a frame is one sample per channel)
+                +12  4  loop start, a frame number below the length
+                +16  2  sample rate, 4000 to 48000 Hz
+                +18  1  channels: 1 or 2
+                +19  1  encoding: 0 exact, 1 squeezed
+                +20  8  loop state, for squeezed sounds (below)
+...           data, each sound starting on a multiple of 4
+```
+
+- **Exact** (encoding 0) is signed 16-bit samples, left before right.
+- **Squeezed** (encoding 1) is IMA ADPCM, 4 bits a sample: a quarter the
+  size, at a small cost in quality. The codes run in one unbroken stream
+  from a decoder that starts at value 0, step index 0. Sample `k`, counting
+  left and right separately, is the low half of byte `k / 2` when `k` is
+  even and the high half when odd.
+- **Loop state** lets a player jump back to the loop start of a squeezed
+  sound without decoding from the beginning: for the left channel and then
+  the right, the decoder's value (signed 16 bits), its step index (one byte,
+  at most 88) and a zero byte, as they stand just before the loop start.
+- A bank that breaks any of these rules stops the game from starting.
+
+`pulli pack` builds both banks from a game's `sfx/` and `music/` folders:
+the `.wav` files in each, numbered from 0 in order of file name. Sound
+effects are stored exact and music squeezed. A loop point marked in a WAV
+file is kept; otherwise music loops from its start. Mono or stereo PCM WAV,
+8 to 32 bit, 4000 to 48000 Hz.
 
 ### manifest.lua
 
@@ -267,10 +307,29 @@ confirm and quit, where a second firing would undo the first.
 ### Audio
 
 ```lua
-sfx(n, channel)   -- channel optional, -1 = auto
-music(n, fade_ms)
+sfx(n, channel)          -- play sound n; channel optional, -1 = auto
+music(n, fade_ms, loop)  -- play track n; fade_ms optional (0), loop optional (true)
 music_stop(fade_ms)
 ```
+
+- There are 8 sound-effect channels, 0 to 7. A sound started on a channel
+  replaces whatever was playing there. With no channel given the sound takes
+  a free one, or else the channel whose sound started longest ago.
+- `sfx(-1, channel)` silences that channel, and `sfx(-1)` all of them.
+- Music is mixed on top of the 8 channels. `music` with a fade brings the
+  new track in over `fade_ms` while the old one fades out over the same
+  time; `music_stop` fades out and stops. A track loops from its loop point
+  until stopped, or plays once when `loop` is false.
+- A sound or track number that does not exist does nothing, as does a
+  channel above 7. A game with no sounds may call all three freely.
+- A sound starts in the frame that asked for it. The engine mixes exactly
+  735 stereo samples per frame, 44.1 kHz, 16 bits.
+- Sounds add up at full level and the total is clipped, so eight loud
+  sounds at once distort: leave headroom in the source files.
+- A sound recorded at another rate is brought to 44.1 kHz by straight-line
+  interpolation between neighbouring samples.
+- The mix is integer arithmetic throughout (§4): the same game makes the
+  same samples on every machine.
 
 ### Save data
 
@@ -425,6 +484,9 @@ What the runtime does to make that true:
   arithmetic in software and gets the same bits, only more slowly. A port
   never switches a game to a different kind of number, because that would
   change how the game behaves.
+- **Sound is deterministic too.** The mixer is part of the runtime, works
+  in integers and is driven by the frame count, never by a sound card's
+  clock. A port receives finished samples and only has to play them.
 - **Fixed point is a choice, not a fallback.** The `fix` functions (§3) are
   integer arithmetic and are equally exact everywhere. A game may use them,
   floats, or both, but the same way on every device.
@@ -544,6 +606,10 @@ covered by `tests/`; none is frozen.
 12. **Fixed point** (§3): the `fix` functions for 16.16 numbers, their
    rounding and wrapping rules, and the uniformity rule: the same kind of
    number on every device.
-13. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+13. **Audio** (§2, §3): the `sfx.oli` and `music.isai` bank format, how
+   `pack` builds them from WAV files, 8 effect channels with music on top,
+   `sfx(-1)` to silence, a third `loop` argument to `music`, and a mixer
+   inside the runtime that produces 735 samples per frame.
+14. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

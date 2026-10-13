@@ -1,6 +1,12 @@
 hello frames=120 hold=- tap=- 89c7d74ded45b635733a506e9715a77cad1f063918f9aedc4686fb8e5dbd4dc4
+hello frames=120 hold=- tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
 hello frames=120 hold=right,down,a tap=- 7c4470b4624c0fdc93f3e88de46511eca0d932aae2ea13b6621123c386bd2e6c
+hello frames=120 hold=right,down,a tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
 pong frames=600 hold=- tap=- feb1b6832b21ff5693923d7a7fc32912ed9573e011546546b1ceff84fda7d563
+pong frames=600 hold=- tap=- sound 59a6466ca2844d2aab8e0fb04f5dc71cf1104f04b254cf2280db08a944560bf7
 pong frames=3600 hold=a tap=- 3b5a33d3650a012149e4d9ba5faee2492276d52e668c33ba27d9ac2c4a6f2105
+pong frames=3600 hold=a tap=- sound 2c3fed91d60962de5eedc52bd246faa5ca92ecb4e2c646fefb34e74cdafb8b9c
 pong frames=3600 hold=up tap=a@5 2164a7f902d78c58efe1cdf108831a83c704b3b9c0892a5b00eda9a6d9f31e22
+pong frames=3600 hold=up tap=a@5 sound 3705d36e885c75be179fc85308157f58b85acd16217c1298e4227b26aa160a79
 pong frames=3600 hold=x tap=down@1,a@5 81b99b15c947b9c1116e1e1ab881905bb9b57bb3b2888d6ac26fdac4f9d5cccd
+pong frames=3600 hold=x tap=down@1,a@5 sound 3705d36e885c75be179fc85308157f58b85acd16217c1298e4227b26aa160a79

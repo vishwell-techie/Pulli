@@ -220,6 +220,8 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
     if (!pulli_pkg_find(&e->pkg, "main.lua", &main_lua))     return fail(e, "package has no main.lua");
     if (!load_manifest(e, manifest)) return false;
     if (pulli_pkg_find(&e->pkg, "sprites.kolam", &sprites) && !load_sprites(e, sprites)) return false;
+    const char *bank, *why_not = pulli_audio_boot(e, &bank);
+    if (why_not) return fail(e, "%s: %s", bank, why_not);
 
     if (e->manifest.save_target != PULLI_SAVE_NONE) {
         e->save = malloc((size_t)e->manifest.save_size);
@@ -259,7 +261,14 @@ bool pulli_update(pulli_engine *e, uint32_t buttons) {
     /* Step the GC every frame rather than letting it decide when to stop
      * the world. On the MCU this is not optional. */
     lua_gc(e->L, LUA_GCSTEP, 2);
-    return run_callback(e, "update", true);
+    if (!run_callback(e, "update", true)) return false;
+
+    /* This frame's sound, including whatever update() just started. */
+    if (e->backend && e->backend->audio) {
+        pulli_audio_mix(&e->audio, e->audio.out, PULLI_AUDIO_FRAMES);
+        e->backend->audio(e->audio.out, PULLI_AUDIO_FRAMES);
+    }
+    return true;
 }
 
 bool pulli_draw(pulli_engine *e) {
