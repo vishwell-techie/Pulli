@@ -1,72 +1,57 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 
-# pico: RP2040 / RP2350 boards via the Pico SDK (pick the board with -DPICO_BOARD=pico|pico2)
-# host: runs the same runtime on Linux, for testing carts without hardware
-set(PULLI_PLATFORM "pico" CACHE STRING "Target platform: pico or host")
-set(PULLI_CART "${CMAKE_CURRENT_LIST_DIR}/../carts/hello/main.lua" CACHE FILEPATH "Cart built into the firmware")
+# Pulli firmware for RP2350 boards. Default board: Raspberry Pi Pico 2.
+# Needs the Pico SDK 2.x (PICO_SDK_PATH), arm-none-eabi-gcc and Python 3.
+#
+# Bring-up stage: one chip and no display. It runs the real runtime from
+# ../runtime on a game linked into the image and reports timings over USB
+# serial. The desktop host is built by the top-level CMakeLists.txt instead.
 
-if(PULLI_PLATFORM STREQUAL "pico")
-    include(pico_sdk_import.cmake)
+if(NOT PICO_BOARD)
+    set(PICO_BOARD pico2 CACHE STRING "Board to build for")
+endif()
+set(PULLI_GAME "${CMAKE_CURRENT_LIST_DIR}/../examples/pong" CACHE PATH
+    "Game directory linked into the firmware")
+
+include(pico_sdk_import.cmake)
+project(pulli_firmware C CXX ASM)
+pico_sdk_init()
+
+if(NOT PICO_RP2350)
+    message(FATAL_ERROR "Pulli targets the RP2350 (SPEC §0.1). ${PICO_BOARD} is not an RP2350 board; "
+                        "an RP2040 has too little RAM for the framebuffer and the Lua heap.")
 endif()
 
-project(pulli C CXX ASM)
-set(CMAKE_C_STANDARD 11)
+include(../cmake/lua.cmake)
+add_subdirectory(../runtime runtime)
 
-if(PULLI_PLATFORM STREQUAL "pico")
-    pico_sdk_init()
-endif()
-
-# --- Lua -------------------------------------------------------------------
-include(FetchContent)
-if(POLICY CMP0135)
-    cmake_policy(SET CMP0135 NEW)
-endif()
-FetchContent_Declare(lua
-    URL https://www.lua.org/ftp/lua-5.4.8.tar.gz
-    URL_HASH SHA256=4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae
-    # 32-bit integers and floats: the RP2040 has no FPU and the RP2350 only a
-    # single-precision one. The host build uses the same so carts behave alike.
-    PATCH_COMMAND sed -i "s/^#define LUA_32BITS[ \t]*0/#define LUA_32BITS 1/" src/luaconf.h
-)
-FetchContent_MakeAvailable(lua)
-
-set(LUA_SRC ${lua_SOURCE_DIR}/src)
-# No io/os/package/debug libraries and no linit.c: vaasal.c opens the libraries carts may use.
-add_library(lua STATIC
-    ${LUA_SRC}/lapi.c ${LUA_SRC}/lauxlib.c ${LUA_SRC}/lbaselib.c ${LUA_SRC}/lcode.c
-    ${LUA_SRC}/lcorolib.c ${LUA_SRC}/lctype.c ${LUA_SRC}/ldebug.c ${LUA_SRC}/ldo.c
-    ${LUA_SRC}/ldump.c ${LUA_SRC}/lfunc.c ${LUA_SRC}/lgc.c ${LUA_SRC}/llex.c
-    ${LUA_SRC}/lmathlib.c ${LUA_SRC}/lmem.c ${LUA_SRC}/lobject.c ${LUA_SRC}/lopcodes.c
-    ${LUA_SRC}/lparser.c ${LUA_SRC}/lstate.c ${LUA_SRC}/lstring.c ${LUA_SRC}/lstrlib.c
-    ${LUA_SRC}/ltable.c ${LUA_SRC}/ltablib.c ${LUA_SRC}/ltm.c ${LUA_SRC}/lundump.c
-    ${LUA_SRC}/lutf8lib.c ${LUA_SRC}/lvm.c ${LUA_SRC}/lzio.c
-)
-target_include_directories(lua PUBLIC ${LUA_SRC})
-
-# --- Built-in cart ---------------------------------------------------------
-set(CART_C ${CMAKE_CURRENT_BINARY_DIR}/cart_builtin.c)
+# --- the built-in game: packed, then linked in as a byte array -----------
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+get_filename_component(PULLI_GAME "${PULLI_GAME}" ABSOLUTE)
+file(GLOB game_files CONFIGURE_DEPENDS "${PULLI_GAME}/*")
+set(game_pkg ${CMAKE_CURRENT_BINARY_DIR}/builtin.pulli)
+set(game_c ${CMAKE_CURRENT_BINARY_DIR}/builtin_game.c)
 add_custom_command(
-    OUTPUT ${CART_C}
-    COMMAND ${CMAKE_COMMAND} -DIN=${PULLI_CART} -DOUT=${CART_C} -P ${CMAKE_CURRENT_LIST_DIR}/cmake/embed_cart.cmake
-    DEPENDS ${PULLI_CART} ${CMAKE_CURRENT_LIST_DIR}/cmake/embed_cart.cmake
+    OUTPUT ${game_c}
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../tools/pulli.py pack ${PULLI_GAME} ${game_pkg}
+    COMMAND ${CMAKE_COMMAND} -DIN=${game_pkg} -DOUT=${game_c} -DNAME=pulli_builtin_game
+            -P ${CMAKE_CURRENT_LIST_DIR}/../cmake/embed.cmake
+    DEPENDS ${game_files} ${CMAKE_CURRENT_LIST_DIR}/../tools/pulli.py
+            ${CMAKE_CURRENT_LIST_DIR}/../cmake/embed.cmake
     VERBATIM
 )
 
-# --- Vaasal ----------------------------------------------------------------
-add_executable(pulli src/vaasal.c ${CART_C})
-target_include_directories(pulli PRIVATE src)
+add_executable(pulli main.c ${game_c})
 target_compile_options(pulli PRIVATE -Wall -Wextra)
-
-if(PULLI_PLATFORM STREQUAL "pico")
-    target_sources(pulli PRIVATE port/pico.c)
-    target_link_libraries(lua PUBLIC pico_stdlib)
-    target_link_libraries(pulli PRIVATE lua pico_stdlib)
-    pico_enable_stdio_usb(pulli 1)
-    pico_enable_stdio_uart(pulli 0)
-    pico_add_extra_outputs(pulli)
-elseif(PULLI_PLATFORM STREQUAL "host")
-    target_sources(pulli PRIVATE port/host.c)
-    target_link_libraries(pulli PRIVATE lua m)
-else()
-    message(FATAL_ERROR "PULLI_PLATFORM must be pico or host, got '${PULLI_PLATFORM}'")
-endif()
+target_compile_definitions(pulli PRIVATE
+    # Lua recurses on the C stack while it compiles and runs a game. The
+    # SDK's 2 KB default is far too small. 16 KB is an estimate that has not
+    # yet been measured on a board; the guard turns an overflow into a fault
+    # instead of silent corruption.
+    PICO_STACK_SIZE=0x4000
+    PICO_USE_STACK_GUARDS=1
+)
+target_link_libraries(pulli PRIVATE pulli_runtime pico_stdlib)
+pico_enable_stdio_usb(pulli 1)
+pico_enable_stdio_uart(pulli 0)
+pico_add_extra_outputs(pulli)
