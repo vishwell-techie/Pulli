@@ -10,6 +10,7 @@
 #include "pico/stdlib.h"
 
 #include "pulli.h"
+#include "pmath.h"
 
 extern const unsigned char pulli_builtin_game[];
 extern const unsigned int pulli_builtin_game_len;
@@ -92,6 +93,10 @@ static void run_game(void) {
 int main(void) {
     stdio_init_all();
     sleep_ms(2000);     /* give a serial terminal a moment to attach */
+    /* The desktop and this board must compute the same bits (SPEC §4). */
+    uint32_t maths = pulli_math_check();
+    printf("[pulli] maths check %s (%08x, expected %08x)\n",
+           maths == PULLI_MATH_CHECK ? "passed" : "FAILED", (unsigned)maths, (unsigned)PULLI_MATH_CHECK);
     for (;;) {
         run_game();
         printf("[pulli] game stopped, restarting in 5 s\n");

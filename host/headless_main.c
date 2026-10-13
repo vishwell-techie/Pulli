@@ -9,10 +9,13 @@
  *     --saves DIR       keep save data in DIR (default: discarded on exit)
  *     --dump-fb FILE    write the final indexed framebuffer, 76800 bytes
  *     --dump-rgb FILE   write the final screen as RGB565, little-endian
+ *   pulli-headless --maths-check
+ *     run the maths self-check (runtime/pmath.h) and print the result
  *
  * Game dbg() output goes to stdout; everything else goes to stderr. Exits 0
  * if the game ran every frame, 1 if it failed, 2 on a usage error. */
 #include "common.h"
+#include "pmath.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,6 +76,11 @@ int main(int argc, char **argv) {
     backend.save_write = host_save_write;
     backend.log = host_log;
 
+    if (argc == 2 && !strcmp(argv[1], "--maths-check")) {
+        uint32_t sum = pulli_math_check();
+        printf("%08x %08x\n", (unsigned)sum, (unsigned)PULLI_MATH_CHECK);
+        return sum == PULLI_MATH_CHECK ? 0 : 1;
+    }
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;

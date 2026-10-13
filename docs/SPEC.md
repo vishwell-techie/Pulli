@@ -323,6 +323,42 @@ The emulator links two host windows on one computer: start both with
 this way. How the link is carried between real consoles is not part of this
 contract.
 
+### Fixed point
+
+Games compute in floats by default. `fix` is an optional second kind of
+number for a game that wants whole-number exactness: a 16.16 fixed-point
+number is an ordinary Lua integer that counts 65536ths, so `fix.one` is
+65536 and one and a half is 98304.
+
+```lua
+fix.one, fix.pi        -- 65536, 205887
+fix.from(n)            -- a number as fixed point; an integer n means n whole units
+fix.to(a)              -- fixed point as a float
+fix.floor(a)           -- the whole part, as an integer, rounded down
+fix.mul(a, b)   fix.div(a, b)   fix.sqrt(a)
+fix.sin(a)      fix.cos(a)      fix.atan(y [, x])    -- angles in radians
+```
+
+- Add, subtract, negate and compare with Lua's own `+`, `-` and `<`.
+  Multiply and divide need `fix.mul` and `fix.div`; `*` and `/` on two
+  fixed-point numbers give the wrong scale.
+- The range is -32768 to just under 32768, in steps of 1/65536. Everything
+  wraps around at 32 bits, as Lua integers do; nothing clamps. `fix.from`
+  gives 0 for infinity and not-a-number.
+- `from`, `floor`, `mul`, `div` and `sqrt` round down (toward minus
+  infinity). `sin`, `cos` and `atan` round to the nearest 65536th. `to`
+  rounds to the nearest float.
+- `fix.div` by zero and `fix.sqrt` of a negative number are errors.
+- Every function except `from` takes integers only. A float that is not a
+  whole number is refused, which catches a float passed by mistake.
+- Results are the same bits on every machine, as for floats (§4).
+
+**Uniformity rule.** A game uses the same kind of number for the same
+calculation on every device. The engine never switches a game between
+floats and fixed point, and a game must not choose between them by asking
+what hardware it is on. Which one a calculation uses is decided when the
+game is written.
+
 ### System
 
 ```lua
@@ -377,9 +413,30 @@ What the runtime does to make that true:
   userdata keys still depends on memory addresses: do not let game logic
   depend on it.
 
-Not yet covered: `math.sin`, `cos`, `sqrt`, `exp`, `log` and `^` come from
-the C library, which differs between desktop and device in the last bit.
-Still open.
+- **One maths library everywhere.** `math.sin`, `cos`, `tan`, `asin`,
+  `acos`, `atan`, `exp`, `log` and the `^` operator are computed by the
+  runtime itself, in integer arithmetic, and not by the C library. They
+  return the same bits on every machine, and each result is within one unit
+  in the last place of the true value. `math.sqrt`, `math.fmod`, `%`, `//`,
+  `math.floor` and `math.ceil` are left to the platform, because IEEE 754
+  defines their results exactly.
+- **A float unit is optional.** Games always compute in 32-bit IEEE floats.
+  A chip with a float unit uses it; a chip without one does the same
+  arithmetic in software and gets the same bits, only more slowly. A port
+  never switches a game to a different kind of number, because that would
+  change how the game behaves.
+- **Fixed point is a choice, not a fallback.** The `fix` functions (§3) are
+  integer arithmetic and are equally exact everywhere. A game may use them,
+  floats, or both, but the same way on every device.
+- **A port proves it.** The runtime carries a self-check that runs these
+  functions, plain float arithmetic and fixed point over a fixed set of
+  inputs and compares a checksum of the results with a recorded value. A
+  port is not conformant until it passes.
+
+Not yet covered: turning a number into text and text into a number
+(`tostring`, `string.format`, `tonumber`, and decimal numbers written in
+source) still goes through the C library. A game whose logic depends on the
+exact digits may differ between desktop and device.
 
 ---
 
@@ -480,6 +537,13 @@ covered by `tests/`; none is frozen.
    reserved names. Developer builds carry a default licence and signature.
 10. **Link API** (§3): `link.status`, `link.side`, `link.send`, `link.recv`,
    with their limits and delivery rules.
-11. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+11. **Maths** (§4): the runtime's own `sin`, `cos`, `tan`, `asin`, `acos`,
+   `atan`, `exp`, `log` and `^`, identical on every machine; software
+   floats on a chip with no float unit; and the self-check a port must
+   pass. This closes the gap §4 used to list.
+12. **Fixed point** (§3): the `fix` functions for 16.16 numbers, their
+   rounding and wrapping rules, and the uniformity rule: the same kind of
+   number on every device.
+13. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

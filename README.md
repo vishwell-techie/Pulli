@@ -21,6 +21,8 @@ Software first; hardware comes last.
 | Desktop host, windowed and headless | built and tested on Linux (Raspberry Pi 5) |
 | Reference rasterizer and conformance suite | passing; the C engine matches it byte for byte |
 | Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check` |
+| Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; tested on desktop, not yet run on a board |
+| 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Examples | hello, pong |
 | Audio | silent |
@@ -51,7 +53,7 @@ runtime/     the engine, shared unchanged by every port
 host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 tools/       pulli.py command line, reference rasterizer, font generator
-tests/       conformance, package, runtime and example tests
+tests/       conformance, package, runtime, maths, link and example tests
 examples/    hello, pong
 cmake/       pinned Lua build shared by host and firmware
 ```
@@ -112,6 +114,7 @@ function draw()      end   -- after each update
 -- cls pset pget line rect rectfill circ circfill spr sspr print
 -- camera clip pal palt fade   btn btnp   sfx music   save load   time dbg
 -- link.status link.side link.send link.recv   sys.has
+-- fix.from fix.to fix.floor fix.mul fix.div fix.sqrt fix.sin fix.cos fix.atan
 ```
 
 `docs/SPEC.md` §3 is the full API.
@@ -127,7 +130,9 @@ ninja -C firmware/build                           # firmware/build/pulli.uf2
 ```
 
 It runs Pong with no display and prints update, draw and screen-conversion
-times and Lua memory over USB serial once a second. `-DPULLI_GAME=<folder>`
+times and Lua memory over USB serial once a second. At start-up it prints
+whether the maths check passed: the board must compute exactly what the
+desktop computes. `-DPULLI_GAME=<folder>`
 links in a different game. The board has no buttons yet: for Pong the
 firmware taps A every two seconds to get past the title screen, and
 `-DPULLI_AUTO_A_SECONDS=<n>` does the same for another game (0 turns it off).
