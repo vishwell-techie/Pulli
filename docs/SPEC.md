@@ -256,6 +256,40 @@ type, the store is full, or the game has no `save_target`. Saving `nil`
 deletes the key. `load` returns the value with the type it was saved with.
 *Not yet: flat tables.*
 
+### Link
+
+Two consoles joined by a link cable can exchange short messages. This is
+optional hardware: check `sys.has("link")` before building a mode around it.
+
+```lua
+link.status()   -- "off" (no link hardware), "waiting" or "connected"
+link.side()     -- 1 or 2 while connected, otherwise nil
+link.send(msg)  -- queue a string for the other console; true if accepted
+link.recv()     -- the next message that arrived, or nil
+```
+
+- A message is a string of at most 64 bytes; `string.pack` and
+  `string.unpack` are the way to put numbers in one. A game may send at
+  most 8 messages per frame. `send` returns `false` beyond either limit, or
+  when not connected.
+- While connected, messages arrive whole, in the order sent, none lost. A
+  message is never delivered in the frame it was sent; one frame later is
+  the best case, and a game must not count on a particular delay.
+- The two consoles are given different sides, 1 and 2, when they connect.
+  That is all the link decides: a game uses it to agree who does what, for
+  example side 1 running the match and side 2 following.
+- The link carries bytes between two copies of the same game. It does not
+  keep them in step; what to send, and what to do when the other side is
+  late or gone, is the game's protocol. When the other console leaves,
+  `status` returns to `"waiting"` and anything not yet received is dropped.
+- Messages come from another console: treat them like any outside input
+  and check their length and contents before using them.
+
+The emulator links two host windows on one computer: start both with
+`--link` and the same port number. `examples/pong` has a link mode built
+this way. How the link is carried between real consoles is not part of this
+contract.
+
 ### System
 
 ```lua
@@ -408,6 +442,8 @@ covered by `tests/`; none is frozen.
    per game as the only thing a backend stores.
 8. **`btnp` repeat** (§3): the timing is now defined, and `start` and
    `select` are excluded from it.
-9. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+9. **Link API** (§3): `link.status`, `link.side`, `link.send`, `link.recv`,
+   with their limits and delivery rules.
+10. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

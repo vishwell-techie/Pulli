@@ -1,6 +1,8 @@
 /* sdl_main.c — Pulli desktop host: a window, a keyboard and a clock.
  *
- *   pulli-host <game.pulli> [scale]
+ *   pulli-host <game.pulli> [scale] [--link PORT]
+ *
+ * Start two with the same --link port to play a linked game between them.
  *
  * Everything platform-specific lives in host/. The engine in runtime/ is
  * shared verbatim with the RP2350 firmware; porting means writing a file
@@ -10,6 +12,7 @@
 #include "common.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define SCALE_DEFAULT 3
 
@@ -28,16 +31,28 @@ static const SDL_Scancode KEYMAP[PULLI_BTN_COUNT] = {
 };
 
 int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "usage: pulli-host <game.pulli> [scale]\n");
+    const char *game = NULL, *link_port = NULL;
+    int scale = SCALE_DEFAULT;
+    bool bad = false;
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--link")) {
+            if (++i < argc) link_port = argv[i]; else bad = true;
+        } else if (!game) {
+            game = argv[i];
+        } else if (atoi(argv[i]) >= 1) {
+            scale = atoi(argv[i]);
+        } else {
+            bad = true;
+        }
+    }
+    if (!game || bad) {
+        fprintf(stderr, "usage: pulli-host <game.pulli> [scale] [--link PORT]\n");
         return 2;
     }
-    int scale = argc > 2 ? atoi(argv[2]) : SCALE_DEFAULT;
-    if (scale < 1) scale = SCALE_DEFAULT;
 
     size_t len;
-    uint8_t *data = host_read_file(argv[1], &len);
-    if (!data) { fprintf(stderr, "pulli-host: cannot read %s\n", argv[1]); return 2; }
+    uint8_t *data = host_read_file(game, &len);
+    if (!data) { fprintf(stderr, "pulli-host: cannot read %s\n", game); return 2; }
 
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -53,6 +68,11 @@ int main(int argc, char **argv) {
     backend.save_read = host_save_read;
     backend.save_write = host_save_write;
     backend.log = host_log;                 /* audio hooks stay NULL: silent for now */
+    if (link_port && !host_use_link(&backend, link_port, false)) {
+        fprintf(stderr, "pulli-host: cannot open a link on port %s (use 1024 to 65535)\n", link_port);
+        SDL_Quit();
+        return 2;
+    }
 
     if (!pulli_boot(&engine, data, len, &backend)) {
         fprintf(stderr, "error: %s\n", engine.error);
@@ -113,6 +133,7 @@ int main(int argc, char **argv) {
     int status = engine.error[0] ? 1 : 0;
     if (status) fprintf(stderr, "error: %s\n", engine.error);
     pulli_shutdown(&engine);
+    host_link_close();
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);

@@ -83,6 +83,16 @@ bool host_save_write(const char *game_id, const void *blob, size_t len) {
     return fclose(f) == 0 && ok;
 }
 
+bool host_use_link(pulli_backend *backend, const char *port, bool step) {
+    int n = atoi(port);
+    if (n < 1024 || n > 65535 || !host_link_open(n, step)) return false;
+    backend->caps |= PULLI_CAP_LINK;
+    backend->link_poll = host_link_poll;
+    backend->link_send = host_link_send;
+    backend->link_recv = host_link_recv;
+    return true;
+}
+
 void host_log(const char *msg) {
     printf("%s\n", msg);
     fflush(stdout);

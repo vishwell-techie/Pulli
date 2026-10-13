@@ -5,7 +5,8 @@
     python3 tools/pulli.py pack   <dir> [out.pulli]        build a package
     python3 tools/pulli.py list   <game.pulli>             show what is inside
     python3 tools/pulli.py unpack <game.pulli> <dir>       extract the files
-    python3 tools/pulli.py run    <dir|game.pulli> [scale] play it in a window
+    python3 tools/pulli.py run    <dir|game.pulli> [scale] [--link PORT]
+                                                           play it in a window
     python3 tools/pulli.py check  <dir|game.pulli> [frames] run it with no window
 
 Deliberately dependency-free: this has to run on a student's laptop with a
@@ -224,8 +225,8 @@ def _launch(name, target, extra):
     return subprocess.call([host, target] + extra)
 
 
-def cmd_run(target, scale=None):
-    return _launch("pulli-host", target, [scale] if scale else [])
+def cmd_run(target, *options):
+    return _launch("pulli-host", target, list(options))
 
 
 def cmd_check(target, frames="600"):
@@ -234,7 +235,7 @@ def cmd_check(target, frames="600"):
 
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
-    "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 2), "check": (cmd_check, 1, 2),
+    "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 4), "check": (cmd_check, 1, 2),
 }
 
 

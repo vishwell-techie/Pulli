@@ -21,6 +21,7 @@ Software first; hardware comes last.
 | Desktop host, windowed and headless | built and tested on Linux (Raspberry Pi 5) |
 | Reference rasterizer and conformance suite | passing; the C engine matches it byte for byte |
 | Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check` |
+| Link between two consoles | works between two emulator windows; no hardware link yet |
 | Examples | hello, pong |
 | Audio | silent |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
@@ -90,6 +91,14 @@ python3 tools/pulli.py pack mygame         # write mygame.pulli
 python3 tools/pulli.py run examples/pong 3 # 3 = window scale
 ```
 
+To try link play, start two windows with the same port and pick LINK PLAY
+in both:
+
+```bash
+python3 tools/pulli.py run examples/pong 2 --link 7000 &
+python3 tools/pulli.py run examples/pong 2 --link 7000
+```
+
 Keys: arrows move, `Z`/`X` are A/B, `A`/`S` are X/Y, `Q`/`W` are L/R, Enter
 is start, right Shift is select, Esc quits.
 
@@ -102,6 +111,7 @@ function draw()      end   -- after each update
 
 -- cls pset pget line rect rectfill circ circfill spr sspr print
 -- camera clip pal palt fade   btn btnp   sfx music   save load   time dbg
+-- link.status link.side link.send link.recv   sys.has
 ```
 
 `docs/SPEC.md` §3 is the full API.

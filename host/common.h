@@ -21,4 +21,16 @@ bool host_save_write(const char *game_id, const void *blob, size_t len);
 
 void host_log(const char *msg);     /* game dbg() output, to stdout */
 
+/* The link, emulated between two host processes given the same port on this
+ * computer. `step` makes linked runs repeatable; see link.c. */
+bool host_link_open(int port, bool step);
+pulli_link_state host_link_poll(int *side);
+bool host_link_send(const void *msg, size_t len);
+int  host_link_recv(void *msg, size_t max);
+void host_link_close(void);
+
+/* Adds the link to a backend. False if the port is bad or links are not
+ * available on this system. */
+bool host_use_link(pulli_backend *backend, const char *port, bool step);
+
 #endif
