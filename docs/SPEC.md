@@ -159,9 +159,9 @@ kind it does not know.
 
 Lua sources are stored as **precompiled bytecode** (`luac -s`) in release
 builds and as plain source in dev builds. The loader accepts either.
-*Not yet: the runtime loads source only and refuses bytecode. Lua does not
-verify bytecode, so accepting it from a package means trusting whoever built
-the package. How release builds should ship is still open.*
+*Not yet: until the store exists, packages carry Lua source only and the
+runtime refuses bytecode. Lua does not verify bytecode, so accepting it from
+a package means trusting whoever built the package.*
 
 ### sprites.kolam (draft)
 
@@ -293,7 +293,8 @@ at all, 64 KB of memory and a limit on how long it may run.
 
 `id`, `title` and `spec` are required. `id` may use letters, digits, `.`,
 `_` and `-`, and may not start with `.`; it names the game's save data.
-Defaults: `save_target = "none"`, `save_size = 4096`, `lua_heap = 256`.
+Defaults: `save_target = "none"`, `save_size = 4096`, `save_mode = "exit"`,
+`save_interval = 60`, `lua_heap = 256`.
 A game whose `spec` is newer than the runtime is refused. Unknown fields
 are ignored.
 
@@ -305,7 +306,7 @@ are ignored.
 
 ```lua
 function init()      end  -- once, after assets mount
-function update(dt)  end  -- 60 Hz, dt in seconds (fixed 1/60 on device)
+function update(dt)  end  -- 60 Hz, dt in seconds: always 1/60 (§4)
 function draw()      end  -- 60 Hz, after update
 ```
 
@@ -328,6 +329,7 @@ clip(x, y, w, h)                   -- nil = reset
 pal(a, b)                          -- remap palette index a -> b
 palt(c, is_transparent)
 fade(amount)                       -- 0..1, palette-level, free
+palette(c, r, g, b)                -- give colour c new RGB; palette(c) reads it (§5)
 ```
 
 **Arguments.** Every coordinate and size may be a float; it is rounded down
@@ -397,7 +399,7 @@ music_pause(paused)      -- true (the default) holds the music still; false carr
   it is; sound effects are not affected. `music_stop` and starting new music
   both end a pause. Pausing with no music playing does nothing.
 - A sound or track number that does not exist does nothing, as does a
-  channel above 7. A game with no sounds may call all three freely.
+  channel above 7. A game with no sounds may call any of them freely.
 - A sound starts in the frame that asked for it. The engine mixes exactly
   735 stereo samples per frame, 44.1 kHz, 16 bits.
 - Sounds add up at full level and the total is clipped, so eight loud
@@ -525,7 +527,7 @@ game is written.
 
 ```lua
 sys.has(cap)       -- "video","wifi","cart","rumble","link" -- hardware varies by variant
-time()             -- seconds since boot, float
+time()             -- seconds since the game started: stat("frame") / 60
 stat("fps") stat("mem") stat("cpu") stat("frame")
 dbg(...)           -- printf to host console / device serial; stripped in release
 ```
@@ -611,7 +613,8 @@ assume hardware is present.
 
 `update(dt)` receives a fixed 1/60 on device and on host by default. Games
 that use `dt` for integration still work; games that assume fixed step also
-work. The host may run in variable-step mode for debugging, behind a flag.
+work. The host may one day offer a variable-step mode for debugging,
+behind a flag; none exists yet.
 
 Rationale: determinism gives us replay files, which give us automated
 regression tests for the runtime — the only practical way to verify that
@@ -686,9 +689,10 @@ pulli flash            push to device over USB
 ```
 
 Today the CLI is `python3 tools/pulli.py`. `new`, `pack`, `list`, `unpack`
-and `run` work; `check` runs the game with no window and reports errors and
-peak memory, without the static checks yet; hot reload and `flash` do not
-exist yet.
+and `run` work, as do `palette` (write the palette for a paint program) and
+`add` (list the SDK helpers, or copy one into a game to change it); `check`
+runs the game with no window and reports errors and peak memory, without the
+static checks yet; hot reload and `flash` do not exist yet.
 
 ---
 
@@ -725,7 +729,8 @@ exist yet.
 - **The PIO link is the new schedule risk.** Not technically hard, but
   inter-chip bring-up always takes longer than planned. Budget three weeks.
 - **One frame of added input latency** from the CPU/GPU pipeline. Fine for
-  RPGs; a `lowlatency` manifest flag exists for twitch games.
+  RPGs; a `lowlatency` manifest flag is planned for twitch games, but is
+  not part of v0.1.
 - **Index-to-RGB565 conversion cost is still unmeasured**, now on the GPU
   chip where it has more room to be slow.
 - **Lua GC pauses.** Mitigation is stepped GC per frame plus object pooling in
@@ -790,4 +795,10 @@ covered by `tests/`; none is frozen.
    `stat("fps")` and `stat("cpu")`, from a port-supplied clock.
 17. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
-   ADR-002.
+   ADR-002. §3 now says what the runtime does: `dt` is 1/60 on every
+   machine, `time()` counts from the start of the game, and `palette` is in
+   the graphics list; §2 gives every manifest default; §4 no longer
+   describes a variable-step flag as existing, nor §9 a `lowlatency` flag;
+   §6 lists today's commands.
+18. **Lua source only** (§2): until the store exists, packages carry Lua
+   source and the runtime refuses bytecode.

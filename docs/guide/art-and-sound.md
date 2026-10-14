@@ -94,8 +94,9 @@ and add a custom property:
 - A map holds at most 32,768 tiles over both layers, for example two
   layers of 128 × 128.
 - Object layers are not imported. To place things such as a player's start
-  or enemies, draw their tiles on a layer and look for them in `init()`, as
-  `examples/manickam` does.
+  or enemies, draw their tiles on a layer and look for them with `map.get`
+  when the map is loaded, as `examples/manickam` does at the start of each
+  level.
 
 ## Sound effects and music
 

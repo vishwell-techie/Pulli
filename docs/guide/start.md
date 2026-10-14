@@ -67,6 +67,7 @@ Anything else in the folder is optional:
 | `map.tmx`, or any other `.tmx` | a map made in Tiled |
 | `sfx/*.wav` | sound effects: `sfx(0)` plays the first file by name |
 | `music/*.wav` | music: `music(0)` plays the first |
+| `palette.hex` or `palette.gpl` | 64 colours of your own instead of Pulli's: see [Art and sound](art-and-sound.md) |
 | any other `.lua` file | a module, loaded with `require("name")` |
 
 ## How a game runs

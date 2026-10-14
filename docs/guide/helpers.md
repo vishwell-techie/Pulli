@@ -69,5 +69,6 @@ python3 tools/pulli.py add mygame dialog    # copies sdk/dialog.lua into mygame/
 
 ## Helpers and memory
 
-Each helper costs some of your 256 KB of Lua memory, more for the bigger
-ones such as `dialog`. `stat("mem")` shows what is in use.
+Each helper costs some of your 256 KB of Lua memory: about 5 to 7 KB each,
+and about 15 KB for the biggest, `dialog`. `examples/manickam` requires ten
+and uses about 115 KB in all. `stat("mem")` shows what is in use.
