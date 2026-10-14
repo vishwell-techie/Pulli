@@ -26,7 +26,8 @@ Software first; hardware comes last.
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed |
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
-| Examples | hello, pong, walk, talk |
+| Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
+| Examples | hello, pong, walk, talk, catch |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
@@ -48,14 +49,14 @@ Measured against `docs/SPEC.md`:
 ## Layout
 
 ```
-docs/        SPEC.md, the platform contract
+docs/        SPEC.md, the platform contract; guide/, the game developer's guide
 runtime/     the engine, shared unchanged by every port
 host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 sdk/         helpers written in Lua for games to require: tween, dialog and more
 tools/       pulli.py command line, reference rasterizer and mixer, font generator
-tests/       conformance, package, runtime, maths, audio, asset, SDK, link and example tests
-examples/    hello, pong, walk, talk
+tests/       conformance, package, runtime, maths, audio, asset, SDK, guide, link and example tests
+examples/    hello, pong, walk, talk, catch (the tutorial's game)
 cmake/       pinned Lua build shared by host and firmware
 ```
 
@@ -84,6 +85,10 @@ Without SDL2 everything except the windowed `pulli-host` still builds and
 the tests still run.
 
 ## Make and run a game
+
+**[Nool, the game developer's guide](docs/guide/README.md)** starts from
+nothing and builds a complete game in eight steps, then covers art, sound,
+maps, the helpers and every function. What follows is the short version.
 
 ```bash
 python3 tools/pulli.py new mygame          # scaffold manifest.lua and main.lua
