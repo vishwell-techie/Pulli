@@ -24,7 +24,14 @@ RUNS = [("hello", 120,    None,           None),
         ("walk",  120,    None,           None),                  # waits on the title screen
         ("walk",  300,    None,           "a@5"),                 # sprites, a map from Tiled, music
         ("walk",  600,    "right,down",   "a@5"),                 # walks until a wall stops it
-        ("walk",  3000,   None,           "a@5,a@2900")]          # runs out of time, then tries again
+        ("walk",  3000,   None,           "a@5,a@2900"),          # runs out of time, then tries again
+        ("talk",  120,    "right",        None)]                  # the SDK helpers; the camera follows
+
+# Talk: walk to the villager and press A. They greet you (read it), ask
+# (wait for the question to appear), you answer yes, read the reply, and
+# the gem flies to the bag.
+TALK_TAPS = "right@1-296,a@330,a@340,a@350,a@450,a@510"
+TALK_ASKED, TALK_FLYING, TALK_FRAMES = 430, 516, 600
 
 WALK_START = 5          # the frame on which A leaves Walk's title screen; it also seeds the scattering
 
@@ -173,6 +180,33 @@ def main():
                 for key in ("walk level 1 cleared", "walk level 2 reached"):
                     t.check(f"{key}: draws what it drew before", seen[key] == pinned.get(key),
                             "behaviour changed; if that was intended, rerun with --update")
+
+        # Talk uses all six SDK helpers and keeps none of them in its own
+        # folder: packing it supplies them.
+        talk_dir = os.path.join(ROOT, "examples", "talk")
+        t.check("talk: packing supplies the helpers it requires",
+                {"tween.lua", "camera_follow.lua", "inventory.lua", "dialog.lua", "quest.lua", "particles.lua"}
+                <= {name for name, _ in pulli.parse(pulli.build(talk_dir))}
+                and not any(f.endswith(".lua") and f not in ("main.lua", "manifest.lua") for f in os.listdir(talk_dir)))
+        talk = pulli.build(talk_dir)
+        gem_in_bag = lambda fb: any(fb[y * 320 + x] not in (0, 32) for y in range(2, 10) for x in range(110, 118))
+        with tempfile.TemporaryDirectory() as saves:
+            first = t.run_package(talk, frames=TALK_FRAMES, tap=TALK_TAPS, saves=saves)
+            asked = t.run_package(talk, frames=TALK_ASKED, tap=TALK_TAPS)
+            flying = t.run_package(talk, frames=TALK_FLYING, tap=TALK_TAPS)
+            later = t.run_package(talk, frames=2, saves=saves)
+            fresh = t.run_package(talk, frames=2)
+            t.check("talk: the villager is asked, answers, and the gem ends up in the bag",
+                    first.code == 0 and gem_in_bag(first.fb) and not gem_in_bag(asked.fb) and not gem_in_bag(fresh.fb),
+                    first.err)
+            t.check("talk: the gem is in the air on its way to the bag, between the villager and the top",
+                    sum(1 for v in flying.fb[12 * 320:100 * 320] if v == 10) > 5 and not gem_in_bag(flying.fb))
+            t.check("talk: the bag is still full the next time the game is played",
+                    later.code == 0 and gem_in_bag(later.fb), later.err)
+            seen["talk given a gem"] = hashlib.sha256(first.fb + first.rgb).hexdigest()
+            if not t.update:
+                t.check("talk given a gem: draws what it drew before", seen["talk given a gem"] == pinned.get("talk given a gem"),
+                        "behaviour changed; if that was intended, rerun with --update")
 
         pong = pulli.build(os.path.join(ROOT, "examples", "pong"))
 

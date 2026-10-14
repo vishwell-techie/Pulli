@@ -80,7 +80,7 @@ add_subdirectory(../runtime runtime)
 # --- the built-in game: packed, then linked in as a byte array -----------
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 get_filename_component(PULLI_GAME "${PULLI_GAME}" ABSOLUTE)
-file(GLOB_RECURSE game_files CONFIGURE_DEPENDS "${PULLI_GAME}/*")
+file(GLOB_RECURSE game_files CONFIGURE_DEPENDS "${PULLI_GAME}/*" "${CMAKE_CURRENT_LIST_DIR}/../sdk/*.lua")
 set(game_pkg ${CMAKE_CURRENT_BINARY_DIR}/builtin.pulli)
 set(game_c ${CMAKE_CURRENT_BINARY_DIR}/builtin_game.c)
 add_custom_command(

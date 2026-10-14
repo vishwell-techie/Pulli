@@ -18,5 +18,8 @@ walk frames=600 hold=right,down tap=a@5 8e420e4bcdcc7d24d6189993c5c37e5fd823ad8a
 walk frames=600 hold=right,down tap=a@5 sound e8af5b18857304f0cbcf9582a70c20f196ab431ea7c5a6d081acebffa96a4c8b
 walk frames=3000 hold=- tap=a@5,a@2900 c2d538146e496cca3bec601e520e77033a9cfc4dd26106a8b14f8f723a2c2811
 walk frames=3000 hold=- tap=a@5,a@2900 sound f1c9b594c972e488f8e9dca7a6778cbbd822d539c49ef103b919fd4e883284c3
+talk frames=120 hold=right tap=- 9d9ce3732458c023f8ace56bd93e1b2115cde7bb8b779c91aa2fe019df8ee8c0
+talk frames=120 hold=right tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
 walk level 1 cleared 2021342123fc4198c2578f66b1691b4068eac865523389f1ca56f9bbfab2105d
 walk level 2 reached 2a77eb601ae5a1d78a494f7f62ffbf4429df73790c50cfc8e4363e383e0039c5
+talk given a gem eb12df94bd4e58f70bbd2250b606d4fce4c2e4a0bddff3efe2e55cdcccd7e401

@@ -312,6 +312,54 @@ static const luaL_Reg FIX[] = {
     {"sin",l_fix_sin},{"cos",l_fix_cos},{"atan",l_fix_atan},{NULL,NULL}
 };
 
+/* ---- require -------------------------------------------------------- */
+/* A game may be split over several Lua files. require("name") runs name.lua
+ * from the package the first time it is asked for and gives back whatever
+ * the file returned, every time. Modules come from the package and nowhere
+ * else, and as source: the same rules as main.lua. */
+#define MODULES "pulli.modules"
+
+static int l_require(lua_State *L) {
+    size_t n;
+    const char *name = luaL_checklstring(L, 1, &n);
+    char entry[PULLI_PKG_NAME_MAX + 1];
+    pulli_blob src;
+    for (size_t i = 0; i < n; i++) {
+        char c = name[i];
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
+            return luaL_error(L, "require: '%s' is not a module name (letters, digits and _ only)", name);
+    }
+    if (n == 0 || n + 4 > PULLI_PKG_NAME_MAX) return luaL_error(L, "require: bad module name");
+    memcpy(entry, name, n);
+    memcpy(entry + n, ".lua", 5);
+
+    luaL_getsubtable(L, LUA_REGISTRYINDEX, MODULES);
+    if (lua_getfield(L, -1, name) == LUA_TLIGHTUSERDATA)       /* the mark left while a module loads */
+        return luaL_error(L, "require: '%s' requires itself, directly or through another module", name);
+    if (!lua_isnil(L, -1)) return 1;                           /* loaded before */
+    lua_pop(L, 1);
+
+    if (!strcmp(name, "main") || !strcmp(name, "manifest") || !pulli_pkg_find(&E->pkg, entry, &src))
+        return luaL_error(L, "require: the package has no module '%s' (%s)", name, entry);
+    lua_pushlightuserdata(L, (void *)MODULES);
+    lua_setfield(L, -2, name);
+    lua_pushfstring(L, "@%s", entry);
+    if (luaL_loadbufferx(L, (const char *)src.data, src.len, lua_tostring(L, -1), "t") != LUA_OK) {
+        lua_pushnil(L);                                        /* let a later require try again */
+        lua_setfield(L, -4, name);
+        return lua_error(L);
+    }
+    lua_pushvalue(L, 1);
+    lua_call(L, 1, 1);
+    if (lua_isnil(L, -1)) {                                    /* a module that returns nothing gives true */
+        lua_pop(L, 1);
+        lua_pushboolean(L, 1);
+    }
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -4, name);
+    return 1;
+}
+
 /* Sandbox by construction: the io, os, package and debug libraries are
  * never opened, rather than opened and then hidden. */
 static const luaL_Reg LIBS[] = {
@@ -350,6 +398,7 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
     lua_pushglobaltable(L);
     luaL_setfuncs(L, CORE, 0);
     lua_pop(L, 1);
+    lua_register(L, "require", l_require);
 
     luaL_newlib(L, MAP);
     lua_setglobal(L, "map");
