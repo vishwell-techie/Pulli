@@ -1,5 +1,7 @@
 # Art and sound
 
+**தமிழ்:** [ta/art-and-sound.md](ta/art-and-sound.md)
+
 Pictures, maps and sounds are made with ordinary tools and dropped into the
 game's folder. When the game is packed, Pulli converts them into the forms
 the console reads; you never handle those yourself.

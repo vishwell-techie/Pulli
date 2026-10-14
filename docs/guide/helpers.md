@@ -1,5 +1,7 @@
 # Helpers
 
+**தமிழ்:** [ta/helpers.md](ta/helpers.md)
+
 Pulli comes with 17 helpers: small libraries, written in Lua, for things
 most games need. To use one, require it:
 

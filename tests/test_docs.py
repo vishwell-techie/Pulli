@@ -7,13 +7,17 @@ Run: python3 tests/test_docs.py
   - the reference documents every function the runtime gives a game, and
     nothing it does not;
   - the helpers page names every helper in sdk/;
-  - every link between the pages leads somewhere.
+  - every link between the pages leads somewhere;
+  - the Tamil guide (docs/guide/ta) and README.ta.md have a page for every
+    English one, with exactly the same code, and the pages link both ways.
 """
 import os, re, sys
 
 from harness import Suite, ROOT, pulli
 
 GUIDE = os.path.join(ROOT, "docs", "guide")
+TAMIL = os.path.join(GUIDE, "ta")
+FENCE = re.compile(r"^( *)```[^\n]*\n.*?^\1```[ \t]*$", re.M | re.S)
 CATCH = os.path.join(ROOT, "examples", "catch")
 
 # The parts of standard Lua a game gets; everything else global is Pulli's.
@@ -86,6 +90,39 @@ def main():
                 broken.append(target)
         t.check(f"{name}: every link leads to a file that exists", not broken, broken)
     t.check("the README points to the guide", "docs/guide" in open(os.path.join(ROOT, "README.md")).read())
+
+    # ---- the Tamil translation ---------------------------------------------------------
+    english = sorted(f for f in os.listdir(GUIDE) if f.endswith(".md"))
+    tamil = sorted(f for f in os.listdir(TAMIL) if f.endswith(".md"))
+    t.check("the Tamil guide has a page for every English page, and no others", tamil == english,
+            f"English: {english}, Tamil: {tamil}")
+    pairs = [(os.path.join(GUIDE, f), os.path.join(TAMIL, f)) for f in english if f in tamil]
+    pairs.append((os.path.join(ROOT, "README.md"), os.path.join(ROOT, "README.ta.md")))
+    for en, ta in pairs:
+        label = os.path.relpath(ta, ROOT)
+        if not os.path.exists(ta):
+            t.check(f"{label} exists", False)
+            continue
+        en_text, ta_text = open(en).read(), open(ta).read()
+        same = [m.group(0) for m in FENCE.finditer(en_text)] == [m.group(0) for m in FENCE.finditer(ta_text)]
+        t.check(f"{label}: has exactly the English page's code, in the same order", same)
+        back = os.path.relpath(en, os.path.dirname(ta))
+        there = os.path.relpath(ta, os.path.dirname(en))
+        t.check(f"{label}: links to the English page, and the English page links to it",
+                f"]({back})" in ta_text and f"]({there})" in en_text)
+        broken = [target for target in re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", ta_text)
+                  if not re.match(r"[a-z]+://", target)
+                  and not os.path.exists(os.path.join(os.path.dirname(ta), target))]
+        t.check(f"{label}: every link leads to a file that exists", not broken, broken)
+    if os.path.exists(os.path.join(TAMIL, "reference.md")):
+        ta_documented = set(re.findall(r"^### `([A-Za-z_][\w.]*)\(", page("ta/reference.md"), re.M))
+        t.check("the Tamil reference documents the same functions as the English one", ta_documented == documented,
+                f"missing: {sorted(documented - ta_documented)}, extra: {sorted(ta_documented - documented)}")
+    if os.path.exists(os.path.join(TAMIL, "helpers.md")):
+        ta_listed = set(re.findall(r"^\| `(\w+)` \|", page("ta/helpers.md"), re.M))
+        t.check("the Tamil helpers page lists every helper in sdk/, and its count is right",
+                ta_listed == have and f"{len(have)} உதவி நிரல்" in page("ta/helpers.md")
+                and f"{len(have)} Lua உதவி நிரல்" in page("ta/README.md"), sorted(have ^ ta_listed))
     return t.finish()
 
 
