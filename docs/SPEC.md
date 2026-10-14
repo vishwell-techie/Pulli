@@ -523,6 +523,17 @@ in the game's folder.
 | `dialog` | a text box: typed-out text, wrapping, pages, and questions with answers |
 | `quest` | what the player has been asked to do: steps, counts, and keeping it in the save data |
 | `particles` | sparks, dust and smoke: a fixed pool of dots that fly, fall and fade |
+| `input` | presses that fire once and never repeat, releases, and how long a button is held |
+| `move` | moving a box through the map: stops flush at walls, slides along them, never passes through |
+| `anim` | sprite animations by name, with frame rates and animations that play once |
+| `scene` | a game's screens, each with its own update and draw, and screens pushed over others |
+| `text` | centred, right-aligned, shadowed and outlined text; clocks, padded numbers, wrapping |
+| `timer` | calls after a delay or at a steady beat, and cooldowns, all in game time |
+| `menu` | a list to choose from, with scrolling, wrapping and a box |
+| `pathfind` | the shortest way round the walls of the map, with a limit on the search |
+| `store` | a table, tables inside it included, kept exactly in the save data |
+| `transition` | fading or wiping to black and back between screens |
+| `pool` | reusing objects instead of making new ones, so the garbage collector stays quiet |
 
 ---
 
@@ -707,9 +718,9 @@ covered by `tests/`; none is frozen.
    `map.flags` and the new `map.size`; `map.get` also returns the flips;
    and `map.draw` now follows `camera()`, which it used to ignore.
 15. **`require` and the SDK helpers** (§3): a game may be split over several
-   Lua files loaded with `require`, from its own package only; the six
-   helpers, `tween`, `camera_follow`, `inventory`, `dialog`, `quest` and
-   `particles`; and `pack` supplying the helpers a game requires.
+   Lua files loaded with `require`, from its own package only; the
+   helpers in `sdk/` (§3, "Batteries"); and `pack` supplying the helpers a
+   game requires.
 16. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

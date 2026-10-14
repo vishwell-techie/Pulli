@@ -39,7 +39,7 @@ def main():
            R + """local tween = require('tween') local o = { x = 10 }
            tween.to(o, { x = 110 }, 1, 'linear')
            for i = 1, 59 do tween.update(1 / 60) if i == 15 or i == 30 or i == 59 then dbg(r(o.x), tween.count()) end end
-           tween.update(1 / 60) tween.update(1 / 60) dbg(o.x, tween.count())""",
+           tween.update(1 / 60) dbg(o.x, tween.count())""",
            ["35.0\t1", "60.0\t1", "108.33\t1", "110\t0"], T)
     expect("tween: several fields move together, and done is called once at the end",
            R + """local tween = require('tween') local o, calls = { x = 0, y = 100, z = 5 }, 0
@@ -361,11 +361,288 @@ def main():
            for i = 1, 300 do set:emit(10, 10, 5, style) set:update(1 / 60) end
            dbg(collectgarbage('count') - before == 0)""", ["true"], P)
 
+    # ---- input --------------------------------------------------------------------------
+    N = ("input",)
+    INPUT = """local input = require('input') local log = ''
+               function update(dt) input.update(dt) local f = stat('frame')
+                 log = log .. (input.pressed('a') and 'P' or '') .. (input.released('a') and 'R' or '')
+                   .. string.format('%d ', math.floor(input.held('a') * 60 + 0.5)) end
+               function draw() if stat('frame') == FRAMES then dbg(log) end end"""
+    def keys(name, frames, tap, want, hold=None, extra_lua=""):
+        expect(name, INPUT.replace("FRAMES", str(frames)) + extra_lua, [want], N, frames=frames, tap=tap, hold=hold)
+    keys("input: a press counts on the frame it goes down only, and a release on the frame it comes up",
+         6, "a@2-4", "0 P1 2 3 R0 0 ")
+    keys("input: holding never repeats a press", 40, "a@2-40", "0 P1 " + " ".join(str(i) for i in range(2, 40)) + " ")
+    keys("input: a button already down when the game starts is not a press, though its time is counted",
+         4, None, "1 2 3 4 ", hold="a")
+    expect("input: any names a button pressed this frame",
+           """local input = require('input') local log = ''
+           function update(dt) input.update(dt) log = log .. tostring(input.any()) .. ' ' end
+           function draw() if stat('frame') == 4 then dbg(log) end end""", ["nil start nil x "], N,
+           frames=4, tap="start@2,x@4")
+    fails("input: an unknown button is an error that names it",
+          "local input = require('input') input.update(1/60) input.pressed('jump')", N, "jump", "main.lua:1")
+
+    # ---- move ----------------------------------------------------------------------------
+    M = ("move",)
+    F, X = 1, 2                                         # floor, wall
+    rows = ["XXXXXXXXXX", "XFFFFFFFFX", "XFFFXFFFFX", "XFFFXFFFFX", "XFFFXFFFFX", "XFFFFFFFFX", "XXXXXXXXXX"]
+    room = pulli.ooru(10, 7, [[F if c == "F" else X for r in rows for c in r]], bytes([0, 0, 1]))
+    ROOM = {"map.ooru": room}
+
+    def walk(name, lua, lines, uses=M):
+        r = t.run_game(lua, extra=dict(helper(*uses), **ROOM))
+        t.check(name, r.code == 0 and r.lines == lines, f"stdout: {r.lines}\nwanted: {lines}\nstderr: {r.err}")
+
+    walk("move: a box moves freely where there are no walls",
+         "local move = require('move') local b = { x = 10, y = 10, w = 6, h = 6 }"
+         " dbg(move.by(b, 5, 3)) dbg(b.x, b.y)", ["false\tfalse", "15\t13"])
+    walk("move: a box stops flush against a wall, however fast it was going",
+         "local move = require('move') local a = { x = 10, y = 20, w = 6, h = 6 } local b = { x = 10, y = 20, w = 6, h = 6 }"
+         " dbg(move.by(a, 20, 0)) dbg(a.x) dbg(move.by(b, 1000, 0)) dbg(b.x)",
+         ["true\tfalse", "26", "true\tfalse", "26"])
+    walk("move: blocked across, a box still slides up and down along the wall",
+         "local move = require('move') local b = { x = 24, y = 20, w = 6, h = 6 }"
+         " dbg(move.by(b, 9, 7)) dbg(b.x, b.y)", ["true\tfalse", "26\t27"])
+    walk("move: the map's edges are walls unless told otherwise, and blocked reports them",
+         "local move = require('move') local b = { x = 10, y = 10, w = 6, h = 6 } move.by(b, -50, -50) dbg(b.x, b.y)"
+         " dbg(move.blocked(-20, -20, 4, 4), move.blocked(12, 12, 4, 4), move.blocked(30, 20, 4, 4))"
+         " move.edges = false dbg(move.blocked(-20, -20, 4, 4))",
+         ["8\t8", "true\tfalse\ttrue", "false"])
+    walk("move: fractions add up, so slow movement is not lost",
+         "local move = require('move') local b = { x = 10, y = 10, w = 6, h = 6 }"
+         " for i = 1, 60 do move.by(b, 0.25, 0) end dbg(b.x)", ["25.0"])
+    walk("move: overlap tells when two boxes touch",
+         "local move = require('move') local a = { x = 0, y = 0, w = 8, h = 8 }"
+         " dbg(move.overlap(a, { x = 7, y = 7, w = 2, h = 2 }), move.overlap(a, { x = 8, y = 0, w = 2, h = 2 }),"
+         " move.overlap(a, { x = -2, y = 3, w = 2, h = 2 }), move.overlap(a, { x = 2, y = 2, w = 1, h = 1 }))",
+         ["true\tfalse\tfalse\ttrue"])
+
+    # ---- anim ----------------------------------------------------------------------------
+    A = ("anim",)
+    expect("anim: frames come round at their speed and loop",
+           """local a = require('anim').new({ walk = { frames = { 8, 9, 10 }, fps = 10 } }) local log = ''
+           for i = 1, 40 do a:update(1 / 60) if i % 6 == 0 then log = log .. a:frame() end end dbg(log, a:playing())""",
+           ["91089108\twalk"], A)
+    expect("anim: playing the same animation carries on; asking for a restart starts it over",
+           """local a = require('anim').new({ idle = { frames = { 1 } }, walk = { frames = { 5, 6, 7 }, fps = 60 } })
+           dbg(a:playing(), a:frame()) a:play('walk') a:update(1 / 60) a:update(1 / 60) a:play('walk') dbg(a:frame())
+           a:play('walk', true) dbg(a:frame()) a:play('idle') dbg(a:frame())""",
+           ["idle\t1", "7", "5", "1"], A)
+    expect("anim: an animation that does not loop stops on its last frame and says so",
+           """local a = require('anim').new({ hurt = { frames = { 12, 13 }, fps = 60, loop = false } })
+           a:update(1 / 60) dbg(a:frame(), a:done()) for i = 1, 10 do a:update(1 / 60) end dbg(a:frame(), a:done())
+           a:play('hurt', true) dbg(a:frame(), a:done())""",
+           ["13\tfalse", "13\ttrue", "12\tfalse"], A)
+    fails("anim: an animation with no frames is an error that names it",
+          "require('anim').new({ run = { frames = {} } })", A, "run", "main.lua:1")
+    fails("anim: playing an animation that does not exist is an error that names it",
+          "require('anim').new({ idle = { frames = { 1 } } }):play('fly')", A, "fly", "main.lua:1")
+
+    # ---- scene ---------------------------------------------------------------------------
+    S = ("scene",)
+    SC = """local scene = require('scene') log = ''
+            local function make(n) return {
+              enter = function(...) log = log .. n .. '+' .. table.concat({ ... }, ',') .. ' ' end,
+              leave = function() log = log .. n .. '- ' end,
+              update = function(dt) log = log .. n .. 'u ' end,
+              draw = function() log = log .. n .. 'd ' end } end
+            scene.add('title', make('T')) scene.add('play', make('P')) scene.add('pause', make('Z')) """
+    expect("scene: go leaves what is on screen and enters the new scene with its arguments",
+           SC + "scene.go('title') scene.go('play', 2, 'hard') dbg(log, scene.current())",
+           ["T+ T- P+2,hard \tplay"], S)
+    expect("scene: a pushed scene updates alone and is drawn over the one beneath; pop returns to it",
+           SC + """scene.go('play') scene.push('pause') log = '' scene.update(1/60) scene.draw() dbg(log, scene.current())
+           log = '' scene.pop() scene.update(1/60) scene.draw() dbg(log, scene.current())""",
+           ["Zu Pd Zd \tpause", "Z- Pu Pd \tplay"], S)
+    expect("scene: a change asked for during an update waits until the update is over",
+           SC + """scene.add('jump', { update = function() log = log .. 'J1 ' scene.go('title', 'x') log = log .. 'J2 ' end,
+                                       leave = function() log = log .. 'J- ' end })
+           scene.go('jump') log = '' scene.update(1/60) dbg(log, scene.current())""",
+           ["J1 J2 J- T+x \ttitle"], S)
+    expect("scene: go clears every scene, pushed ones included",
+           SC + "scene.go('play') scene.push('pause') log = '' scene.go('title') dbg(log) log = '' scene.draw() dbg(log)",
+           ["Z- P- T+ ", "Td "], S)
+    expect("scene: with nothing on screen, update and draw do nothing",
+           "local scene = require('scene') scene.update(1/60) scene.draw() scene.pop() dbg(scene.current())", ["nil"], S)
+    fails("scene: going to a scene that does not exist is an error that names it",
+          "require('scene').go('credits')", S, "credits", "main.lua:1")
+
+    # ---- text ----------------------------------------------------------------------------
+    TX = ("text",)
+    expect("text: numbers become clocks and padded figures",
+           """local text = require('text')
+           dbg(text.clock(0), text.clock(59.2), text.clock(75), text.clock(600), text.clock(3725), text.clock(-3))
+           dbg(text.pad(7, 3), text.pad(1234, 3), text.pad(-5, 4), text.pad(42, 5, ' '), text.pad(3.7, 2), text.width('ab'))""",
+           ["0:00\t1:00\t1:15\t10:00\t1:02:05\t0:00", "007\t1234\t-005\t   42\t03\t16"], TX)
+    expect("text: wrap breaks at spaces, keeps forced line breaks and cuts words too long",
+           """local text = require('text') local l = text.wrap('the quick brown fox\\njumps', 10)
+           dbg(#l, l[1], l[2], l[3]) l = text.wrap('abcdefghijklmn op', 5) dbg(table.concat(l, '|'))""",
+           ["3\tthe quick\tbrown fox\tjumps", "abcde|fghij|klmn|op"], TX)
+    r = t.run_game("""local text = require('text') function draw() cls()
+                   text.center('AB', 50, 7) text.right('AB', 300, 80, 8) text.shadow('A', 20, 120, 9, 2) text.outline('A', 40, 150, 10, 12) end""",
+                   extra=helper(*TX))
+    def cols(y0, y1, colour):
+        xs = [x for y in range(y0, y1) for x in range(320) if r.fb[y * 320 + x] == colour]
+        return (min(xs), max(xs)) if xs else None
+    t.check("text: centre, right, shadow and outline put the letters where they belong",
+            r.code == 0 and cols(50, 58, 7) is not None and 152 <= cols(50, 58, 7)[0] and cols(50, 58, 7)[1] < 168
+            and cols(80, 88, 8)[1] < 300 and cols(80, 88, 8)[0] >= 284
+            and cols(120, 129, 2) is not None and cols(120, 129, 9) is not None
+            and cols(149, 159, 12) is not None and cols(150, 158, 10) is not None,
+            (cols(50, 58, 7), cols(80, 88, 8), r.err))
+
+    # ---- timer ---------------------------------------------------------------------------
+    TI = ("timer",)
+    TIMER = """local timer = require('timer') local log = ''
+               function update(dt) timer.update(dt) end
+               function draw() if stat('frame') == FRAMES then dbg(log, timer.count()) end end """
+    def clock(name, lua, frames, want):
+        expect(name, TIMER.replace("FRAMES", str(frames)) + lua, [want], TI, frames=frames)
+    clock("timer: after calls once, when its time comes",
+          "timer.after(0.1, function() log = log .. stat('frame') end)", 20, "6\t0")
+    clock("timer: every calls again and again, as many times as asked",
+          "timer.every(0.05, function() log = log .. stat('frame') .. ' ' end, 3)", 20, "3 6 9 \t0")
+    clock("timer: every keeps its beat when it does not divide into frames: 25 calls in a second, not 20",
+          "timer.every(0.04, function() log = log .. 'x' end)", 60, "x" * 25 + "\t1")
+    clock("timer: every with no count goes on until cancelled",
+          "local h h = timer.every(0.05, function() log = log .. 'x' if #log == 4 then timer.cancel(h) end end)", 40, "xxxx\t0")
+    clock("timer: a timer can start another, and clear stops them all",
+          "timer.after(0.05, function() log = log .. 'a' timer.after(0.05, function() log = log .. 'b' end) end)"
+          " timer.after(0.5, function() log = log .. 'never' end) timer.after(0.2, function() timer.clear() end)", 40, "ab\t0")
+    expect("timer: timers count game time and stand still without updates",
+           "local timer = require('timer') local fired = false timer.after(0.01, function() fired = true end)"
+           " dbg(fired, timer.count()) timer.update(0.005) dbg(fired) timer.update(0.005) dbg(fired, timer.count())",
+           ["false\t1", "false", "true\t0"], TI)
+    expect("timer: a cooldown can be used once, then again only after its wait",
+           R + """local timer = require('timer') local shot = timer.cooldown(0.25)
+           dbg(shot:ready(), shot:use(), shot:use(), shot:ready(), r(shot:left()))
+           for i = 1, 14 do timer.update(1 / 60) end dbg(shot:use(), r(shot:left()))
+           timer.update(1 / 60) dbg(shot:use())""", ["true\ttrue\tfalse\tfalse\t0.25", "false\t0.02", "true"], TI)
+    fails("timer: asking for something that is not a function is an error",
+          "require('timer').after(1, 'later')", TI, "function", "main.lua:1")
+
+    # ---- menu ----------------------------------------------------------------------------
+    MN = ("menu",)
+    MENU = """local menu = require('menu') local log = ''
+              local m = menu.new(ITEMS, OPTIONS)
+              function update(dt) local picked = m:update() log = log .. m.selected .. (picked and ('!' .. picked) or '') .. ' ' end
+              function draw() m:draw() if stat('frame') == FRAMES then dbg(log, m.first) end end"""
+    def choose(name, frames, tap, want, items="{ 'Start', 'Options', 'Quit' }", options="{}"):
+        lua = MENU.replace("ITEMS", items).replace("OPTIONS", options).replace("FRAMES", str(frames))
+        expect(name, lua, [want], MN, frames=frames, tap=tap)
+    choose("menu: down and up move the highlight, wrapping round the ends",
+           8, "down@2,down@4,down@6,up@8", "1 2 2 3 3 1 1 3 \t1")
+    choose("menu: with wrap off, the highlight stops at the ends", 8, "up@2,down@4,down@6,down@8",
+           "1 1 1 2 2 3 3 3 \t1", options="{ wrap = false }")
+    choose("menu: A chooses once per press, even when held", 8, "down@2,a@4-8", "1 2 2 2!2 2 2 2 2 \t1")
+    choose("menu: a long list scrolls to keep the highlight showing", 3, "up@2",
+           "1 6 6 \t5", items="{ 'a', 'b', 'c', 'd', 'e', 'f' }", options="{ rows = 2 }")
+    expect("menu: choose and back are called with what was picked",
+           """local menu = require('menu') local log = ''
+           local m = menu.new({ 'Yes', 'No' }, { choose = function(i, item) log = log .. i .. item end,
+                                               back = function() log = log .. 'back' end })
+           function update(dt) m:update() end function draw() if stat('frame') == 6 then dbg(log) end end""",
+           ["2Noback"], MN, frames=6, tap="down@2,a@3,b@5")
+    expect("menu: replacing the list keeps the highlight where it can",
+           "local m = require('menu').new({ 'a', 'b', 'c' }) m.selected = 3 m:set_items({ 'x', 'y' }) dbg(m.selected)"
+           " m:set_items({ 'p', 'q', 'r', 's' }) dbg(m.selected)", ["2", "2"], MN)
+    r = t.run_game("local m = require('menu').new({ 'Start', 'Quit' }, { x = 100, y = 100 })"
+                   " function draw() cls(1) m:draw() end", extra=helper(*MN))
+    t.check("menu: it draws a box with the items and the highlight",
+            r.code == 0 and r.fb[102 * 320 + 102] == 32 and any(v == 10 for v in r.fb) and any(v == 7 for v in r.fb), r.err)
+    fails("menu: a menu with nothing in it is an error", "require('menu').new({})", MN, "at least one item")
+
+    # ---- pathfind ------------------------------------------------------------------------
+    PF = ("pathfind",)
+    walk("pathfind: the way round a wall is found, step by step across and up-down",
+         """local pathfind = require('pathfind') local p = pathfind.find(2, 3, 6, 3)
+         local ok, x, y = true, 2, 3
+         for i = 1, #p do
+           ok = ok and math.abs(p[i].x - x) + math.abs(p[i].y - y) == 1 and pathfind.walkable(p[i].x, p[i].y)
+           x, y = p[i].x, p[i].y
+         end
+         dbg(#p, ok, x, y)""",
+         ["8\ttrue\t6\t3"], PF)
+    walk("pathfind: already there is an empty path; a wall or the outside is no path at all",
+         "local pathfind = require('pathfind') dbg(#pathfind.find(3, 3, 3, 3), pathfind.find(2, 2, 4, 3), pathfind.find(2, 2, 20, 3))",
+         ["0\tnil\tnil"], PF)
+    walk("pathfind: a goal walled in is no path, and the search gives up at its limit",
+         """local pathfind = require('pathfind') pathfind.walkable = function(x, y) return not (x >= 5) and x > 0 and y > 0 and x < 9 and y < 6 end
+         dbg(pathfind.find(1, 1, 7, 1)) pathfind.walkable = function(x, y) return x > 0 and y > 0 and x < 9 and y < 6 end
+         dbg(#pathfind.find(1, 1, 8, 5)) pathfind.limit = 3 dbg(pathfind.find(1, 1, 8, 5))""",
+         ["nil", "11", "nil"], PF)
+
+    # ---- store ---------------------------------------------------------------------------
+    ST = ("store",)
+    expect("store: a table, with tables inside, packs and unpacks the same",
+           """local store = require('store') local s = store.pack({ n = 7, f = 0.1, name = 'Vish', on = true, off = false,
+             list = { 1, 2.5, 'three' }, [5] = 'five', nested = { deep = { x = -3 } } })
+           local t = store.unpack(s)
+           dbg(t.n, math.type(t.n), t.f == 0.1, t.name, t.on, t.off, #t.list, t.list[2], t.list[3], t[5], t.nested.deep.x)""",
+           ["7\tinteger\ttrue\tVish\ttrue\tfalse\t3\t2.5\tthree\tfive\t-3"], ST)
+    expect("store: anything that is not a stored table unpacks to nil",
+           """local store = require('store') local good = store.pack({ 1, 2 })
+           dbg(store.unpack(nil), store.unpack('hello'), store.unpack(good:sub(1, -2)), store.unpack(good .. 'x'), #store.unpack(good))""",
+           ["nil\tnil\tnil\tnil\t2"], ST)
+    fails("store: a function cannot be kept", "require('store').pack({ f = print })", ST, "function", "main.lua:1")
+    fails("store: a table that contains itself cannot be kept",
+          "local t = {} t.me = t require('store').pack(t)", ST, "contains itself", "main.lua:1")
+    with tempfile.TemporaryDirectory() as saves:
+        t.run_game("dbg(require('store').save('settings', { volume = 3, keys = { 'a', 'b' } }))",
+                   manifest=SAVES, saves=saves, extra=helper(*ST))
+        expect("store: a table saved in one run loads in the next",
+               "local s = require('store') local t = s.load('settings') dbg(t.volume, t.keys[2], s.load('nothing'))",
+               ["3\tb\tnil"], ST, manifest=SAVES, saves=saves)
+
+    # ---- transition ----------------------------------------------------------------------
+    TR = ("transition",)
+    TRANS = """local transition = require('transition') local log = ''
+               function update(dt) transition.update(dt) log = log .. (transition.busy() and '#' or '.') end
+               function draw() cls(7) transition.draw() if stat('frame') == FRAMES then dbg(log) end end """
+    def trans(name, lua, frames, want):
+        expect(name, TRANS.replace("FRAMES", str(frames)) + lua, [want], TR, frames=frames)
+    trans("transition: a fade runs for its time and then calls done",
+          "transition.fade_out(0.1, function() log = log .. 'D' end)", 8, "#####D...")
+    trans("transition: through goes out, calls the middle, comes back in, then calls done",
+          "transition.through(0.2, function() log = log .. 'M' end, function() log = log .. 'E' end)", 14,
+          "#####M######E...")
+    out = t.run_game("local transition = require('transition') transition.fade_out(0.05)"
+                     " function update(dt) transition.update(dt) end function draw() cls(7) end", extra=helper(*TR), frames=6)
+    half = t.run_game("local transition = require('transition') transition.fade_out(1)"
+                      " function update(dt) transition.update(dt) end function draw() cls(7) end", extra=helper(*TR), frames=30)
+    plain = t.run_game("function draw() cls(7) end")
+    t.check("transition: a fade dims the screen to black, and partway it is partly dim",
+            out.rgb == bytes(len(out.rgb)) and plain.rgb != half.rgb != out.rgb and plain.rgb[:2] != b"\0\0", out.err)
+    wipe = t.run_game("local transition = require('transition') transition.style = 'wipe' transition.fade_out(1)"
+                      " function update(dt) transition.update(dt) end function draw() cls(7) transition.draw() end",
+                      extra=helper(*TR), frames=30)
+    covered = sum(1 for x in range(320) if wipe.fb[120 * 320 + x] == 32)
+    t.check(f"transition: a wipe covers the screen from the left, halfway at half time ({covered} of 320)",
+            wipe.code == 0 and 150 <= covered <= 170 and wipe.fb[120 * 320] == 32 and wipe.fb[120 * 320 + 319] == 7, wipe.err)
+
+    # ---- pool ----------------------------------------------------------------------------
+    PO = ("pool",)
+    expect("pool: objects are handed out until there are none, and given back",
+           """local p = require('pool').new(3, function() return { v = 0 } end)
+           local a, b, c, d = p:get(), p:get(), p:get(), p:get() dbg(p.n, d == nil, a ~= b)
+           a.v, b.v, c.v = 1, 2, 3 dbg(p:free(b), p.n, p[1].v, p[2].v, p:free(b))
+           local e = p:get() dbg(e == b, p.n) p:free_at(1) dbg(p.n, p[1].v) p:clear() dbg(p.n, p:get() ~= nil)""",
+           ["3\ttrue\ttrue", "true\t2\t1\t3\tfalse", "true\t3", "2\t2", "0\ttrue"], PO)
+    expect("pool: using a pool makes no garbage",
+           """local p = require('pool').new(50, function() return { x = 0 } end)
+           collectgarbage() collectgarbage('stop') local before = collectgarbage('count')
+           for i = 1, 1000 do local o = p:get() if o then o.x = i end if p.n > 40 then for j = p.n, 1, -1 do p:free_at(j) end end end
+           dbg(collectgarbage('count') - before == 0)""", ["true"], PO)
+    fails("pool: a pool needs a function to make its objects", "require('pool').new(4, {})", PO, "function")
+
     # ---- the add command ---------------------------------------------------------------
     tool = [sys.executable, os.path.join(ROOT, "tools", "pulli.py")]
     listing = subprocess.run(tool + ["add"], capture_output=True, text=True).stdout
     t.check("pulli.py add lists the helpers with a line about each",
-            all(n in listing for n in ("camera_follow", "dialog", "inventory", "particles", "quest", "tween"))
+            all(n in listing for n in ("camera_follow", "dialog", "inventory", "particles", "quest", "tween", "input",
+                                       "move", "anim", "scene", "text", "timer", "menu", "pathfind", "store",
+                                       "transition", "pool"))
             and "carrying" in listing, listing)
     with tempfile.TemporaryDirectory() as tmp:
         game = os.path.join(tmp, "g")
