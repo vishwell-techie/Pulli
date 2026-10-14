@@ -27,7 +27,7 @@ Software first; hardware comes last.
 | Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed; a game may bring its own 64 colours |
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
-| Examples | hello, pong, walk, talk, catch |
+| Examples | hello, pong, manickam, talk, catch; all use the SDK helpers |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
@@ -55,7 +55,7 @@ firmware/    RP2350 port (bring-up stage)
 sdk/         helpers written in Lua for games to require: tween, dialog and more
 tools/       pulli.py command line, reference rasterizer and mixer, font generator
 tests/       conformance, package, runtime, maths, audio, asset, SDK, guide, link and example tests
-examples/    hello, pong, walk, talk, catch (the tutorial's game)
+examples/    hello, pong, manickam, talk, catch (the tutorial's game)
 cmake/       pinned Lua build shared by host and firmware
 ```
 
@@ -103,8 +103,9 @@ as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.
 `python3 tools/pulli.py palette pulli.gpl` writes the 64 colours for the
 paint program to load. For a map, make one in [Tiled](https://www.mapeditor.org)
 with 8x8 tiles and `sprites.png` as its tileset, and save it as `map.tmx`
-beside it. `examples/walk` does both, and is the fullest example: three
-levels, enemies, sound effects and music.
+beside it. `examples/manickam` does both, and is the fullest example: three
+levels, enemies that find their way to you, water that slows you down,
+sound effects and music.
 
 For sound, put `.wav` files in a `sfx/` folder and a `music/` folder inside
 the game. `pack` and `run` number them from 0 in order of file name, so

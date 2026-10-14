@@ -27,7 +27,9 @@
 --     player has read it.
 -- dialog.ask(who, text, options, done)   Queue a question. `options` is a
 --     list of answers; done(index, answer) is called with the one chosen.
--- dialog.update(dt)   Call once a frame. True while there is anything to show.
+-- dialog.update(dt)   Call once a frame. True while there is anything to show,
+--     and on the frame the last box is closed: that press of A belongs to
+--     the talking, so a game that starts talking on A does not start again.
 -- dialog.draw()       Call at the end of draw(), with the camera reset.
 -- dialog.active()     True while there is anything to show.
 -- dialog.clear()      Drop everything queued.
@@ -175,7 +177,7 @@ function dialog.update(dt)
       end
     end
   end
-  return #queue > 0
+  return true                   -- even if that press closed the last box
 end
 
 function dialog.draw()

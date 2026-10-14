@@ -58,10 +58,14 @@ python3 tools/pulli.py add mygame dialog    # copies sdk/dialog.lua into mygame/
 
 ## Examples
 
+- `examples/hello` uses `input` and `text`.
 - `examples/catch`, the tutorial game, uses `timer`, `scene`, `text` and
   `particles`.
-- `examples/talk` uses `dialog`, `inventory`, `quest`, `tween`, `particles`
-  and `camera_follow`.
+- `examples/pong` uses `input`, `timer`, `text` and `particles`.
+- `examples/talk` uses `dialog`, `inventory`, `quest`, `tween`, `particles`,
+  `camera_follow`, `input`, `anim` and `text`.
+- `examples/manickam` uses `scene`, `input`, `move`, `pathfind`, `anim`,
+  `camera_follow`, `timer`, `text`, `transition` and `particles`.
 
 ## Helpers and memory
 

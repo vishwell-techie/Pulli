@@ -5,6 +5,15 @@
 -- draw(). Every object is created once in init() and mutated in place, so
 -- the garbage collector has nothing to do during play. This is the pattern
 -- every Pulli game should follow (see SPEC §0.4).
+--
+-- SDK helpers: `input` (a press of A counts once), `timer` (the pause before
+-- each serve), `text` (centred words) and `particles` (sparks off a paddle).
+-- Packing the game puts them in.
+
+local input     = require("input")
+local timer     = require("timer")
+local text      = require("text")
+local particles = require("particles")
 
 local W, H = 320, 240
 local PAD_W, PAD_H = 4, 36
@@ -32,16 +41,18 @@ local SERVE_DELAY = 0.8
 local TOP_SPEED_2P = 330            -- two-player matches ignore the level
 local MIN_ANGLE = 0.12              -- a return is never perfectly flat
 local TARGET_TEXT = "FIRST TO " .. WIN .. " WINS"
+local sparks = particles.new(32)    -- made once; emitting makes no garbage
+local SPARK_LEFT  = { speed = 80, angle = 0,   spread = 120, life = 0.25, drag = 2, colors = { 7, 12 } }
+local SPARK_RIGHT = { speed = 80, angle = 180, spread = 120, life = 0.25, drag = 2, colors = { 7, 8 } }
 
 local state                         -- "menu", "serve", "play" or "over"
 local paused                        -- only ever true during "serve" or "play"
-local a_was_down                    -- to tell a new press of A from a held one
 local players                       -- 1: against the console, 2: two people on
                                     -- one console, 3: two linked consoles
 local modes                         -- how many of those this console offers
 local left, right, ball
 local level                         -- index into LEVELS, kept between runs
-local ai_aim, timer, shake, wins, wins_text, level_text, result
+local ai_aim, shake, wins, wins_text, level_text, result
 
 -- Link play. The console the link calls side 1 runs the match and plays the
 -- left paddle; side 2 plays the right paddle and draws what it is told.
@@ -66,10 +77,6 @@ local function clamp(v, lo, hi)
   return math.max(lo, math.min(hi, v))
 end
 
-local function centre(text, y, c)
-  print(text, (W - #text * 8) / 2, y, c)
-end
-
 local function set_score(p, n)
   p.score = n
   p.text = tostring(n)              -- built here, not every frame in draw()
@@ -89,8 +96,9 @@ local function serve(dir)
   ball.vx = BALL_SPEED * dir
   ball.vy = BALL_SPEED * 0.5 * (math.random() < 0.5 and -1 or 1)
   aim_ai()
-  timer = SERVE_DELAY
   state = "serve"
+  timer.clear()
+  timer.after(SERVE_DELAY, function() state = "play" end)
 end
 
 -- Menu text is rebuilt only when the level or the win count changes.
@@ -111,7 +119,7 @@ function init()
   left  = { x = 8,      y = H / 2 - PAD_H / 2, score = 0, text = "0" }
   right = { x = W - 12, y = H / 2 - PAD_H / 2, score = 0, text = "0" }
   ball  = { x = W / 2, y = H / 2, vx = 0, vy = 0, speed = BALL_SPEED }
-  players, ai_aim, timer, shake = 1, 0, 0, 0
+  players, ai_aim, shake = 1, 0, 0
   modes = sys.has("link") and 3 or 2
   linked, peer_quiet, peer_y = false, PEER_TIMEOUT, H / 2 - PAD_H / 2
   peer_pause, peer_quit, link_lost = false, false, false
@@ -120,7 +128,6 @@ function init()
   set_level(load("level", 2))
   result = ""
   paused = false
-  a_was_down = false
   state = "menu"
 end
 
@@ -173,6 +180,7 @@ local function bounce(p, dir, face)
   ball.vy = ball.speed * 0.8 * off
   ball.x = face + R * dir
   shake = 0.1
+  sparks:emit(face, ball.y, 8, dir > 0 and SPARK_LEFT or SPARK_RIGHT)
   if dir > 0 then
     aim_ai()
     sfx(0)
@@ -270,7 +278,10 @@ local function guest_frame(dt)
       ball.x, ball.y, left.y = bx, by, ly
       -- Side 1 sends the court, not its sounds: work them out from what changed.
       if ls ~= left.score or rs ~= right.score then sfx(2) end
-      if flags & 2 ~= 0 and shake <= 0 then sfx(0) end
+      if flags & 2 ~= 0 and shake <= 0 then
+        sfx(0)
+        sparks:emit(bx, by, 8, bx < W / 2 and SPARK_LEFT or SPARK_RIGHT)
+      end
       if ls ~= left.score then set_score(left, ls) end
       if rs ~= right.score then set_score(right, rs) end
       paused = flags & 1 ~= 0
@@ -282,7 +293,8 @@ local function guest_frame(dt)
 
   local flags = 0
   if state == "serve" or state == "play" then
-    if btnp("start") then flags = 1 end
+    if input.pressed("start") then flags = 1 end
+    if not paused then sparks:update(dt) end
     if paused then
       if btnp("select") then flags = flags | 2 end
     else
@@ -300,7 +312,7 @@ local function play_frame(dt, confirm)
   -- START pauses a match and resumes it; while paused, SELECT gives up.
   -- Over the link, either player may do both.
   if state == "serve" or state == "play" then
-    if btnp("start") or peer_pause then paused = not paused end
+    if input.pressed("start") or peer_pause then paused = not paused end
     if paused then
       if btnp("select") or peer_quit then paused = false; state = "menu" end
       return
@@ -308,6 +320,7 @@ local function play_frame(dt, confirm)
   end
 
   if shake > 0 then shake = shake - dt end
+  sparks:update(dt)
 
   if state == "menu" then
     if btnp("up")   then players = (players - 2) % modes + 1 end
@@ -327,8 +340,7 @@ local function play_frame(dt, confirm)
     end
   elseif state == "serve" then
     move_paddles(dt)
-    timer = timer - dt
-    if timer <= 0 then state = "play" end
+    timer.update(dt)            -- the serve is due SERVE_DELAY after the point
   elseif state == "play" then
     move_paddles(dt)
     move_ball(dt)
@@ -340,10 +352,9 @@ end
 function update(dt)
   -- btnp("a") repeats while A is held, which suits scrolling but not
   -- confirming: one long press must not start a match and then skip the
-  -- result. So A counts here only when it has been let go in between.
-  local a_down = btn("a")
-  local confirm = (a_down and not a_was_down) or btnp("start")
-  a_was_down = a_down
+  -- result. input.pressed() counts a press once.
+  input.update(dt)
+  local confirm = input.pressed("a") or input.pressed("start")
 
   linked = players == 3 and link.status() == "connected"
   if players == 3 and not linked and state ~= "menu" then
@@ -385,6 +396,7 @@ function draw()
   if state == "serve" or state == "play" then
     circfill(ball.x, ball.y, R, 7)
   end
+  sparks:draw()
 
   camera(0, 0)
   if state ~= "menu" then
@@ -395,46 +407,46 @@ function draw()
   if state == "menu" then
     rectfill(40, 40, 240, 180, 1)
     rect(40, 40, 240, 180, 6)
-    centre("P O N G", 50, 7)
-    centre(TARGET_TEXT, 64, 6)
-    centre(players == 1 and "> 1 PLAYER <" or "1 PLAYER", 84, players == 1 and 10 or 13)
-    centre(players == 2 and "> 2 PLAYERS <" or "2 PLAYERS", 98, players == 2 and 10 or 13)
+    text.center("P O N G", 50, 7)
+    text.center(TARGET_TEXT, 64, 6)
+    text.center(players == 1 and "> 1 PLAYER <" or "1 PLAYER", 84, players == 1 and 10 or 13)
+    text.center(players == 2 and "> 2 PLAYERS <" or "2 PLAYERS", 98, players == 2 and 10 or 13)
     if modes == 3 then
-      centre(players == 3 and "> LINK PLAY <" or "LINK PLAY", 112, players == 3 and 10 or 13)
+      text.center(players == 3 and "> LINK PLAY <" or "LINK PLAY", 112, players == 3 and 10 or 13)
     end
     if players == 1 then
-      centre(level_text, 134, 9)
-      centre("LEFT/RIGHT CHANGE THE LEVEL", 148, 6)
-      centre("PRESS A TO START", 166, 7)
-      centre(wins_text, 182, 13)
+      text.center(level_text, 134, 9)
+      text.center("LEFT/RIGHT CHANGE THE LEVEL", 148, 6)
+      text.center("PRESS A TO START", 166, 7)
+      text.center(wins_text, 182, 13)
     elseif players == 2 then
-      centre("P1: UP/DOWN   P2: X/B", 141, 6)
-      centre("PRESS A TO START", 166, 7)
+      text.center("P1: UP/DOWN   P2: X/B", 141, 6)
+      text.center("PRESS A TO START", 166, 7)
     elseif not linked then
-      centre(link_lost and "THE LINK WAS LOST" or "LINK THE TWO CONSOLES", 134, 9)
-      centre("WAITING FOR THE OTHER ONE", 148, 6)
+      text.center(link_lost and "THE LINK WAS LOST" or "LINK THE TWO CONSOLES", 134, 9)
+      text.center("WAITING FOR THE OTHER ONE", 148, 6)
     elseif link.side() == 2 then
-      centre("YOU ARE PLAYER 2 (RIGHT)", 134, 9)
-      centre("PLAYER 1 STARTS THE MATCH", 148, 6)
+      text.center("YOU ARE PLAYER 2 (RIGHT)", 134, 9)
+      text.center("PLAYER 1 STARTS THE MATCH", 148, 6)
     elseif peer_quiet < PEER_TIMEOUT then
-      centre("YOU ARE PLAYER 1 (LEFT)", 134, 9)
-      centre("PLAYER 2 IS READY", 148, 6)
-      centre("PRESS A TO START", 166, 7)
+      text.center("YOU ARE PLAYER 1 (LEFT)", 134, 9)
+      text.center("PLAYER 2 IS READY", 148, 6)
+      text.center("PRESS A TO START", 166, 7)
     else
-      centre("YOU ARE PLAYER 1 (LEFT)", 134, 9)
-      centre("PLAYER 2: CHOOSE LINK PLAY", 148, 6)
+      text.center("YOU ARE PLAYER 1 (LEFT)", 134, 9)
+      text.center("PLAYER 2: CHOOSE LINK PLAY", 148, 6)
     end
-    centre("START PAUSES A MATCH", 204, 5)
+    text.center("START PAUSES A MATCH", 204, 5)
   elseif paused then
     rectfill(60, 84, 200, 72, 1)
     rect(60, 84, 200, 72, 6)
-    centre("PAUSED", 96, 10)
-    centre("START: RESUME", 116, 7)
-    centre("SELECT: QUIT TO MENU", 132, 6)
+    text.center("PAUSED", 96, 10)
+    text.center("START: RESUME", 116, 7)
+    text.center("SELECT: QUIT TO MENU", 132, 6)
   elseif state == "over" then
     rectfill(60, 92, 200, 56, 1)
     rect(60, 92, 200, 56, 6)
-    centre(result, 104, 10)
-    centre(linked and link.side() == 2 and "PLAYER 1 CONTINUES" or "PRESS A", 126, 7)
+    text.center(result, 104, 10)
+    text.center(linked and link.side() == 2 and "PLAYER 1 CONTINUES" or "PRESS A", 126, 7)
   end
 end
