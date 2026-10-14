@@ -25,6 +25,10 @@
 
 local tween = {}
 
+-- Sixty steps of 1/60 do not add up to exactly one second in floating
+-- point. A tween this close to its end counts as arrived.
+local EARLY = 0.0001
+
 local running, count = {}, 0    -- running[1..count]
 local spare = {}                -- finished tweens, kept to be used again
 
@@ -94,7 +98,7 @@ function tween.update(dt)
   while i <= count do
     local t = running[i]
     t.time = t.time + dt
-    if t.time >= t.length then
+    if t.time >= t.length - EARLY then
       for k, goal in pairs(t.to) do t.target[k] = goal end   -- land exactly
       local done = t.done
       retire(i)                   -- another tween now sits at i: do not move on

@@ -25,7 +25,7 @@ Software first; hardware comes last.
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed |
-| SDK helpers | tween, camera follow, inventory, dialog, quest, particles; plain Lua, supplied when a game requires them |
+| SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Examples | hello, pong, walk, talk |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
@@ -132,8 +132,8 @@ python3 tools/pulli.py add mygame dialog     # copies dialog.lua in, to change i
 ```
 
 A file in the game's folder is used in place of the SDK's, which is how a
-game changes a helper. Each helper explains itself at the top of its file,
-and `examples/talk` uses all six.
+game changes a helper. Each helper explains itself at the top of its file;
+`docs/SPEC.md` §3 lists them all, and `examples/talk` uses six of them.
 
 A game is a folder with a `manifest.lua` and a `main.lua`:
 
