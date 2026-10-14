@@ -83,7 +83,9 @@ and add a custom property:
 - `solid`, a bool: ticked, the tile is a wall. `map.flags(tile) & 1` is then
   1, and the `move` and `pathfind` helpers treat it as a wall.
 - `flags`, an int from 0 to 255, for your own uses: eight on-off bits per
-  tile, such as "water" or "hurts".
+  tile, such as "water" or "hurts". In `examples/manickam` water has
+  `flags` 2 and is not solid: anyone can wade in, and the game checks
+  `map.flags(tile) & 2` to slow the player down.
 
 **Things to know:**
 
@@ -93,7 +95,7 @@ and add a custom property:
   layers of 128 × 128.
 - Object layers are not imported. To place things such as a player's start
   or enemies, draw their tiles on a layer and look for them in `init()`, as
-  `examples/walk` does.
+  `examples/manickam` does.
 
 ## Sound effects and music
 

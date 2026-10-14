@@ -570,4 +570,4 @@ function draw() scene.draw() end
   a basket that speeds up.
 - Look through [the helpers](helpers.md): `tween` makes things glide,
   `menu` makes an options screen, `dialog` lets characters talk.
-- `examples/walk` is a bigger game with maps, enemies, levels and music.
+- `examples/manickam` is a bigger game with maps, enemies, water, levels and music.

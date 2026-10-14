@@ -185,48 +185,60 @@ def main():
     talk("dialog: nothing queued, nothing shown", "", 5, None, ".....")
     # "Hello there" is 11 letters: at 60 a second it is all showing on frame 11.
     talk("dialog: A shows the rest of the text, and A again moves on",
-         "dialog.speed = 60 dialog.say('Elder', 'Hello there')", 12, "a@4,a@8", "#######.....")
+         "dialog.speed = 60 dialog.say('Elder', 'Hello there')", 12, "a@4,a@8", "########....")
     talk("dialog: text that has finished appearing needs one press",
-         "dialog.speed = 60 dialog.say(nil, 'Hello there')", 16, "a@14", "#############...")
+         "dialog.speed = 60 dialog.say(nil, 'Hello there')", 16, "a@14", "##############..")
     talk("dialog: holding A down does not skip through",
          "dialog.speed = 0 dialog.say(nil, 'One') dialog.say(nil, 'Two') dialog.say(nil, 'Three')", 60, "a@3-58",
          "##" + "#" * 58)
     talk("dialog: each press reads one thing, in the order they were said",
          "dialog.speed = 0 dialog.say(nil, 'One', function() log = log .. '1' end)"
-         " dialog.say(nil, 'Two', function() log = log .. '2' end)", 9, "a@3,a@6", "##1###2....")
+         " dialog.say(nil, 'Two', function() log = log .. '2' end)", 9, "a@3,a@6", "##1###2#...")
     talk("dialog: a button already down when the talking starts does not count",
          "dialog.speed = 0 function init() end local said"
          " local u = update function update(dt) if stat('frame') == 3 then dialog.say(nil, 'Hi') end u(dt) end",
-         10, "a@2-5,a@8", "..#####...")
+         10, "a@2-5,a@8", "..######..")
     long = " ".join(["word"] * 40)                    # 199 letters: 36 a line, 3 lines a box, so 2 boxes
     talk("dialog: long text is wrapped and split over as many boxes as it needs",
-         f"dialog.speed = 0 dialog.say(nil, '{long}')", 10, "a@3,a@6", "#####.....")
+         f"dialog.speed = 0 dialog.say(nil, '{long}')", 10, "a@3,a@6", "######....")
     fits = " ".join(["aaaa bbbb cccc dddd eeee ffff gggg h"] * 3)          # three lines of exactly 36 letters
     talk("dialog: a line may be filled to its last letter",
-         f"dialog.speed = 0 dialog.say(nil, '{fits}')", 6, "a@3", "##....")
+         f"dialog.speed = 0 dialog.say(nil, '{fits}')", 6, "a@3", "###...")
     over = " ".join(["aaaa bbbb cccc dddd eeee ffff gggg hh"] * 3)         # one letter too many for a line
     talk("dialog: a line one letter too long is wrapped, not squeezed in",
-         f"dialog.speed = 0 dialog.say(nil, '{over}')", 8, "a@3,a@6", "#####...")
+         f"dialog.speed = 0 dialog.say(nil, '{over}')", 8, "a@3,a@6", "######..")
     talk("dialog: after clear, a button still held does not answer what is said next",
          "dialog.speed = 0 dialog.say(nil, 'One')"
          " local u = update function update(dt) local f = stat('frame')"
          " if f == 3 then dialog.clear() end if f == 5 then dialog.say(nil, 'Two') end u(dt) end",
-         12, "a@4-7,a@10", "##..#####...")
+         12, "a@4-7,a@10", "##..######..")
     talk("dialog: a new line can be forced, and a word too long for a line is cut",
          "dialog.speed = 0 dialog.say(nil, 'a\\nb\\nc\\nd') dialog.say(nil, string.rep('x', 36 * 3 + 1))",
-         14, "a@2,a@4,a@6,a@8", "#######.......")
+         14, "a@2,a@4,a@6,a@8", "########......")
     talk("dialog: done may say more, and it follows straight on",
-         "dialog.speed = 0 dialog.say(nil, 'One', function() dialog.say(nil, 'Two') end)", 9, "a@3,a@6", "#####....")
+         "dialog.speed = 0 dialog.say(nil, 'One', function() dialog.say(nil, 'Two') end)", 9, "a@3,a@6", "######...")
+    # A game that starts talking when A is pressed, as Talk does: the press
+    # that closes the last box must not also start the talking again.
+    expect("dialog: the press that closes the last box is not seen again by the game",
+           """local dialog, input = require('dialog'), require('input') local opened = 0
+              dialog.speed = 0
+              function update(dt)
+                input.update(dt)
+                if dialog.update(dt) then return end
+                if input.pressed('a') then opened = opened + 1 dialog.say(nil, 'Hi') end
+              end
+              function draw() if stat('frame') == 12 then dbg(opened, dialog.active()) end end""",
+           ["1\tfalse"], ("dialog", "input"), frames=12, tap="a@3,a@6")
     talk("dialog: a question waits for an answer; up and down choose and A picks",
          "dialog.speed = 0 dialog.ask('Elder', 'Help us?', { 'Yes', 'No', 'Later' },"
-         " function(i, text) log = log .. i .. text end)", 9, "down@2,down@4,up@6,a@8", "#######2No..")
+         " function(i, text) log = log .. i .. text end)", 9, "down@2,down@4,up@6,a@8", "#######2No#.")
     talk("dialog: choosing wraps round from the last answer to the first, and back",
          "dialog.speed = 0 dialog.ask(nil, 'Well?', { 'A', 'B' }, function(i) log = log .. i end)"
          " dialog.ask(nil, 'And?', { 'A', 'B' }, function(i) log = log .. i end)",
-         12, "up@2,a@4,down@6,down@8,a@10", "###2######1...")
+         12, "up@2,a@4,down@6,down@8,a@10", "###2######1#..")
     talk("dialog: an answer cannot be picked while the question is still appearing",
          "dialog.speed = 60 dialog.ask(nil, 'Are you sure?', { 'Yes', 'No' }, function(i) log = log .. i end)",
-         10, "down@2,a@4,down@6,a@8", "#######2...")
+         10, "down@2,a@4,down@6,a@8", "#######2#..")
     talk("dialog: clear drops everything, and active reports whether anything shows",
          "dialog.say(nil, 'One') dialog.say(nil, 'Two') dbg(dialog.active()) dialog.clear() dbg(dialog.active())",
          3, None, ["true", "false", "..."])

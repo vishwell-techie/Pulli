@@ -1,6 +1,6 @@
 return {
-  id      = "in.vishwell.walk",
-  title   = "Walk",
+  id      = "in.vishwell.manickam",
+  title   = "Manickam",
   author  = "VishWell",
   version = "0.1.0",
   spec    = 1,
