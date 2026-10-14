@@ -1,5 +1,7 @@
 # Reference
 
+**தமிழ்:** [ta/reference.md](ta/reference.md)
+
 Every function the console gives a game. Arguments in `[brackets]` may be
 left out; the default is given.
 

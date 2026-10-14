@@ -1,5 +1,7 @@
 # Pulli
 
+**தமிழ்:** [README.ta.md](README.ta.md)
+
 An open-source game platform where every game is written in Lua, with a
 handheld console to run them on and reference hardware anyone can build.
 Pulli (புள்ளி) is Tamil for "dot": a pixel is a dot.

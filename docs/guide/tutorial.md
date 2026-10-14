@@ -1,5 +1,7 @@
 # Tutorial: Catch
 
+**தமிழ்:** [ta/tutorial.md](ta/tutorial.md)
+
 In this tutorial you build **Catch**: gems fall from the sky and you move a
 basket to catch them. Miss three and the game is over. By the end it has
 pictures, a title screen, a saved best score, sound and sparks.

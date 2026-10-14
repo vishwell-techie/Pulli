@@ -1,5 +1,7 @@
 # Nool: making games for Pulli
 
+**தமிழ்:** [ta/README.md](ta/README.md)
+
 Nool (நூல், "book") is the guide to writing games for Pulli. A Pulli game is
 a folder of Lua code, pictures and sounds, and it runs the same on a laptop
 as it does on the console.

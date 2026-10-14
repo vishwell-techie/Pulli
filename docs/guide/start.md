@@ -1,5 +1,7 @@
 # Getting started
 
+**தமிழ்:** [ta/start.md](ta/start.md)
+
 ## Build the tools
 
 You need a C compiler, CMake, Ninja and Python 3. SDL2 is needed for the
