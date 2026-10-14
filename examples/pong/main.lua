@@ -90,6 +90,11 @@ local function aim_ai()
   ai_aim = (math.random() * 2 - 1) * err
 end
 
+-- Made once, not at every serve, so serving makes no garbage.
+local function begin_play()
+  state = "play"
+end
+
 local function serve(dir)
   ball.x, ball.y = W / 2, H / 2
   ball.speed = BALL_SPEED
@@ -98,7 +103,7 @@ local function serve(dir)
   aim_ai()
   state = "serve"
   timer.clear()
-  timer.after(SERVE_DELAY, function() state = "play" end)
+  timer.after(SERVE_DELAY, begin_play)
 end
 
 -- Menu text is rebuilt only when the level or the win count changes.

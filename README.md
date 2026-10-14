@@ -20,7 +20,7 @@ Software first; hardware comes last.
 | Engine: rasterizer, package reader, save store, Lua API | built and tested; not yet the whole API (see "Not implemented yet") |
 | Desktop host, windowed and headless | built and tested on Linux (Raspberry Pi 5) |
 | Reference rasterizer and conformance suite | passing; the C engine matches it byte for byte |
-| Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check` |
+| Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add` |
 | Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; tested on desktop, not yet run on a board |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
@@ -29,7 +29,7 @@ Software first; hardware comes last.
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
 | Examples | hello, pong, manickam, talk, catch; all use the SDK helpers |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
-| Firmware | compiles for a Pico 2 (RP2350); never run on a board |
+| Firmware | the CPU chip's side compiles for a Pico 2 (RP2350); never run on a board. The GPU chip's firmware is not started |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
 
 ## Not implemented yet
@@ -37,10 +37,13 @@ Software first; hardware comes last.
 Measured against `docs/SPEC.md`:
 
 - `stat("fps")` and `stat("cpu")` have an answer only where the port has
-  a clock: the window and the firmware do, the headless runner does not.
+  a clock: the window and the firmware do; the headless runner has none
+  unless `--clock-step` gives it a pretend one for tests.
 - Packages hold Lua source only: bytecode, encrypted and signed packages
   are refused.
-- `check` does no static analysis.
+- `check` does no static analysis, and `run` has no hot reload.
+- The spec's GPU coprocessor (§1) exists only as a plan: today one chip
+  does everything.
 - Maps made in Tiled bring across tile layers only, not objects.
 - The desktop's Lua heap limit is stricter than the device's will be,
   because Lua values are larger on a 64-bit machine.
@@ -54,7 +57,7 @@ host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 sdk/         helpers written in Lua for games to require: tween, dialog and more
 tools/       pulli.py command line, reference rasterizer and mixer, font generator
-tests/       conformance, package, runtime, maths, audio, asset, SDK, guide, link and example tests
+tests/       font, conformance, package, runtime, maths, audio, asset, SDK, guide, link and example tests
 examples/    hello, pong, manickam, talk, catch (the tutorial's game)
 cmake/       pinned Lua build shared by host and firmware
 ```
@@ -138,7 +141,8 @@ python3 tools/pulli.py add mygame dialog     # copies dialog.lua in, to change i
 
 A file in the game's folder is used in place of the SDK's, which is how a
 game changes a helper. Each helper explains itself at the top of its file;
-`docs/SPEC.md` §3 lists them all, and `examples/talk` uses six of them.
+`docs/SPEC.md` §3 lists them all, and every example uses some of them;
+`examples/manickam` uses ten.
 
 A game is a folder with a `manifest.lua` and a `main.lua`:
 
@@ -148,7 +152,8 @@ function update(dt)  end   -- 60 times a second; dt is always 1/60
 function draw()      end   -- after each update
 
 -- cls pset pget line rect rectfill circ circfill spr sspr print
--- camera clip pal palt fade   btn btnp   sfx music   save load   time dbg
+-- camera clip pal palt palette fade   btn btnp
+-- sfx music music_stop music_pause   save load save_commit   time stat dbg
 -- map.load map.size map.draw map.get map.set map.flags   require
 -- link.status link.side link.send link.recv   sys.has
 -- fix.from fix.to fix.floor fix.mul fix.div fix.sqrt fix.sin fix.cos fix.atan
@@ -204,7 +209,9 @@ Nothing is pushed to `main`. Work goes on a feature branch and reaches
   Import each under Settings, Rules, Rulesets, New ruleset, Import a
   ruleset. Collaborators can push branches and open pull requests; a pull
   request needs a code-owner approval (`.github/CODEOWNERS`), which only
-  the owner can give, and only the owner can create release tags.
+  the owner can give, and only the owner can create release tags. GitHub
+  enforces rulesets only on public repositories or paid plans; until then
+  these rules are followed by agreement, not enforced.
 
 ## Licence
 
