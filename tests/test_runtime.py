@@ -49,8 +49,8 @@ def main():
     expect("32-bit integers that wrap, and 32-bit floats", r, ["2147483647\ttrue\t3\t3.5\ttrue"])
 
     # ---- sandbox ------------------------------------------------------
-    r = t.run_game("dbg(io, os, package, debug, require, dofile, loadfile)")
-    expect("no io, os, package, debug or file loading", r, ["nil\tnil\tnil\tnil\tnil\tnil\tnil"])
+    r = t.run_game("dbg(io, os, package, debug, dofile, loadfile)")
+    expect("no io, os, package, debug or file loading", r, ["nil\tnil\tnil\tnil\tnil\tnil"])
     r = t.run_game("dbg(load('return 1 + 1'), string.format('%d', 5), #table.pack(1, 2), math.floor(2.5))")
     expect("load() is the save store, not a compiler; safe libraries remain", r, ["nil\t5\t2\t2"])
     r = t.run_game(b"\x1bLua\x54\x00\x19\x93\r\n\x1a\n" + b"\0" * 32)
@@ -116,6 +116,30 @@ def main():
     for bad in ("@5", "a@0", "a@x", "nope@3", "a@1,@2", "a", "a@5-2", "a@3-", "a@3-x"):
         r = t.run_game(src, frames=9, tap=bad)
         t.check(f"--tap refuses {bad!r}", r.code == 2 and "usage" in r.err, f"exit {r.code} {r.err}")
+
+    # ---- more than one Lua file ------------------------------------------
+    mods = {"greet.lua": "local M = {} function M.hello(n) return 'hello ' .. n end return M",
+            "count.lua": "runs = (runs or 0) + 1 return { name = ... }",
+            "quiet.lua": "side_effect = 'ran'",
+            "first.lua": "return require('second')", "second.lua": "return require('first')",
+            "broken.lua": "this is not lua", "notes.txt": "return 1"}
+    r = t.run_game("local g = require('greet') dbg(g.hello('you'), require('greet') == g)", extra=mods)
+    expect("require runs a file from the package and gives back what it returned", r, ["hello you\ttrue"])
+    r = t.run_game("local a, b = require('count'), require('count') dbg(runs, a == b, a.name)", extra=mods)
+    expect("a module runs once however often it is required, and is told its name", r, ["1\ttrue\tcount"])
+    r = t.run_game("dbg(require('quiet'), side_effect)", extra=mods)
+    expect("a module that returns nothing gives true", r, ["true\tran"])
+    expect_error("requiring a module the package does not have names it", t.run_game("require('nowhere')", extra=mods),
+                 "nowhere.lua")
+    expect_error("a mistake in a module is reported with its file name", t.run_game("require('broken')", extra=mods),
+                 "broken.lua:1")
+    expect_error("two modules that require each other are refused", t.run_game("require('first')", extra=mods),
+                 "requires itself")
+    for bad in ("../main", "notes.txt", "greet.lua", "", "main", "manifest"):
+        r = t.run_game(f"require({bad!r})", extra=mods)
+        t.check(f"require refuses {bad!r}", r.code == 1 and "require" in r.err, r.err)
+    r = t.run_game("require('bytes')", extra={"bytes.lua": b"\x1bLua\x54\x00" + bytes(40)})
+    expect_error("a module of precompiled bytecode is refused", r, "binary")
 
     # ---- drawing arguments --------------------------------------------
     r = t.run_game("""

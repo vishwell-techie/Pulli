@@ -17,7 +17,7 @@ find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
     add_test(NAME font
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/mkfont.py --check)
-    foreach(suite package conformance runtime maths audio assets examples link)
+    foreach(suite package conformance runtime maths audio assets sdk examples link)
         add_test(NAME ${suite}
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/test_${suite}.py
                     --headless $<TARGET_FILE:pulli-headless>)

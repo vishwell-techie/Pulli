@@ -9,6 +9,8 @@
                                                            play it in a window
     python3 tools/pulli.py check  <dir|game.pulli> [frames] run it with no window
     python3 tools/pulli.py palette <out.gpl|out.hex|out.png> the 64 colours, for a paint program
+    python3 tools/pulli.py add    [<dir> helper...]        copy SDK helpers into a game to
+                                                           change them; alone, list them
 
 Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
@@ -189,7 +191,39 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
         if entry in names:
             raise PackageError(f"{srcdir} has both {entry} and a {kind}/ folder; keep one")
         entries.append((entry, bank_from_folder(kind, folder)))
+    add_helpers(entries)
     return build_entries(sorted(entries), flags)
+
+
+def required(source: bytes):
+    """The modules a Lua file asks for with require("name"). Comments are
+    left out, so a helper mentioned in one is not taken for a real request."""
+    text = source.decode("utf-8", "replace")
+    text = re.sub(r"--\[\[.*?\]\]", "", text, flags=re.S)
+    text = re.sub(r"--[^\n]*", "", text)
+    return set(re.findall(r"""\brequire\s*\(?\s*["']([A-Za-z0-9_]+)["']""", text))
+
+
+def add_helpers(entries):
+    """Supply the SDK helpers a game requires but does not have. A file of
+    the game's own always comes first, so a game changes a helper by keeping
+    its own copy of it (`pulli.py add`). A helper may require another."""
+    have = {name for name, _ in entries}
+    waiting = [blob for name, blob in entries if name.endswith(".lua") and name != "manifest.lua"]
+    while waiting:
+        for module in sorted(required(waiting.pop())):
+            entry = module + ".lua"
+            if entry in have:
+                continue
+            path = os.path.join(sdk_dir(), entry)
+            if not os.path.isfile(path):
+                raise PackageError(f"the game requires '{module}', but there is no {entry} in its folder "
+                                   f"and no helper of that name in the SDK")
+            with open(path, "rb") as f:
+                blob = f.read()
+            entries.append((entry, blob))
+            have.add(entry)
+            waiting.append(blob)
 
 
 def parse(data: bytes):
@@ -738,6 +772,35 @@ def cmd_palette(out):
           f"for solid black use colour 32.")
 
 
+def sdk_dir():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sdk")
+
+
+def cmd_add(game=None, *helpers):
+    """Copy helpers from sdk/ into a game's folder. A game gets the helpers
+    it requires without this; a copy is for changing one, since a file in
+    the game's folder is used in place of the SDK's."""
+    have = sorted(f[:-4] for f in os.listdir(sdk_dir()) if f.endswith(".lua"))
+    if not helpers:
+        for name in have:
+            with open(os.path.join(sdk_dir(), name + ".lua")) as f:
+                about = f.readline().split("\u2014", 1)[-1].strip()
+            print(f"{name:16}{about}")
+        return 0
+    if not os.path.isdir(game):
+        raise PackageError(f"{game} is not a directory")
+    for name in helpers:
+        if name not in have:
+            raise PackageError(f"no helper called '{name}'; there are: {', '.join(have)}")
+    for name in helpers:
+        dest = os.path.join(game, name + ".lua")
+        if os.path.exists(dest):
+            raise PackageError(f"{dest} already exists; delete it first if you want a fresh copy")
+    for name in helpers:
+        shutil.copyfile(os.path.join(sdk_dir(), name + ".lua"), os.path.join(game, name + ".lua"))
+        print(f"added {os.path.join(game, name + '.lua')}: the game now uses this copy, which is yours to change")
+
+
 def find_host(name):
     """Locate pulli-host or pulli-headless: $PULLI_HOST_DIR, ./build, then PATH."""
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -775,7 +838,7 @@ def cmd_check(target, frames="600"):
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
     "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 4), "check": (cmd_check, 1, 2),
-    "palette": (cmd_palette, 1, 1),
+    "palette": (cmd_palette, 1, 1), "add": (cmd_add, 0, 9),
 }
 
 

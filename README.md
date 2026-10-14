@@ -25,7 +25,8 @@ Software first; hardware comes last.
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed |
-| Examples | hello, pong, walk |
+| SDK helpers | tween, camera follow, inventory, dialog, quest, particles; plain Lua, supplied when a game requires them |
+| Examples | hello, pong, walk, talk |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
 | Firmware | compiles for a Pico 2 (RP2350); never run on a board |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
@@ -51,9 +52,10 @@ docs/        SPEC.md, the platform contract
 runtime/     the engine, shared unchanged by every port
 host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
 firmware/    RP2350 port (bring-up stage)
+sdk/         helpers written in Lua for games to require: tween, dialog and more
 tools/       pulli.py command line, reference rasterizer and mixer, font generator
-tests/       conformance, package, runtime, maths, audio, link and example tests
-examples/    hello, pong, walk
+tests/       conformance, package, runtime, maths, audio, asset, SDK, link and example tests
+examples/    hello, pong, walk, talk
 cmake/       pinned Lua build shared by host and firmware
 ```
 
@@ -116,6 +118,23 @@ python3 tools/pulli.py run examples/pong 2 --link 7000
 Keys: arrows move, `Z`/`X` are A/B, `A`/`S` are X/Y, `Q`/`W` are L/R, Enter
 is start, right Shift is select, Esc quits.
 
+A game can be split over several Lua files: `require("enemies")` runs
+`enemies.lua` from the game's folder. The SDK's helpers in `sdk/` are files
+of that kind, and a game gets one just by requiring it:
+
+```lua
+local tween = require("tween")     -- nothing to copy: packing the game puts it in
+```
+
+```bash
+python3 tools/pulli.py add                   # lists the helpers
+python3 tools/pulli.py add mygame dialog     # copies dialog.lua in, to change it
+```
+
+A file in the game's folder is used in place of the SDK's, which is how a
+game changes a helper. Each helper explains itself at the top of its file,
+and `examples/talk` uses all six.
+
 A game is a folder with a `manifest.lua` and a `main.lua`:
 
 ```lua
@@ -125,7 +144,7 @@ function draw()      end   -- after each update
 
 -- cls pset pget line rect rectfill circ circfill spr sspr print
 -- camera clip pal palt fade   btn btnp   sfx music   save load   time dbg
--- map.load map.size map.draw map.get map.set map.flags
+-- map.load map.size map.draw map.get map.set map.flags   require
 -- link.status link.side link.send link.recv   sys.has
 -- fix.from fix.to fix.floor fix.mul fix.div fix.sqrt fix.sin fix.cos fix.atan
 ```

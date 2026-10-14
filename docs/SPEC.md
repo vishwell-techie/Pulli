@@ -483,11 +483,46 @@ stat("fps") stat("mem") stat("cpu")
 dbg(...)           -- printf to host console / device serial; stripped in release
 ```
 
+### More than one Lua file
+
+```lua
+local enemies = require("enemies")   -- runs enemies.lua from the package
+```
+
+- `require(name)` runs `name.lua` from the game's package the first time it
+  is asked for and returns what the file returned, or `true` if it returned
+  nothing. Asking again returns the same value without running the file.
+- A name is letters, digits and `_` only. Modules come from the package and
+  nowhere else, as source text; `main` and `manifest` cannot be required.
+- A missing module, a mistake in one, and two modules that require each
+  other are errors that name the file.
+- The file is passed its own name, as `...`.
+
 ### Batteries (Lua-level, shipped as SDK source, not engine)
 
-`dialog`, `inventory`, `quest`, `camera_follow`, `particles`, `tween`.
-Deliberately implemented **in Lua**, in the SDK, so developers can read, fork
-and replace them. Nothing here is privileged.
+Helpers written **in Lua** and kept in `sdk/`, so developers can read, fork
+and replace them. Nothing here is privileged: each is an ordinary module
+loaded with `require`, and each file documents itself at the top.
+
+A game only has to require a helper. When the game is packed, `pulli pack`
+reads its Lua files for `require("name")` and, for each name the game's
+folder has no file for, puts the SDK's `name.lua` into the package; a
+helper that requires another brings it along. The package is complete in
+itself, and the runtime knows nothing of the SDK. A file in the game's
+folder is always used in place of the SDK's, so a game changes a helper by
+keeping its own copy (`pulli add <game> <helper>`). Requiring a name that
+is in neither place is an error when packing. Only names written out in
+the source are seen: a name worked out while the game runs must be a file
+in the game's folder.
+
+| Helper | For |
+|---|---|
+| `tween` | changing numbers smoothly over time, with easing |
+| `camera_follow` | a camera that follows a target, with a dead zone, map bounds and shake |
+| `inventory` | what the player carries: slots, stacks, and keeping it in the save data |
+| `dialog` | a text box: typed-out text, wrapping, pages, and questions with answers |
+| `quest` | what the player has been asked to do: steps, counts, and keeping it in the save data |
+| `particles` | sparks, dust and smoke: a fixed pool of dots that fly, fall and fade |
 
 ---
 
@@ -671,6 +706,10 @@ covered by `tests/`; none is frozen.
    format, with 16-bit cells, flips and tile flags; `map.load`, `map.set`,
    `map.flags` and the new `map.size`; `map.get` also returns the flips;
    and `map.draw` now follows `camera()`, which it used to ignore.
-15. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+15. **`require` and the SDK helpers** (§3): a game may be split over several
+   Lua files loaded with `require`, from its own package only; the six
+   helpers, `tween`, `camera_follow`, `inventory`, `dialog`, `quest` and
+   `particles`; and `pack` supplying the helpers a game requires.
+16. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.
