@@ -54,7 +54,7 @@ python3 tools/pulli.py add mygame dialog    # copies sdk/dialog.lua into mygame/
 | `inventory` | what the player carries | `bag:add("potion", 2)` |
 | `quest` | what the player has been asked to do | `quest.advance("gems")` |
 | `pathfind` | enemies that find their way round walls | `pathfind.find(x1, y1, x2, y2)` |
-| `store` | keeping a whole table in the save data | `store.save("settings", t)` |
+| `store` | keeping a table in the save data, and reading it back from older saves | `store.save("settings", t)` |
 
 ## Examples
 

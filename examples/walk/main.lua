@@ -9,7 +9,7 @@
 --
 -- Pick up every gem before the time runs out. Slimes wander the field and
 -- come after you when you are near; each touch costs one of three hearts.
--- START pauses.
+-- START pauses, music included.
 --
 -- The player's start is placed in Tiled, on the "things" layer. So are gems
 -- and slimes, but only to say how many: each time a level is loaded they are
@@ -277,6 +277,7 @@ function update(dt)
 
   if btnp("start") then
     paused = not paused
+    music_pause(paused)         -- the tune waits too, and carries on from where it was
     sfx(paused and SFX_PAUSE or SFX_RESUME)
   end
   if paused then return end

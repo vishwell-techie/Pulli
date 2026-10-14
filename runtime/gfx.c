@@ -223,6 +223,21 @@ void pulli_fade(pulli_gfx *g, float amount) {
 /* Draws one layer with its top-left corner at (-sx, -sy), under the camera
  * like everything else. Only the tiles that can reach the screen are
  * visited, so a large map costs no more than a small one. */
+/* A colour as red, green and blue from 0 to 255, kept as RGB565 like every
+ * other. The fade level applies to it as to the rest. */
+static int byte_of(int v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+void pulli_set_colour(pulli_gfx *g, int c, int r, int gr, int b) {
+    r = byte_of(r); gr = byte_of(gr); b = byte_of(b);
+    g->palette[c & PULLI_COLOR_MASK] = (uint16_t)(((r >> 3) << 11) | ((gr >> 2) << 5) | (b >> 3));
+    refresh_shown(g);
+}
+
+void pulli_load_palette(pulli_gfx *g, const uint16_t rgb565[PULLI_PALETTE_LEN]) {
+    memcpy(g->palette, rgb565, sizeof(g->palette));
+    refresh_shown(g);
+}
+
 void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
     if (layer < 0 || layer >= m->layers) return;
     const int cell = PULLI_SPRITE_CELL;

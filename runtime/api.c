@@ -59,6 +59,28 @@ static int l_pal(lua_State *L)    { pulli_pal(&E->ctx.g, arg_i(L,1,-1), arg_i(L,
 static int l_palt(lua_State *L)   { pulli_palt(&E->ctx.g, arg_i(L,1,-1), arg_b(L,2,true)); return 0; }
 static int l_fade(lua_State *L)   { pulli_fade(&E->ctx.g, (float)luaL_optnumber(L,1,0)); return 0; }
 
+/* palette(c, r, g, b) gives colour c a new look, red, green and blue each 0
+ * to 255. palette(c) tells what colour c looks like now, and palette()
+ * puts the game's own colours back. */
+static int l_palette(lua_State *L) {
+    if (lua_isnoneornil(L, 1)) {
+        pulli_load_palette(&E->ctx.g, E->base_palette);
+        return 0;
+    }
+    if (lua_gettop(L) == 1) {
+        /* Widen the stored 5-6-5 bits back to 0..255, repeating the top bits
+         * into the bottom so that full brightness reads back as 255. */
+        uint16_t p = E->ctx.g.palette[arg_i(L,1,0) & PULLI_COLOR_MASK];
+        int r = (p >> 11) & 0x1F, gr = (p >> 5) & 0x3F, b = p & 0x1F;
+        lua_pushinteger(L, (r << 3) | (r >> 2));
+        lua_pushinteger(L, (gr << 2) | (gr >> 4));
+        lua_pushinteger(L, (b << 3) | (b >> 2));
+        return 3;
+    }
+    pulli_set_colour(&E->ctx.g, arg_i(L,1,0), arg_i(L,2,0), arg_i(L,3,0), arg_i(L,4,0));
+    return 0;
+}
+
 /* ---- input --------------------------------------------------------- */
 static int btn_index(lua_State *L, int arg) {
     if (lua_type(L, arg) == LUA_TNUMBER) {
@@ -102,6 +124,10 @@ static int l_music(lua_State *L) {
     pulli_audio_music(&E->audio, arg_i(L,1,0), arg_i(L,2,0), arg_b(L,3,true));
     return 0;
 }
+static int l_music_pause(lua_State *L) {
+    pulli_audio_music_pause(&E->audio, arg_b(L,1,true));
+    return 0;
+}
 static int l_music_stop(lua_State *L) {
     pulli_audio_music_stop(&E->audio, arg_i(L,1,0));
     return 0;
@@ -125,7 +151,9 @@ static int l_load(lua_State *L) {
     return 1;
 }
 static int l_save_commit(lua_State *L) {
-    lua_pushboolean(L, pulli_save_commit(E));
+    bool ok = pulli_save_commit(E);
+    if (ok) E->save_written = E->ctx.frame;            /* a checkpoint: the timer starts over */
+    lua_pushboolean(L, ok);
     return 1;
 }
 
@@ -151,6 +179,13 @@ static int l_stat(lua_State *L) {
     const char *what = luaL_optstring(L, 1, "");
     if      (!strcmp(what, "mem"))   lua_pushnumber(L, (lua_Number)E->heap_used / 1024);
     else if (!strcmp(what, "frame")) lua_pushinteger(L, (lua_Integer)E->ctx.frame);
+    /* These two need a clock, which a port may not have. They are for
+     * finding out why a game is slow, not for the game to act on: they
+     * differ from run to run. */
+    else if (!strcmp(what, "fps") && E->backend && E->backend->micros)
+        lua_pushinteger(L, (lua_Integer)E->fps);
+    else if (!strcmp(what, "cpu") && E->backend && E->backend->micros)
+        lua_pushinteger(L, (lua_Integer)E->cpu);
     else lua_pushnil(L);
     return 1;
 }
@@ -249,7 +284,7 @@ static const luaL_Reg CORE[] = {
     {"spr",l_spr},{"sspr",l_sspr},{"print",l_print},{"camera",l_camera},
     {"clip",l_clip},{"pal",l_pal},{"palt",l_palt},{"fade",l_fade},
     {"btn",l_btn},{"btnp",l_btnp},
-    {"sfx",l_sfx},{"music",l_music},{"music_stop",l_music_stop},
+    {"sfx",l_sfx},{"music",l_music},{"music_stop",l_music_stop},{"music_pause",l_music_pause},{"palette",l_palette},
     {"save",l_save},{"load",l_load},{"save_commit",l_save_commit},
     {"time",l_time},{"dbg",l_dbg},{"stat",l_stat},
     {NULL,NULL}

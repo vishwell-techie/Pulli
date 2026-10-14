@@ -63,14 +63,14 @@ class Suite:
         return False
 
     def _start(self, tmp, data, frames=1, hold=None, tap=None, caps=None, saves=None, link=None,
-               sound=False):
+               sound=False, clock=None):
         os.makedirs(tmp)
         pkg, fb, rgb, wav = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb", "wav"))
         with open(pkg, "wb") as f:
             f.write(data)
         cmd = [self.headless, pkg, "--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
         for flag, value in (("--hold", hold), ("--tap", tap), ("--caps", caps), ("--saves", saves),
-                            ("--link", link)):
+                            ("--link", link), ("--clock-step", clock)):
             if value:
                 cmd += [flag, str(value)]
         if sound:
@@ -94,7 +94,7 @@ class Suite:
 
     def run_package(self, data, **opts):
         """Run package bytes in the headless host and collect everything.
-        Options: frames, hold, tap, caps, saves, link, sound."""
+        Options: frames, hold, tap, caps, saves, link, sound, clock."""
         with tempfile.TemporaryDirectory() as tmp:
             return self._finish(self._start(os.path.join(tmp, "a"), data, **opts))
 

@@ -8,7 +8,9 @@
     python3 tools/pulli.py run    <dir|game.pulli> [scale] [--link PORT]
                                                            play it in a window
     python3 tools/pulli.py check  <dir|game.pulli> [frames] run it with no window
-    python3 tools/pulli.py palette <out.gpl|out.hex|out.png> the 64 colours, for a paint program
+    python3 tools/pulli.py palette [<dir|game.pulli>] <out.gpl|out.hex|out.png>
+                                                           the 64 colours, standard or a
+                                                           game's own, for a paint program
     python3 tools/pulli.py add    [<dir> helper...]        copy SDK helpers into a game to
                                                            change them; alone, list them
 
@@ -162,9 +164,19 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
         if req not in names:
             raise PackageError(f"{srcdir} is missing {req}")
     entries, made = [], {}
+    sources = [n for n in names if n in ("palette.hex", "palette.gpl")]
+    if len(sources) > 1:
+        raise PackageError(f"{srcdir} has both palette.hex and palette.gpl; keep one")
+    if "palette.pal" in names and sources:
+        raise PackageError(f"{srcdir} has both palette.pal and {sources[0]}; keep one")
+    colours = game_palette(srcdir)
+    if sources:
+        entries.append(("palette.pal", palette_entry(colours)))
     for n in names:
         stem, ext = os.path.splitext(n)
         ext = ext.lower()
+        if n in sources:
+            continue
         if ext in (".png", ".tmx"):
             made[stem + (".kolam" if ext == ".png" else ".ooru")] = n
         elif ext != ".tsx":                             # a Tiled tileset is read through its map
@@ -177,7 +189,7 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
     for entry, source in sorted(made.items()):
         if entry.endswith(".kolam"):
             with open(os.path.join(srcdir, source), "rb") as f:
-                entries.append((entry, kolam_from_png(f.read(), source, notes)))
+                entries.append((entry, kolam_from_png(f.read(), source, notes, colours)))
     for name, blob in entries:
         if name == "sprites.kolam":
             sheet_columns = struct.unpack("<H", blob[4:6])[0] // CELL
@@ -370,7 +382,55 @@ def write_png(width: int, height: int, rgb: bytes) -> bytes:
             + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
-def kolam_from_png(data: bytes, name: str = "picture", notes=None) -> bytes:
+def read_palette(data: bytes, name: str = "palette"):
+    """The 64 colours of a palette.hex (one rrggbb per line) or palette.gpl
+    (GIMP, Aseprite and Krita's format), as (red, green, blue)."""
+    text = data.decode("utf-8", "replace")
+    colours = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("GIMP", "Name:", "Columns:", "//", ";")):
+            continue
+        parts = line.lstrip("#").split()
+        if line.startswith("#") and not re.fullmatch(r"#[0-9a-fA-F]{6}", line):
+            continue                                    # a comment in a .gpl
+        if len(parts) == 1 and re.fullmatch(r"[0-9a-fA-F]{6}", parts[0]):
+            v = int(parts[0], 16)
+            colours.append(((v >> 16) & 255, (v >> 8) & 255, v & 255))
+        elif len(parts) >= 3 and all(p.isdigit() and int(p) < 256 for p in parts[:3]):
+            colours.append(tuple(int(p) for p in parts[:3]))
+        else:
+            raise PackageError(f"{name}: cannot read the line {line!r}")
+    if len(colours) != 64:
+        raise PackageError(f"{name}: has {len(colours)} colours; a palette has exactly 64")
+    return colours
+
+
+def read_palette_entry(data: bytes, name: str = "palette.pal"):
+    """The colours in a palette.pal."""
+    if len(data) != 196 or data[:4] != b"PAL1":
+        raise PackageError(f"{name}: not a palette of 64 colours")
+    return [tuple(data[4 + 3 * i:7 + 3 * i]) for i in range(64)]
+
+
+def game_palette(srcdir: str):
+    """A game folder's own colours, from palette.hex, palette.gpl or a
+    ready-made palette.pal, or None if it uses the standard ones."""
+    for name in ("palette.hex", "palette.gpl", "palette.pal"):
+        path = os.path.join(srcdir, name)
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                data = f.read()
+            return read_palette_entry(data, name) if name.endswith(".pal") else read_palette(data, name)
+    return None
+
+
+def palette_entry(colours) -> bytes:
+    """A palette.pal entry: "PAL1", then red, green, blue for each colour."""
+    return b"PAL1" + bytes(v for c in colours for v in c)
+
+
+def kolam_from_png(data: bytes, name: str = "picture", notes=None, colours=None) -> bytes:
     """Turn a PNG into a sprite sheet. A see-through pixel becomes colour 0;
     any other becomes the nearest of colours 1 to 63, so solid black is
     colour 32 and stays visible. Says so in `notes` if colours had to move."""
@@ -379,7 +439,8 @@ def kolam_from_png(data: bytes, name: str = "picture", notes=None) -> bytes:
         raise PackageError(f"{name}: {w}x{h}; a sprite sheet's width and height must be multiples of {CELL}")
     if w * h > ATLAS_MAX:
         raise PackageError(f"{name}: {w}x{h} is {w * h} pixels; a sprite sheet holds at most {ATLAS_MAX}")
-    colours, found, moved = palette(), {}, set()
+    which = "the game's palette" if colours else "the Pulli palette"
+    colours, found, moved = colours or palette(), {}, set()
     out = bytearray()
     for r, g, b, a in pixels:
         if a < 128:
@@ -393,7 +454,7 @@ def kolam_from_png(data: bytes, name: str = "picture", notes=None) -> bytes:
                 moved.add((r, g, b))
         out.append(found[(r, g, b)])
     if moved and notes is not None:
-        notes.append(f"{name}: {len(moved)} colour(s) are not in the Pulli palette and were changed to the "
+        notes.append(f"{name}: {len(moved)} colour(s) are not in {which} and were changed to the "
                      f"nearest one (`pulli.py palette` writes the palette for a paint program)")
     return kolam(w, h, bytes(out))
 
@@ -728,6 +789,8 @@ def cmd_pack(srcdir, out=None):
 def cmd_list(path):
     for name, blob in read(path):
         print(f"{len(blob):>8}  {name}")
+        if blob[:4] == b"PAL1":
+            print(f"            this game's own 64 colours")
         if blob[:4] == b"KLM1":
             w, h = struct.unpack("<HH", blob[4:8])
             print(f"            {w}x{h} pixels, sprites 0 to {(w // CELL) * (h // CELL) - 1}")
@@ -753,8 +816,21 @@ def cmd_unpack(path, dest):
     print(f"unpacked to {dest}")
 
 
-def cmd_palette(out):
-    colours = palette()
+def cmd_palette(*args):
+    """Write the standard palette, or a game's own (from its folder or its
+    .pulli), for a paint program."""
+    out, colours, whose, why = args[-1], palette(), "the standard", ""
+    if len(args) == 2:
+        game = args[0]
+        if os.path.isdir(game):
+            own = game_palette(game)
+        else:
+            entries = dict(read(game))
+            own = read_palette_entry(entries["palette.pal"]) if "palette.pal" in entries else None
+        if own:
+            colours, whose = own, "the game's own"
+        else:
+            why = " (the game has no palette of its own)"
     ext = os.path.splitext(out)[1].lower()
     if ext == ".gpl":                                   # GIMP, Aseprite, Krita, Inkscape
         text = "GIMP Palette\nName: Pulli\nColumns: 8\n#\n" + "".join(
@@ -768,8 +844,7 @@ def cmd_palette(out):
         raise PackageError("the palette can be written as .gpl, .hex or .png")
     with open(out, "wb") as f:
         f.write(data)
-    print(f"wrote the 64 colours to {out}. Colour 0 is see-through in sprites; "
-          f"for solid black use colour 32.")
+    print(f"wrote {whose} 64 colours to {out}{why}. Colour 0 is see-through in sprites.")
 
 
 def sdk_dir():
@@ -838,7 +913,7 @@ def cmd_check(target, frames="600"):
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
     "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 4), "check": (cmd_check, 1, 2),
-    "palette": (cmd_palette, 1, 1), "add": (cmd_add, 0, 9),
+    "palette": (cmd_palette, 1, 2), "add": (cmd_add, 0, 9),
 }
 
 

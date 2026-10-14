@@ -21,6 +21,7 @@ const char *pulli_audio_boot(pulli_engine *e, const char **which);   /* NULL, or
 void pulli_audio_sfx(pulli_audio *a, int n, int channel);
 void pulli_audio_music(pulli_audio *a, int n, int fade_ms, bool looping);
 void pulli_audio_music_stop(pulli_audio *a, int fade_ms);
+void pulli_audio_music_pause(pulli_audio *a, bool paused);
 
 /* map.c */
 const char *pulli_map_check(pulli_blob b);              /* NULL, or why it is not a map */

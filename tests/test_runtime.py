@@ -6,7 +6,7 @@ Run: python3 tests/test_runtime.py
 Each case is a tiny game. It reports through dbg(), which the headless host
 prints to stdout, and the test compares that with what SPEC.md promises.
 """
-import sys, tempfile
+import os, sys, tempfile
 
 from harness import Suite
 
@@ -173,7 +173,7 @@ def main():
         "gone",
     ])
     r = t.run_game("""
-        dbg(save('bad key', 1), save('', 1), save(string.rep('k', 33), 1), save('t', {}), save('f', dbg))
+        dbg(save('bad key', 1), save('', 1), save(string.rep('k', 33), 1), save('t', { dbg }), save('f', dbg))
         dbg(save('big', string.rep('x', 64)), load('big'), save('fits', string.rep('x', 40)), #load('fits'))
     """, manifest=SAVES)
     expect("save refuses bad keys, unsupported values and anything past save_size", r,
@@ -191,6 +191,167 @@ def main():
         r = t.run_game("dbg(load('best'), load('name'))", manifest=SAVES, saves=saves)
         expect("a damaged save file keeps its good entries and does not crash", r,
                ["save data is damaged; later entries were dropped", "1280\tnil"])
+
+    # ---- tables in save data ---------------------------------------------
+    BIG = manifest(save_target='"sd"', save_size="512")
+    r = t.run_game("""
+        local t = { n = 7, f = 0.5, name = 'Vish', on = true, off = false, list = { 10, 20, 'thirty' },
+                    [5] = 'five', [2.5] = 'half', [true] = 'yes', deep = { a = { b = { c = 1 } } } }
+        dbg(save('t', t))
+        local u = load('t')
+        dbg(u.n, math.type(u.n), u.f, u.name, u.on, u.off, #u.list, u.list[3], u[5], u[2.5], u[true], u.deep.a.b.c)
+        dbg(u ~= t, load('t') ~= u)
+        u.n = 99 dbg(load('t').n)
+    """, manifest=BIG)
+    expect("a table of numbers, text, booleans and tables is kept and comes back, as a new table each time", r, [
+        "true", "7\tinteger\t0.5\tVish\ttrue\tfalse\t3\tthirty\tfive\thalf\tyes\t1", "true\ttrue", "7"])
+    r = t.run_game("""
+        local four = { { { { 1 } } } }                  -- a table in a table in a table in a table
+        local five = { { { { { 1 } } } } }
+        local mine = {} mine.me = mine
+        dbg(save('four', four), save('five', five), save('mine', mine))
+        dbg(save('fn', { f = dbg }), save('keyfn', { [dbg] = 1 }), save('keytbl', { [{}] = 1 }))
+        dbg(save('empty', {}), next(load('empty')), save('mixed', { 1, 2, x = 3 }), load('mixed').x)
+    """, manifest=BIG)
+    expect("tables nest four deep; deeper, self-containing, and with functions or table keys are refused", r, [
+        "true\tfalse\tfalse", "false\tfalse\tfalse", "true\tnil\ttrue\t3"])
+    r = t.run_game("""
+        dbg(save('a', string.rep('x', 200)), save('t', { string.rep('y', 200), string.rep('z', 200) }), load('a') ~= nil)
+        dbg(save('t', { string.rep('y', 100) }), #load('t')[1])
+        dbg(save('t', { string.rep('y', 300) }), #load('t')[1])
+    """, manifest=BIG)
+    expect("a table is refused when it does not fit, and the old value stays", r, [
+        "true\tfalse\ttrue", "true\t100", "false\t100"])
+    r = t.run_game("""
+        save('t', { 1, 2, 3 }) dbg(#load('t')) save('t', 5) dbg(load('t'))
+        save('t', { 'a' }) dbg(load('t')[1]) save('t', nil) dbg(load('t', 'gone'))
+    """, manifest=BIG)
+    expect("a table can be replaced by another kind of value and back, or deleted", r, ["3", "5", "a", "gone"])
+    with tempfile.TemporaryDirectory() as saves:
+        t.run_game("dbg(save('cfg', { vol = 3, keys = { 'a', 'b' }, nested = { x = 1.5 } }))", manifest=BIG, saves=saves)
+        r = t.run_game("local c = load('cfg') dbg(c.vol, c.keys[2], c.nested.x)", manifest=BIG, saves=saves)
+        expect("a saved table comes back in a later run", r, ["3\tb\t1.5"])
+        # Damage the table inside the file: cut its closing brace off and shorten the record to match.
+        blob = bytearray(open(f"{saves}/test.game.sav", "rb").read())
+        start = blob.index(b"cfg") - 4                # a record: key length, type, value length (2), key, value
+        vlen = blob[start + 2] | (blob[start + 3] << 8)
+        end = start + 4 + 3 + vlen
+        t.check("the saved table ends with its closing brace", blob[end - 1] == ord("}"))
+        blob[start + 2:start + 4] = (vlen - 1).to_bytes(2, "little")
+        del blob[end - 1]
+        open(f"{saves}/test.game.sav", "wb").write(blob)
+        r = t.run_game("dbg(load('cfg', 'default'))", manifest=BIG, saves=saves)
+        expect("a damaged table loads as if never saved, giving the default", r, ["default"])
+        t.run_game("save('cfg', { 1 })", manifest=BIG, saves=saves)
+        blob = bytearray(open(f"{saves}/test.game.sav", "rb").read())
+        start = blob.index(b"cfg") - 4
+        vlen = blob[start + 2] | (blob[start + 3] << 8)
+        blob[start + 2:start + 4] = (vlen + 1).to_bytes(2, "little")
+        blob.insert(start + 4 + 3 + vlen, ord("x"))                  # one stray byte after the table
+        open(f"{saves}/test.game.sav", "wb").write(blob)
+        r = t.run_game("dbg(load('cfg', 'default'))", manifest=BIG, saves=saves)
+        expect("a table with something left over after it loads as if never saved", r, ["default"])
+    r = t.run_game("""dbg(save('big', { string.rep('x', 40000), string.rep('y', 40000) }), load('big'))
+                     dbg(save('ok', { string.rep('x', 40000) }), #load('ok')[1])""",
+                   manifest=manifest(save_target='"sd"', save_size="65536"))
+    expect("one saved value may not be more than 65535 bytes, even if the save data has room", r,
+           ["false\tnil", "true\t40000"])
+
+    # ---- when saves are written ---------------------------------------------
+    def hang_after(lua, **fields):
+        """Run a game that saves and then hangs, kill it as a crash or a flat
+        battery would, and say what the save file holds."""
+        import time
+        with tempfile.TemporaryDirectory() as saves:
+            m = manifest(save_target='"sd"', save_size="256", **fields)
+            started = t._start(os.path.join(saves, "run"), t.package(lua, m), frames=100000, saves=saves)
+            time.sleep(1.5)
+            started[0].kill()
+            started[0].communicate()
+            path = os.path.join(saves, "test.game.sav")
+            if not os.path.exists(path):
+                return "no file"
+            r = t.run_game("dbg(load('k'))", manifest=m, saves=saves)
+            return r.lines[0] if r.lines else r.err
+    def count(until, hang):
+        """Save the frame number every frame up to `until`, then hang at `hang`."""
+        return (f"function update() local f = stat('frame') if f <= {until} then save('k', f) end"
+                f" if f == {hang} then while true do end end end")
+    t.check("default: nothing is written until the game ends, so a crash loses it",
+            hang_after(count(800, 801)) == "no file")
+    t.check("save_mode 'exit' is the same as the default", hang_after(count(800, 801), save_mode='"exit"') == "no file")
+    t.check("save_mode 'auto' with the shortest wait, 10 s, writes at 10 s, and again no sooner than 10 s later",
+            hang_after(count(1300, 1301), save_mode='"auto"', save_interval="10") == "1200")
+    t.check("a longer save_interval is kept to: 12 s writes at 12 s and 24 s",
+            hang_after(count(1500, 1501), save_mode='"auto"', save_interval="12") == "1440")
+    t.check("nothing is written before the wait is over", hang_after(count(590, 591), save_mode='"auto"', save_interval="10") == "no file")
+    t.check("with no save_interval, 'auto' waits 60 s",
+            hang_after(count(3599, 3600), save_mode='"auto"') == "no file"
+            and hang_after(count(3650, 3651), save_mode='"auto"') == "3600")
+    t.check("save_commit is a checkpoint: it writes at once in any mode, and starts the auto wait over",
+            hang_after("function update() local f = stat('frame') if f <= 700 then save('k', f) end"
+                       " if f == 300 then save_commit() end if f == 701 then while true do end end end",
+                       save_mode='"auto"', save_interval="10") == "300")
+    t.check("save_commit in the default mode writes what was saved up to then",
+            hang_after("function update() local f = stat('frame') if f <= 500 then save('k', f) end"
+                       " if f == 200 then save_commit() end if f == 501 then while true do end end end") == "200")
+    t.check("save_mode 'auto' writes nothing when nothing was saved",
+            hang_after("function update() if stat('frame') == 5 then while true do end end end", save_mode='"auto"') == "no file")
+    expect_error("save_mode must be 'exit' or 'auto'", t.run_game("", manifest=manifest(save_mode='"often"')), "save_mode")
+    for bad in ("9", "0", "3601", "'soon'", "2.5"):
+        expect_error(f"save_interval {bad} is refused: it must be a whole number of seconds from 10 to 3600",
+                     t.run_game("", manifest=manifest(save_mode='"auto"', save_interval=bad)), "save_interval", "10 to 3600")
+    with tempfile.TemporaryDirectory() as saves:
+        t.run_game("save('k', 9)", manifest=manifest(save_target='"sd"', save_mode='"auto"'), saves=saves)
+        r = t.run_game("dbg(load('k'))", manifest=manifest(save_target='"sd"'), saves=saves)
+        expect("the end of the game still writes, in either mode", r, ["9"])
+
+    # ---- the palette --------------------------------------------------------
+    def rgb(r, g, b):
+        return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+    r = t.run_game("""
+        palette(5, 255, 128, 0) palette(6, 300, -20, 17) palette(71, 1, 2, 3)
+        function draw() cls(5) rectfill(0, 0, 10, 10, 6) rectfill(20, 0, 10, 10, 7) end
+    """)
+    px = lambda res, x, y: int.from_bytes(res.rgb[2 * (y * 320 + x):2 * (y * 320 + x) + 2], "little")
+    t.check("palette(c, r, g, b) sets a colour from 0-255 values, holds them to that range, and wraps the number",
+            r.code == 0 and px(r, 100, 100) == rgb(255, 128, 0) and px(r, 5, 5) == rgb(255, 0, 17)
+            and px(r, 25, 5) == rgb(1, 2, 3), r.err)
+    r = t.run_game("""
+        palette(5, 255, 128, 0)
+        function draw() cls(5) fade(0.5) palette(5, 255, 128, 0) end
+    """)
+    k = 16
+    t.check("a colour set by palette() is dimmed by fade() like the rest",
+            px(r, 5, 5) == rgb(255, 128, 0) * 0 + ((((255 >> 3) * k) >> 5) << 11 | (((128 >> 2) * k) >> 5) << 5 | 0), (px(r, 5, 5),))
+    r = t.run_game("""
+        local default = ...
+        function draw() cls(1) palette(1, 9, 9, 9) palette() end
+    """)
+    plain = t.run_game("function draw() cls(1) end")
+    t.check("palette() with nothing puts the colours back", r.code == 0 and r.rgb == plain.rgb, r.err)
+
+    # ---- music pause -------------------------------------------------------
+    r = t.run_game("music_pause() music_pause(false) music_pause(true) sfx(-1)", frames=3)
+    expect("pausing music when there is none is harmless", r, [])
+
+    # ---- frame rate and load, for the developer ----------------------------------
+    def clocked(step, frames=200):
+        r = t.run_game("function draw() if stat('frame') == %d then dbg(stat('fps'), stat('cpu')) end end" % frames,
+                       frames=frames, clock=step)
+        return r.lines[0] if r.lines else r.err
+    expect("without a clock, stat('fps') and stat('cpu') are nil",
+           t.run_game("function draw() if stat('frame') == 3 then dbg(stat('fps'), stat('cpu')) end end", frames=3),
+           ["nil\tnil"])
+    # Each frame reads the clock four times, so a step of 4000 us is 16 ms a frame, about 62.5 a second,
+    # of which update and draw each used one step: 8000 us of a frame's 16667.
+    t.check("stat('fps') and stat('cpu') measure from the port's clock: 16 ms frames, half of it used",
+            clocked(4000) == "63\t48", clocked(4000))
+    t.check("a slower clock gives a lower rate and a fuller frame", clocked(8000) == "31\t96", clocked(8000))
+    t.check("before a second has passed there is no rate yet, only the load",
+            clocked(4000, 20) == "0\t48", clocked(4000, 20))
+    t.check("the rate is updated every second: the same clock gives the same figure later",
+            clocked(4000, 600) == "63\t48", clocked(4000, 600))
 
     # ---- memory -------------------------------------------------------
     r = t.run_game("dbg(stat('mem') > 0, stat('mem') < 64, stat('nonsense'))", manifest=manifest(lua_heap="64"))

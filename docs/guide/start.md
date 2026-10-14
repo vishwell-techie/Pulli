@@ -135,8 +135,24 @@ the manifest:
 
 Then `save("best", score)` keeps a value and `load("best", 0)` reads it
 back, giving `0` the first time. Values may be numbers, text or
-true/false; for whole tables use the `store` helper. Save data is written
-when the game ends; `save_commit()` writes it at once.
+true/false, or a table of those (tables may be nested four deep).
+
+Save data is written when the game ends, and `save_commit()` writes it at
+once, so call that at checkpoints: reaching a new level, a save point, the
+end of a round. A crash or a flat battery loses what was saved since the
+last of these.
+
+To have it written in the background too, add two lines to the manifest:
+
+```lua
+  save_mode     = "auto",
+  save_interval = 60,    -- seconds between writes: you choose, 10 or more (60 if left out)
+```
+
+A change is then written once `save_interval` seconds have passed since the
+last write, a checkpoint included. Flash wears with every write, so the
+shortest interval allowed is 10 seconds, and a game should call
+`save_commit()` at real checkpoints, not every frame.
 
 ## Limits worth knowing
 

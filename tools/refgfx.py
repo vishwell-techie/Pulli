@@ -228,6 +228,22 @@ class RefGfx:
         else:
             self.transparent[c % COLORS] = t
 
+    def set_colour(self, c, r, g, b):
+        """palette(c, r, g, b): colour c from red, green, blue 0..255."""
+        r, g, b = (min(max(v, 0), 255) for v in (r, g, b))
+        self.palette[c % COLORS] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+
+    def load_palette(self, colours):
+        """A whole palette, as 64 (red, green, blue): what palette.pal gives."""
+        for i, (r, g, b) in enumerate(colours):
+            self.palette[i] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
+
+    def colour(self, c):
+        """palette(c): what colour c looks like now, widened back to 0..255."""
+        p = self.palette[c % COLORS]
+        r, g, b = (p >> 11) & 0x1F, (p >> 5) & 0x3F, p & 0x1F
+        return (r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)
+
     def fade(self, amount):
         # The engine receives a 32-bit float; round the same way before use.
         amount = struct.unpack("<f", struct.pack("<f", amount))[0]

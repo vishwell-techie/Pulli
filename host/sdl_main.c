@@ -35,6 +35,10 @@ static void audio(const int16_t *stereo, int frames) {
     SDL_QueueAudio(speaker, stereo, (Uint32)frames * 2 * sizeof(int16_t));
 }
 
+static uint32_t micros(void) {
+    return (uint32_t)((SDL_GetPerformanceCounter() * 1000000ull) / SDL_GetPerformanceFrequency());
+}
+
 static const SDL_Scancode KEYMAP[PULLI_BTN_COUNT] = {
     SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN,
     SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_A, SDL_SCANCODE_S,
@@ -79,6 +83,7 @@ int main(int argc, char **argv) {
     backend.save_read = host_save_read;
     backend.save_write = host_save_write;
     backend.log = host_log;
+    backend.micros = micros;
     /* No sound card is not an error: the game runs silently. */
     SDL_AudioSpec want = { 0 };
     want.freq = PULLI_AUDIO_RATE;
