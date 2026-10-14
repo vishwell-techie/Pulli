@@ -25,7 +25,8 @@ RUNS = [("hello", 120,    None,           None),
         ("walk",  300,    None,           "a@5"),                 # sprites, a map from Tiled, music
         ("walk",  600,    "right,down",   "a@5"),                 # walks until a wall stops it
         ("walk",  3000,   None,           "a@5,a@2900"),          # runs out of time, then tries again
-        ("talk",  120,    "right",        None)]                  # the SDK helpers; the camera follows
+        ("talk",  120,    "right",        None),                  # the SDK helpers; the camera follows
+        ("catch", 900,    "right",        "a@30")]                # the tutorial's game, played until it is lost
 
 # Talk: walk to the villager and press A. They greet you (read it), ask
 # (wait for the question to appear), you answer yes, read the reply, and
