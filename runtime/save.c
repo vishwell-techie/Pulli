@@ -8,15 +8,129 @@
  *   blob    "NNV1", then records back to back
  *   record  u8 key length, u8 type, u16 value length (LE), key, value
  *
- * Integers and floats are stored as 4 little-endian bytes. */
+ * Integers and floats are stored as 4 little-endian bytes.
+ *
+ * A table is stored as a record of type NV_TABLE whose value is a list of
+ * tagged items, each tag one byte:
+ *   'i' 4-byte integer    'f' 4-byte float    's' u16 length, bytes
+ *   'T' true              'F' false           '{' items ... '}' a table
+ * A table's items alternate key, value. */
 #include "internal.h"
 #include <string.h>
 
 #define NV_MAGIC   "NNV1"
 #define NV_HEAD    4
 #define NV_KEY_MAX 32
+#define lua_Number_is_nan(x) ((x) != (x))
 
-enum { NV_FALSE = 1, NV_TRUE, NV_INT, NV_FLOAT, NV_STRING };
+enum { NV_FALSE = 1, NV_TRUE, NV_INT, NV_FLOAT, NV_STRING, NV_TABLE };
+
+/* ---- tables --------------------------------------------------------- */
+
+/* A writer that either counts bytes (out == NULL) or fills a buffer, so a
+ * table is measured first and written only once it is known to fit. */
+typedef struct { uint8_t *out; uint32_t n; bool bad; } tw;
+
+static void put(tw *w, const void *p, size_t len) {
+    if (w->n + len > 0xFFFF) { w->bad = true; return; }
+    if (w->out) memcpy(w->out + w->n, p, len);
+    w->n += (uint32_t)len;
+}
+static void put1(tw *w, uint8_t b) { put(w, &b, 1); }
+static void put4(tw *w, uint32_t v) {
+    uint8_t b[4] = { (uint8_t)v, (uint8_t)(v >> 8), (uint8_t)(v >> 16), (uint8_t)(v >> 24) };
+    put(w, b, 4);
+}
+
+/* Write the value at `idx`; false if it cannot be stored. */
+static bool put_value(tw *w, lua_State *L, int idx, int depth) {
+    idx = lua_absindex(L, idx);
+    switch (lua_type(L, idx)) {
+    case LUA_TBOOLEAN: put1(w, lua_toboolean(L, idx) ? 'T' : 'F'); return !w->bad;
+    case LUA_TNUMBER:
+        if (lua_isinteger(L, idx)) {
+            put1(w, 'i');
+            put4(w, (uint32_t)lua_tointeger(L, idx));
+        } else {
+            lua_Number f = lua_tonumber(L, idx);
+            uint32_t bits;
+            memcpy(&bits, &f, 4);
+            put1(w, 'f');
+            put4(w, bits);
+        }
+        return !w->bad;
+    case LUA_TSTRING: {
+        size_t n;
+        const char *str = lua_tolstring(L, idx, &n);
+        if (n > 0xFFFF) return false;
+        put1(w, 's');
+        put1(w, (uint8_t)n);
+        put1(w, (uint8_t)(n >> 8));
+        put(w, str, n);
+        return !w->bad;
+    }
+    case LUA_TTABLE:
+        if (depth >= PULLI_SAVE_TABLE_DEPTH) return false;     /* also stops a table holding itself */
+        luaL_checkstack(L, 4, "save: table too deep");
+        put1(w, '{');
+        lua_pushnil(L);
+        while (lua_next(L, idx)) {
+            int kt = lua_type(L, -2);
+            if (kt != LUA_TNUMBER && kt != LUA_TSTRING && kt != LUA_TBOOLEAN) { lua_pop(L, 2); return false; }
+            if (!put_value(w, L, -2, depth + 1) || !put_value(w, L, -1, depth + 1)) { lua_pop(L, 2); return false; }
+            lua_pop(L, 1);                                     /* the value; the key stays for next */
+        }
+        put1(w, '}');
+        return !w->bad;
+    default:
+        return false;
+    }
+}
+
+/* Read one tagged item at *p and push it. */
+static bool get_value(lua_State *L, const uint8_t *buf, uint32_t len, uint32_t *p, int depth) {
+    if (*p >= len) return false;
+    uint8_t tag = buf[(*p)++];
+    switch (tag) {
+    case 'T': lua_pushboolean(L, 1); return true;
+    case 'F': lua_pushboolean(L, 0); return true;
+    case 'i': case 'f': {
+        if (len - *p < 4) return false;
+        uint32_t bits = (uint32_t)buf[*p] | ((uint32_t)buf[*p + 1] << 8) |
+                        ((uint32_t)buf[*p + 2] << 16) | ((uint32_t)buf[*p + 3] << 24);
+        *p += 4;
+        if (tag == 'i') lua_pushinteger(L, (lua_Integer)(int32_t)bits);
+        else { lua_Number f; memcpy(&f, &bits, 4); lua_pushnumber(L, f); }
+        return true;
+    }
+    case 's': {
+        if (len - *p < 2) return false;
+        uint32_t n = buf[*p] | ((uint32_t)buf[*p + 1] << 8);
+        *p += 2;
+        if (len - *p < n) return false;
+        lua_pushlstring(L, (const char *)buf + *p, n);
+        *p += n;
+        return true;
+    }
+    case '{':
+        if (depth >= PULLI_SAVE_TABLE_DEPTH) return false;
+        luaL_checkstack(L, 4, "save: table too deep");
+        lua_newtable(L);
+        while (*p < len && buf[*p] != '}') {
+            if (!get_value(L, buf, len, p, depth + 1)) { lua_pop(L, 1); return false; }
+            int kt = lua_type(L, -1);
+            if (kt == LUA_TNUMBER && lua_Number_is_nan(lua_tonumber(L, -1))) { lua_pop(L, 2); return false; }
+            if (kt != LUA_TNUMBER && kt != LUA_TSTRING && kt != LUA_TBOOLEAN) { lua_pop(L, 2); return false; }
+            if (!get_value(L, buf, len, p, depth + 1)) { lua_pop(L, 2); return false; }
+            lua_settable(L, -3);
+        }
+        if (*p >= len) { lua_pop(L, 1); return false; }
+        (*p)++;                                                /* the '}' */
+        return true;
+    default:
+        return false;
+    }
+}
 
 static bool key_ok(const char *k, size_t n) {
     if (n == 0 || n > NV_KEY_MAX) return false;
@@ -93,6 +207,7 @@ bool pulli_save_set(pulli_engine *e, lua_State *L, const char *key, size_t klen,
     const uint8_t *val = num;
     size_t vlen = 0;
     uint8_t type;
+    tw measure = { NULL, 0, false };
 
     if (!e->save || !key_ok(key, klen)) return false;
     switch (lua_type(L, idx)) {
@@ -122,8 +237,13 @@ bool pulli_save_set(pulli_engine *e, lua_State *L, const char *key, size_t klen,
         val = (const uint8_t *)lua_tolstring(L, idx, &vlen);
         if (vlen > 0xFFFF) return false;
         break;
+    case LUA_TTABLE:
+        if (!put_value(&measure, L, idx, 0) || measure.bad) return false;
+        type = NV_TABLE;
+        vlen = measure.n;
+        break;
     default:
-        return false;                                   /* tables: not yet */
+        return false;
     }
 
     uint32_t at = 0, old = 0;
@@ -140,7 +260,12 @@ bool pulli_save_set(pulli_engine *e, lua_State *L, const char *key, size_t klen,
         r[0] = (uint8_t)klen; r[1] = type;
         r[2] = (uint8_t)vlen; r[3] = (uint8_t)(vlen >> 8);
         memcpy(r + 4, key, klen);
-        memcpy(r + 4 + klen, val, vlen);
+        if (type == NV_TABLE) {
+            tw write = { r + 4 + klen, 0, false };
+            put_value(&write, L, idx, 0);               /* measured above: it fits */
+        } else {
+            memcpy(r + 4 + klen, val, vlen);
+        }
         e->save_len += add;
     }
     if (old || add) e->save_dirty = true;
@@ -165,6 +290,11 @@ bool pulli_save_get(pulli_engine *e, lua_State *L, const char *key, size_t klen)
     case NV_INT:    lua_pushinteger(L, (lua_Integer)(int32_t)bits); return true;
     case NV_FLOAT: { lua_Number f; memcpy(&f, &bits, 4); lua_pushnumber(L, f); return true; }
     case NV_STRING: lua_pushlstring(L, (const char *)val, vlen); return true;
+    case NV_TABLE: {
+        uint32_t p = 0;
+        if (get_value(L, val, vlen, &p, 0) && p == vlen && lua_istable(L, -1)) return true;
+        return false;                                   /* damaged: as if never saved */
+    }
     default:        return false;                       /* written by a newer runtime */
     }
 }

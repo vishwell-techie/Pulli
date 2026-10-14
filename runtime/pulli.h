@@ -24,6 +24,10 @@
 #define PULLI_REPEAT_RATE     6    /* frames between repeats after that */
 #define PULLI_LUA_HEAP_MAX_KB 256  /* SPEC §1 memory budget */
 #define PULLI_SAVE_MAX        65536
+#define PULLI_SAVE_INTERVAL_MIN  10   /* seconds: the shortest wait the game may ask for between automatic writes */
+#define PULLI_SAVE_INTERVAL_MAX  3600
+#define PULLI_SAVE_INTERVAL_DEF  60   /* when a game says "auto" and nothing else */
+#define PULLI_SAVE_TABLE_DEPTH 4   /* tables inside tables, at most */
 #define PULLI_ATLAS_MAX       (128 * 1024)  /* resident sprite atlas, SPEC §1 */
 #define PULLI_MAP_LAYERS      2
 #define PULLI_MAP_CELLS_MAX   32768         /* tiles in the loaded map, all layers: 64 KB (SPEC §1) */
@@ -112,6 +116,8 @@ void    pulli_clip     (pulli_gfx *g, int x, int y, int w, int h);
 void    pulli_pal      (pulli_gfx *g, int a, int b);      /* a < 0 resets */
 void    pulli_palt     (pulli_gfx *g, int c, bool t);     /* c < 0 resets */
 void    pulli_fade     (pulli_gfx *g, float amount);      /* 0 = normal, 1 = black */
+void    pulli_set_colour(pulli_gfx *g, int c, int r, int gr, int b); /* c's colour, 0..255 each */
+void    pulli_load_palette(pulli_gfx *g, const uint16_t rgb565[PULLI_PALETTE_LEN]);
 void    pulli_map_draw (pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy);
 
 /* Scanout: convert one strip of indexed pixels to RGB565.
@@ -177,6 +183,7 @@ typedef struct {
     pulli_voice ch[PULLI_SFX_CHANNELS];
     pulli_voice tune[2];                    /* [0] the music playing, [1] music fading out */
     uint32_t    serial;
+    bool        music_paused;
     int16_t     out[PULLI_AUDIO_FRAMES * 2];
 } pulli_audio;
 
@@ -203,6 +210,10 @@ typedef struct {
     int  (*save_read)(const char *game_id, void *blob, size_t max); /* <0: none */
     bool (*save_write)(const char *game_id, const void *blob, size_t len);
     void (*log)(const char *msg);
+    /* A clock in microseconds, wrapping at 2^32. Only for stat("fps") and
+     * stat("cpu"), which are for the developer; nothing else uses it, so
+     * the game itself stays deterministic. */
+    uint32_t (*micros)(void);
     /* Link. The port carries whole messages, in order and without loss
      * while connected. link_poll is called once at the start of every
      * frame; it returns the state and, when connected, which side this
@@ -214,6 +225,9 @@ typedef struct {
 
 /* ---- engine --------------------------------------------------------- */
 typedef enum { PULLI_SAVE_NONE = 0, PULLI_SAVE_SD, PULLI_SAVE_CART } pulli_save_target;
+/* When save data reaches storage. Either way it is written when the game
+ * ends and whenever the game calls save_commit(). */
+typedef enum { PULLI_SAVE_ON_EXIT = 0, PULLI_SAVE_AUTO } pulli_save_mode;
 
 typedef struct {
     char id[64];            /* reverse-DNS, unique */
@@ -224,6 +238,8 @@ typedef struct {
     int  save_size;         /* bytes */
     int  lua_heap_kb;
     pulli_save_target save_target;
+    pulli_save_mode   save_mode;
+    int               save_interval;     /* seconds between automatic writes */
 } pulli_manifest;
 
 struct lua_State;
@@ -239,7 +255,13 @@ typedef struct {
     uint8_t *save;                               /* save blob, save_size bytes */
     uint32_t save_len;
     bool     save_dirty;
+    uint32_t save_written;                       /* frame of the last automatic write */
     pulli_audio audio;
+    uint16_t    base_palette[PULLI_PALETTE_LEN]; /* the game's own colours: palette() puts them back */
+    uint32_t    clock_frames, clock_since;       /* updates counted, and when counting began */
+    uint32_t    fps;                             /* updates a second, measured once a second */
+    uint32_t    work_us;                         /* this frame's update time so far, in microseconds */
+    uint32_t    cpu;                             /* percent of the frame's time used, last frame */
     pulli_link_state link_state;                 /* as of this frame */
     int      link_side;                          /* 1 or 2 while connected */
     int      link_sent;                          /* messages sent this frame */

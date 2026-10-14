@@ -32,6 +32,7 @@ static void log_line(const char *msg) {
 static const pulli_backend backend = {
     .present = present,
     .log = log_line,
+    .micros = time_us_32,
     /* no audio, no save storage, no optional hardware yet */
 };
 

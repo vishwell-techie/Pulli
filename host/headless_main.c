@@ -11,6 +11,9 @@
  *     --dump-fb FILE    write the final indexed framebuffer, 76800 bytes
  *     --dump-rgb FILE   write the final screen as RGB565, little-endian
  *     --dump-wav FILE   write everything the game played, as a WAV file
+ *     --clock-step US   give the game a clock that moves US microseconds each
+ *                       time it is read, so stat("fps") and stat("cpu") have
+ *                       an answer that is the same every run
  *   pulli-headless --maths-check
  *     run the maths self-check (runtime/pmath.h) and print the result
  *
@@ -31,6 +34,9 @@ static void present(const uint16_t *rgb565, int y0, int rows) {
 }
 
 /* Sound is collected only when --dump-wav asks for it. */
+static uint32_t clock_step, clock_now;
+static uint32_t fake_micros(void) { return clock_now += clock_step; }
+
 static FILE *wav;
 static uint32_t wav_frames;
 
@@ -99,7 +105,8 @@ static int usage(void) {
     fprintf(stderr,
         "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME[-FRAME],...]\n"
         "                      [--caps CAPS] [--link PORT]\n"
-        "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE] [--dump-wav FILE]\n");
+        "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE] [--dump-wav FILE]\n"
+        "                      [--clock-step US]\n");
     return 2;
 }
 
@@ -129,6 +136,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--dump-fb"))  dump_fb = v;
         else if (!strcmp(a, "--dump-rgb")) dump_rgb = v;
         else if (!strcmp(a, "--dump-wav")) dump_wav = v;
+        else if (!strcmp(a, "--clock-step")) { clock_step = (uint32_t)atol(v); backend.micros = fake_micros; }
         else if (!strcmp(a, "--hold"))     { if (!host_parse_buttons(v, &held)) return usage(); }
         else if (!strcmp(a, "--tap"))      { if (!parse_taps(v)) return usage(); }
         else if (!strcmp(a, "--caps"))     { if (!host_parse_caps(v, &caps)) return usage(); }

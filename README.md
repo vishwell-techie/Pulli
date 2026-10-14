@@ -24,7 +24,7 @@ Software first; hardware comes last.
 | Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; tested on desktop, not yet run on a board |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
-| Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed |
+| Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed; a game may bring its own 64 colours |
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
 | Examples | hello, pong, walk, talk, catch |
@@ -36,9 +36,8 @@ Software first; hardware comes last.
 
 Measured against `docs/SPEC.md`:
 
-- `save` refuses tables; numbers, strings and booleans work.
-- `stat("fps")` and `stat("cpu")` return nil.
-- No way to load a custom palette.
+- `stat("fps")` and `stat("cpu")` have an answer only where the port has
+  a clock: the window and the firmware do, the headless runner does not.
 - Packages hold Lua source only: bytecode, encrypted and signed packages
   are refused.
 - `check` does no static analysis.

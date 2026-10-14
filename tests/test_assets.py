@@ -173,6 +173,74 @@ def main():
                 [tuple(bytes.fromhex(l)) for l in open(os.path.join(tmp, "p.hex")).read().split()] == colours
                 and pulli.read_png(open(os.path.join(tmp, "p.png"), "rb").read())[2] == [c + (255,) for c in colours])
 
+    # ---- a game's own palette ------------------------------------------------------
+    mine = [((i * 4) % 256, (i * 9) % 256, (i * 17) % 256) for i in range(64)]
+    hexfile = "".join("%02x%02x%02x\n" % c for c in mine).encode()
+    gpl = ("GIMP Palette\nName: Mine\nColumns: 8\n# a comment\n" +
+           "".join(f"{r:3} {g:3} {b:3}\tcolour {i}\n" for i, (r, g, b) in enumerate(mine))).encode()
+    t.check("a palette.hex is read", pulli.read_palette(hexfile) == mine)
+    t.check("a GIMP .gpl palette, as Aseprite and Krita write it, is read", pulli.read_palette(gpl) == mine)
+    t.check("a hex palette may use # before each colour and blank lines",
+            pulli.read_palette(b"\n".join(b"#" + l for l in hexfile.split()) + b"\n\n") == mine)
+    refuses("a palette of 63 colours is refused", lambda: pulli.read_palette(b"\n".join(hexfile.split()[:63]), "p.hex"),
+            "p.hex", "63", "exactly 64")
+    refuses("a palette line that is not a colour is refused", lambda: pulli.read_palette(hexfile + b"purple\n", "p.hex"), "purple")
+    refuses("a colour above 255 in a .gpl is refused", lambda: pulli.read_palette(gpl.replace(b"  4   9", b"400   9"), "p.gpl"), "400")
+    t.check("a palette.pal entry holds the colours after a magic and nothing else",
+            pulli.palette_entry(mine) == b"PAL1" + bytes(v for c in mine for v in c) and len(pulli.palette_entry(mine)) == 196)
+    off = [mine[20] + (255,), mine[21] + (255,), (mine[22][0] + 2, mine[22][1], mine[22][2], 255), (0, 0, 0, 0)] * 16
+    notes = []
+    sheet = pulli.kolam_from_png(rgba_png(8, 8, off), "x.png", notes, mine)
+    t.check("a picture is matched to the game's own palette: its colours come out as their numbers there",
+            list(sheet[8:12]) == [20, 21, 22, 0] and len(notes) == 1 and "1 colour" in notes[0], (list(sheet[8:12]), notes))
+    default_sheet = pulli.kolam_from_png(rgba_png(8, 8, off), "x.png", [])
+    t.check("the same picture matched to the default palette gives other numbers", list(default_sheet[8:11]) != [20, 21, 22])
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, data in (("manifest.lua", MANIFEST.encode()), ("main.lua", b"dbg(1)"), ("palette.hex", hexfile),
+                           ("sprites.png", rgba_png(8, 8, [mine[30] + (255,)] * 64))):
+            open(os.path.join(tmp, name), "wb").write(data)
+        packed = dict(pulli.parse(pulli.build(tmp)))
+        t.check("pack turns palette.hex into palette.pal, leaves the source out, and matches pictures to it",
+                packed["palette.pal"] == pulli.palette_entry(mine) and "palette.hex" not in packed
+                and set(packed["sprites.kolam"][8:]) == {30})
+        os.remove(os.path.join(tmp, "palette.hex"))
+        open(os.path.join(tmp, "palette.gpl"), "wb").write(gpl)
+        t.check("a palette.gpl packs the same way", dict(pulli.parse(pulli.build(tmp)))["palette.pal"] == pulli.palette_entry(mine))
+        open(os.path.join(tmp, "palette.hex"), "wb").write(hexfile)
+        refuses("a game with both palette.hex and palette.gpl is refused", lambda: pulli.build(tmp), "palette.hex", "palette.gpl")
+        os.remove(os.path.join(tmp, "palette.hex"))
+        open(os.path.join(tmp, "palette.pal"), "wb").write(b"PAL1")
+        refuses("a ready-made palette.pal beside a source is refused", lambda: pulli.build(tmp), "palette.pal", "palette.gpl")
+        os.remove(os.path.join(tmp, "palette.gpl"))
+        open(os.path.join(tmp, "palette.pal"), "wb").write(pulli.palette_entry(mine))
+        packed = dict(pulli.parse(pulli.build(tmp)))
+        t.check("a ready-made palette.pal is packed, and pictures are matched to it too",
+                packed["palette.pal"] == pulli.palette_entry(mine) and set(packed["sprites.kolam"][8:]) == {30})
+        open(os.path.join(tmp, "palette.pal"), "wb").write(b"PAL1" + bytes(10))
+        refuses("a ready-made palette.pal that is not 64 colours is refused", lambda: pulli.build(tmp), "palette.pal")
+
+        # The palette command, for a paint program: the standard colours, or a game's own.
+        tool = [sys.executable, os.path.join(ROOT, "tools", "pulli.py"), "palette"]
+        os.remove(os.path.join(tmp, "palette.pal"))
+        open(os.path.join(tmp, "palette.hex"), "wb").write(hexfile)
+        out = os.path.join(tmp, "out.gpl")
+        r = subprocess.run(tool + [tmp, out], capture_output=True, text=True)
+        t.check("pulli.py palette <game> writes the game's own colours",
+                r.returncode == 0 and pulli.read_palette(open(out, "rb").read()) == mine and "own" in r.stdout, r.stdout + r.stderr)
+        pkg = os.path.join(tmp, "game.pulli")
+        open(pkg, "wb").write(pulli.build(tmp))
+        for ext in ("gpl", "hex", "png"):
+            out = os.path.join(tmp, "from-package." + ext)
+            subprocess.run(tool + [pkg, out], capture_output=True)
+            data = open(out, "rb").read()
+            got = [p[:3] for p in pulli.read_png(data)[2]] if ext == "png" else pulli.read_palette(data)
+            t.check(f"pulli.py palette <game.pulli> writes the game's own colours as .{ext}", got == mine)
+        os.remove(os.path.join(tmp, "palette.hex"))
+        r = subprocess.run(tool + [tmp, out], capture_output=True, text=True)
+        t.check("for a game with no palette of its own, the standard colours are written, and it says so",
+                [p[:3] for p in pulli.read_png(open(out, "rb").read())[2]] == colours and "no palette of its own" in r.stdout,
+                r.stdout)
+
     # ---- maps from Tiled ---------------------------------------------------------
     with tempfile.TemporaryDirectory() as tmp:
         def imported(text, columns=8, notes=None, name="map.tmx"):
@@ -264,6 +332,59 @@ def main():
 
     if not t.need_runtime("maps in the runtime"):
         return t.finish()
+
+    # ---- a game's own palette in the runtime -----------------------------------------
+    def px(res, x, y):
+        return int.from_bytes(res.rgb[2 * (y * 320 + x):2 * (y * 320 + x) + 2], "little")
+    def rgb565(c):
+        return ((c[0] >> 3) << 11) | ((c[1] >> 2) << 5) | (c[2] >> 3)
+    own = {"palette.pal": pulli.palette_entry(mine)}
+    r = t.run_game("function draw() cls(0) rectfill(10, 10, 10, 10, 9) end", extra=own)
+    t.check("a game with its own palette shows its colours",
+            r.code == 0 and px(r, 0, 0) == rgb565(mine[0]) and px(r, 15, 15) == rgb565(mine[9]), r.err)
+    r = t.run_game("function draw() cls(0) palette(0, 255, 255, 255) palette() rectfill(10, 10, 10, 10, 9) end", extra=own)
+    t.check("palette() puts back the game's own colours, not the standard ones",
+            r.code == 0 and px(r, 0, 0) == rgb565(mine[0]) and px(r, 15, 15) == rgb565(mine[9]), r.err)
+    plain = t.run_game("function draw() cls(0) end")
+    t.check("a game without one shows the standard colours", px(plain, 0, 0) == 0 and px(plain, 0, 0) != rgb565(mine[0]) or mine[0] == (0, 0, 0))
+    expect_lines = lambda name, lua, lines, extra=None: t.check(
+        name, (lambda r: r.code == 0 and r.lines == lines or print(r.lines, r.err))(t.run_game(lua, extra=extra)))
+    std = refgfx.RefGfx()
+    want = "\t".join(str(v) for v in std.colour(8))
+    expect_lines("palette(c) tells what colour c looks like, to the precision the screen keeps",
+                 "dbg(palette(8)) palette(9, 255, 0, 128) dbg(palette(9)) palette(73, 1, 2, 3) dbg(palette(9))"
+                 " palette() dbg(palette(9)) dbg(palette(0)) dbg(palette(64 + 7))",
+                 [want, "255\t0\t132", "0\t0\t0", "\t".join(str(v) for v in std.colour(9)), "0\t0\t0",
+                  "\t".join(str(v) for v in std.colour(7))])
+    ownref = refgfx.RefGfx()
+    ownref.load_palette(mine)
+    expect_lines("palette(c) reads a game's own colours too",
+                 "dbg(palette(20))", ["\t".join(str(v) for v in ownref.colour(20))], own)
+
+    # Palette changes against the reference rasterizer: what reaches the screen must match exactly.
+    for label, files, base in (("the standard palette", {}, None), ("a game's own", own, mine)):
+        ref = refgfx.RefGfx()
+        if base:
+            ref.load_palette(base)
+        ref.cls(1)
+        for i in range(64):
+            ref.rectfill((i % 16) * 20, (i // 16) * 20, 18, 18, i)
+        ref.set_colour(5, 250, 10, 99)
+        ref.set_colour(70, 300, -4, 33)
+        ref.pal(3, 5)
+        ref.rectfill(0, 100, 320, 20, 3)
+        ref.fade(0.3)
+        lua = ("function draw() cls(1) for i = 0, 63 do rectfill((i % 16) * 20, (i // 16) * 20, 18, 18, i) end"
+               " palette(5, 250, 10, 99) palette(70, 300, -4, 33) pal(3, 5) rectfill(0, 100, 320, 20, 3) fade(0.3) end")
+        r = t.run_game(lua, extra=files)
+        want_rgb = b"".join(p.to_bytes(2, "little") for p in ref.scanout())
+        t.check(f"colours set while running, with pal() and fade(), match the reference exactly: {label}",
+                r.code == 0 and r.rgb == want_rgb, r.err)
+
+    for name, blob, why in (("one of the wrong length", b"PAL1" + bytes(100), "palette.pal"),
+                            ("one with the wrong magic", b"XXXX" + bytes(192), "palette.pal")):
+        r = t.run_game("", extra={"palette.pal": blob})
+        t.check(f"a palette.pal {name} stops the game from starting", r.code == 1 and why in r.err, r.err)
 
     # ---- drawing: the runtime against the reference ---------------------------------
     rng = random.Random(3)

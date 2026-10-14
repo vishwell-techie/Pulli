@@ -96,6 +96,7 @@ class Mixer:
         self.ch = [None] * CHANNELS
         self.tune = [None, None]        # [0] playing, [1] fading out
         self.serial = 0
+        self.paused = False
 
     @staticmethod
     def _on(v):
@@ -117,7 +118,11 @@ class Mixer:
         self.serial += 1
         self.ch[channel] = Voice(self.sounds[n], False, self.serial)
 
+    def music_pause(self, paused: bool = True):
+        self.paused = paused
+
     def music_stop(self, fade_ms: int = 0):
+        self.paused = False             # stopping lets the fade run
         if fade_ms <= 0:
             self.tune = [None, None]
         elif self._on(self.tune[0]):
@@ -129,6 +134,7 @@ class Mixer:
         if n < 0 or n >= len(self.tracks):
             return
         self.music_stop(fade_ms)
+        self.paused = False             # new music plays
         self.serial += 1
         self.tune[0] = Voice(self.tracks[n], looping, self.serial)
         if fade_ms > 0:
@@ -138,7 +144,7 @@ class Mixer:
         out = []
         for _ in range(FRAMES):
             total = [0, 0]
-            for v in self.ch + self.tune:
+            for v in self.ch + ([] if self.paused else self.tune):
                 if self._on(v):
                     l, r = v.render()
                     total[0] += l

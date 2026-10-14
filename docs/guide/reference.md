@@ -65,6 +65,14 @@ moves `map.draw`.
 Draw only inside this box of the screen. `clip()` with nothing, or a width
 or height of 0, draws everywhere again.
 
+### `palette([c], [r], [g], [b])`
+Give colour `c` a new look: `r`, `g` and `b` are red, green and blue from 0 to
+255. `palette(c)` alone returns colour `c`'s red, green and blue now, as the
+screen keeps them: `palette(9, 255, 0, 128)` reads back as `255, 0, 132`.
+`palette()` with nothing puts the game's own colours back. See
+[Art and sound](art-and-sound.md) for giving a game a whole palette of its
+own.
+
 ### `pal([a], [b])`
 Draw colour `a` as colour `b` from now on. `pal()` with nothing puts every
 colour back.
@@ -146,23 +154,34 @@ already playing fades out.
 ### `music_stop([fade_ms = 0])`
 Fade the music out and stop it.
 
+### `music_pause([paused = true])`
+Hold the music still, and any fade it is in the middle of. Sound effects
+carry on. `music_pause(false)` carries on from the same place. Stopping the
+music or starting new music also ends a pause.
+
 ## Save data
 
 Needs `save_target` in the manifest; see [Getting started](start.md#saving).
 
 ### `save(key, value)`
 Keep a value. `key` is 1 to 32 letters, digits, `_`, `-` or `.`. `value` is
-a number, text or true/false; `nil` removes the key. Returns true, or false
-if the key or value is not allowed or the save data is full. For a table,
-use the `store` helper.
+a number, text, true/false or a table; `nil` removes the key. Returns true,
+or false if the key or value is not allowed or the save data is full.
+
+A table may hold numbers, text, true/false and other tables, nested four
+deep, with keys that are numbers, text or true/false. A table that holds a
+function, is nested deeper or contains itself is refused. `load` gives back
+a new table each time.
 
 ### `load(key, [default])`
 The value kept under `key`, of the same type it was saved with, or
 `default` if there is none.
 
 ### `save_commit()`
-Write the save data now. It is also written when the game ends. Returns
-true if it worked.
+Write the save data now: a checkpoint. It is also written when the game
+ends, and with `save_mode = "auto"` in the manifest, every `save_interval`
+seconds (10 or more) after a change. Returns true if it worked. Writing
+wears flash, so call it at real checkpoints, not every frame.
 
 ## Modules
 
@@ -203,7 +222,11 @@ Seconds since the game started, counted in frames: it goes up by exactly
 
 ### `stat(what)`
 `stat("frame")`: updates since the game started. `stat("mem")`: Lua memory
-in use, in KB.
+in use, in KB. `stat("fps")`: updates a second over the last second.
+`stat("cpu")`: the percentage of the last frame's time that `update` and
+`draw` used; over 100 means the frame ran late. `fps` and `cpu` are for
+finding out why a game is slow, not for the game to act on: they differ from
+run to run, and are `nil` where there is no clock to measure with.
 
 ### `dbg(...)`
 Print the values, separated by tabs, to the terminal. For finding

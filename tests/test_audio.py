@@ -78,8 +78,17 @@ SCRIPT = [
     (40, ("music", 2, 500, False)),                              # change again part-way through
     (75, ("music", 3, 100, True)),
     (85, ("music_stop", 200)),
+    (92, ("music_pause",)),                                      # a pause: music still, effects not
+    (94, ("sfx", 0, -1)),
+    (97, ("music_pause", False)),
+    (98, ("music_pause", True)),                                 # paused again, then new music starts
     (100, ("music", 2, 0, False)),                               # plays once and ends by itself
     (125, ("music", 0, 250, True)),                              # fades in, then loops twice
+    (130, ("music_pause",)),                                     # paused during that fade-in...
+    (136, ("music_stop", 100)),                                  # ...stopping lets it carry on out
+    (140, ("music", 0, 250, True)),
+    (150, ("music_pause",)),                                     # paused for a long while,
+    (180, ("music_pause", False)),                               # then it carries on where it was
     (210, ("music_stop", 0)),
     (212, ("sfx", 1, -1)),
 ]
@@ -199,6 +208,9 @@ def main():
         t.check("the script exercises what it means to: silence, sound, clipping and stereo",
                 loudest(frame(4)) > 0 and loudest(frame(21)) >= 32767 and loudest(frame(27)) > 0
                 and any(a != b for a, b in frame(2)) and loudest(frame(220)) == 0)
+        t.check("the script's pauses silence the music but not the effects, and the music carries on after",
+                loudest(frame(91)) > 0 and loudest(frame(93)) == 0 and loudest(frame(95)) > 0
+                and loudest(frame(96)) > 0 and loudest(frame(155)) == 0 and loudest(frame(185)) > 0)
         again = t.run_game(lua_script(), extra=extra, frames=FRAMES, sound=True)
         t.check("the same game makes the same sound every time", again.wav == r.wav)
 

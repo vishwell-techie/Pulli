@@ -190,8 +190,9 @@ void pulli_audio_mix(pulli_audio *a, int16_t *out, int frames) {
         int32_t l = 0, r = 0;
         for (int c = 0; c < PULLI_SFX_CHANNELS; c++)
             if (a->ch[c].active) render(&a->ch[c], &l, &r);
-        for (int m = 0; m < 2; m++)
-            if (a->tune[m].active) render(&a->tune[m], &l, &r);
+        if (!a->music_paused)                         /* paused music stands still, fades included */
+            for (int m = 0; m < 2; m++)
+                if (a->tune[m].active) render(&a->tune[m], &l, &r);
         out[2 * i] = clamp16(l);
         out[2 * i + 1] = clamp16(r);
     }
@@ -223,7 +224,12 @@ static int32_t fade_step(int fade_ms) {
     return step ? step : 1;
 }
 
+void pulli_audio_music_pause(pulli_audio *a, bool paused) {
+    a->music_paused = paused;
+}
+
 void pulli_audio_music_stop(pulli_audio *a, int fade_ms) {
+    a->music_paused = false;                      /* stopping lets the fade run */
     if (fade_ms <= 0) {
         a->tune[0].active = a->tune[1].active = false;
     } else if (a->tune[0].active) {               /* tune[1] is the one on its way out */
@@ -236,6 +242,7 @@ void pulli_audio_music_stop(pulli_audio *a, int fade_ms) {
 void pulli_audio_music(pulli_audio *a, int n, int fade_ms, bool looping) {
     if (n < 0 || n >= a->music_count) return;
     pulli_audio_music_stop(a, fade_ms);
+    a->music_paused = false;                      /* new music plays */
     start(a, &a->tune[0], a->music, (unsigned)n, looping);
     if (fade_ms > 0) {
         a->tune[0].gain = 0;

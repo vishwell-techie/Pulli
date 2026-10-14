@@ -8,6 +8,10 @@
 -- save() keeps only numbers, text and true/false. This packs a whole table,
 -- tables inside it included, into one piece of text and keeps that.
 --
+-- The engine's own save() now keeps tables too, nested four deep, and is
+-- simpler. This helper remains for tables nested deeper than that, and for
+-- data already saved with it.
+--
 -- store.save(key, t)   Keep table t under `key`. Returns save()'s answer.
 --     Keys and values may be numbers, text or true/false, and values may
 --     also be tables; anything else is an error. A table may not contain

@@ -24,6 +24,28 @@ Every pixel on Pulli is one of 64 colours, numbered 0 to 63:
   python3 tools/pulli.py palette pulli.png   # an 8 x 8 swatch
   ```
 
+### A palette of your own
+
+To use other colours, put a file called `palette.hex` (one `rrggbb` colour
+a line) or `palette.gpl` (the format GIMP, Aseprite and Krita save) in the
+game's folder, with exactly 64 colours. The game then shows those colours
+instead, and `pack` matches your `sprites.png` to them, so draw with the
+palette loaded in your paint program. Colour 0 is still the see-through
+one, and the rest of the guide's colour numbers refer to your palette.
+
+Write a game's palette back out for a paint program, from its folder or
+its packed file:
+
+```bash
+python3 tools/pulli.py palette mygame mygame.gpl
+python3 tools/pulli.py palette mygame.pulli mygame.png
+```
+
+To change a colour while the game runs, `palette(c, r, g, b)` sets colour
+`c` to red, green and blue values from 0 to 255, `palette(c)` reads it, and
+`palette()` puts the game's colours back. Cycling a colour this way is a
+cheap trick for water and fire.
+
 ## Sprites
 
 Draw your sprites on a grid of 8 × 8 squares and save it as `sprites.png`

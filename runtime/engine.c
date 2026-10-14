@@ -124,6 +124,13 @@ static int read_manifest(lua_State *L) {
     else if (!strcmp(target, "sd"))                 m->save_target = PULLI_SAVE_SD;
     else if (!strcmp(target, "cart"))               m->save_target = PULLI_SAVE_CART;
     else luaL_error(L, "'save_target' must be \"sd\", \"cart\" or \"none\"");
+    char mode[16];
+    str_field(L, "save_mode", mode, sizeof(mode), false);
+    if      (!mode[0] || !strcmp(mode, "exit")) m->save_mode = PULLI_SAVE_ON_EXIT;
+    else if (!strcmp(mode, "auto"))             m->save_mode = PULLI_SAVE_AUTO;
+    else luaL_error(L, "'save_mode' must be \"exit\" or \"auto\"");
+    m->save_interval = int_field(L, "save_interval", PULLI_SAVE_INTERVAL_DEF,
+                                 PULLI_SAVE_INTERVAL_MIN, PULLI_SAVE_INTERVAL_MAX);
     m->save_size   = int_field(L, "save_size", 4096, 16, PULLI_SAVE_MAX);
     m->lua_heap_kb = int_field(L, "lua_heap", PULLI_LUA_HEAP_MAX_KB, 16, PULLI_LUA_HEAP_MAX_KB);
     return 0;
@@ -224,6 +231,17 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
     if (why_not) return fail(e, "%s: %s", bank, why_not);
     /* Every map is checked now, so map.load() cannot meet a bad one later.
      * A game with a map.ooru starts with it loaded. */
+    pulli_blob pal;
+    pulli_default_palette(e->base_palette);
+    if (pulli_pkg_find(&e->pkg, "palette.pal", &pal)) {
+        if (pal.len != 4 + 3 * PULLI_PALETTE_LEN || memcmp(pal.data, "PAL1", 4) != 0)
+            return fail(e, "palette.pal: not a palette of %d colours", PULLI_PALETTE_LEN);
+        for (int i = 0; i < PULLI_PALETTE_LEN; i++) {
+            const uint8_t *c = pal.data + 4 + 3 * i;
+            e->base_palette[i] = (uint16_t)(((c[0] >> 3) << 11) | ((c[1] >> 2) << 5) | (c[2] >> 3));
+        }
+        pulli_load_palette(&e->ctx.g, e->base_palette);
+    }
     for (unsigned i = 0; i < e->pkg.count; i++) {
         char name[PULLI_PKG_NAME_MAX + 1] = { 0 };          /* a full-length name has no terminator */
         memcpy(name, e->pkg.base + PULLI_PKG_HEADER + PULLI_PKG_ENTRY * i, PULLI_PKG_NAME_MAX);
@@ -258,8 +276,27 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
     return true;
 }
 
+/* The developer's clock, if the port has one. */
+static uint32_t now_us(const pulli_engine *e) {
+    return e->backend && e->backend->micros ? e->backend->micros() : 0;
+}
+
 bool pulli_update(pulli_engine *e, uint32_t buttons) {
     if (!e->running) return false;
+    uint32_t began = now_us(e);
+    if (e->backend && e->backend->micros) {
+        /* Updates a second: the updates begun in each second of the port's
+         * clock, over the time they took to begin. */
+        uint32_t elapsed = began - e->clock_since;
+        if (e->clock_frames == 0) {
+            e->clock_since = began;
+        } else if (elapsed >= 1000000u) {
+            e->fps = (uint32_t)(((uint64_t)e->clock_frames * 1000000u + elapsed / 2) / elapsed);
+            e->clock_since = began;
+            e->clock_frames = 0;
+        }
+        e->clock_frames++;
+    }
     e->ctx.btn_state = buttons & ((1u << PULLI_BTN_COUNT) - 1);
     for (int i = 0; i < PULLI_BTN_COUNT; i++)
         e->ctx.btn_held[i] = (e->ctx.btn_state >> i) & 1u ? e->ctx.btn_held[i] + 1 : 0;
@@ -274,6 +311,17 @@ bool pulli_update(pulli_engine *e, uint32_t buttons) {
      * the world. On the MCU this is not optional. */
     lua_gc(e->L, LUA_GCSTEP, 2);
     if (!run_callback(e, "update", true)) return false;
+    if (e->backend && e->backend->micros) e->work_us = e->backend->micros() - began;
+
+    /* "auto" saves: once a change has waited as long as the game asked for
+     * (at least 10 s), write it. Whether the write worked is not the game's
+     * concern here; it may ask with save_commit(). A failed write is not
+     * retried every frame. */
+    if (e->save && e->manifest.save_mode == PULLI_SAVE_AUTO && e->save_dirty &&
+        e->ctx.frame - e->save_written >= (uint32_t)e->manifest.save_interval * PULLI_TICK_HZ) {
+        pulli_save_commit(e);
+        e->save_written = e->ctx.frame;
+    }
 
     /* This frame's sound, including whatever update() just started. */
     if (e->backend && e->backend->audio) {
@@ -284,7 +332,15 @@ bool pulli_update(pulli_engine *e, uint32_t buttons) {
 }
 
 bool pulli_draw(pulli_engine *e) {
-    return e->running && run_callback(e, "draw", false);
+    if (!e->running) return false;
+    uint32_t began = now_us(e);
+    bool ok = run_callback(e, "draw", false);
+    if (e->backend && e->backend->micros) {
+        uint32_t used = e->work_us + (e->backend->micros() - began);   /* update and draw of this frame */
+        e->cpu = (uint32_t)(((uint64_t)used * 100u + 8333u) / 16667u);
+        e->work_us = 0;
+    }
+    return ok;
 }
 
 void pulli_present(pulli_engine *e) {

@@ -117,7 +117,8 @@ package and its seal (a cartridge holds them at the start of a larger flash
 region).
 
 Required entries: `manifest.lua`, `main.lua`.
-Conventional: `sprites.kolam`, `map.ooru`, `sfx.oli`, `music.isai`, `icon.kolam`.
+Conventional: `sprites.kolam`, `map.ooru`, `sfx.oli`, `music.isai`, `icon.kolam`,
+`palette.pal`.
 The asset extensions follow the tools that make them: Kolam
 for sprites, Ooru for maps, Oli for sound effects, Isai for music.
 
@@ -215,6 +216,19 @@ properties on the tileset's tiles: `flags`, a number from 0 to 255, and
 `solid`, a tick box that sets bit 0. Object and image layers are not
 imported.
 
+### palette.pal (draft)
+
+A game's own 64 colours, replacing the built-in palette (§8.3) for that
+game: the magic `"PAL1"` then 64 colours of 3 bytes each, red, green and
+blue, 8 bits each; 196 bytes in all. The runtime turns each into RGB565, as
+for the built-in palette. Any other length or magic stops the game from
+starting. `pulli pack` builds it from a `palette.hex` (one `rrggbb` a line)
+or `palette.gpl` (GIMP, Aseprite and Krita's format) in the game's folder,
+or takes a ready-made `palette.pal` as it is,
+and then matches the game's PNG pictures to those colours instead of the
+built-in ones. The conventions of §8.3, such as the shadow ramp 32 apart,
+are the game's to keep or not.
+
 ### sfx.oli and music.isai (draft)
 
 Two sound banks with one layout: `sfx.oli` holds the sounds `sfx(n)`
@@ -266,6 +280,8 @@ return {
   spec        = 1,                        -- Pulli spec version required
   save_target = "sd",                     -- "sd" | "cart" | "none"
   save_size   = 4096,                     -- bytes, max 65536
+  save_mode   = "exit",                   -- "exit" | "auto": when saves are written (§3)
+  save_interval = 60,                     -- seconds between automatic writes, 10 to 3600
   lua_heap    = 192,                      -- KB requested, max 256 (§1)
   icon        = "icon.kolam",
 }
@@ -366,6 +382,7 @@ confirm and quit, where a second firing would undo the first.
 sfx(n, channel)          -- play sound n; channel optional, -1 = auto
 music(n, fade_ms, loop)  -- play track n; fade_ms optional (0), loop optional (true)
 music_stop(fade_ms)
+music_pause(paused)      -- true (the default) holds the music still; false carries on
 ```
 
 - There are 8 sound-effect channels, 0 to 7. A sound started on a channel
@@ -376,6 +393,9 @@ music_stop(fade_ms)
   new track in over `fade_ms` while the old one fades out over the same
   time; `music_stop` fades out and stops. A track loops from its loop point
   until stopped, or plays once when `loop` is false.
+- `music_pause` holds the music, and any fade it is in the middle of, where
+  it is; sound effects are not affected. `music_stop` and starting new music
+  both end a pause. Pausing with no music playing does nothing.
 - A sound or track number that does not exist does nothing, as does a
   channel above 7. A game with no sounds may call all three freely.
 - A sound starts in the frame that asked for it. The engine mixes exactly
@@ -390,9 +410,9 @@ music_stop(fade_ms)
 ### Save data
 
 ```lua
-save(key, value)   -- value: number, string, boolean, or flat table
+save(key, value)   -- value: number, string, boolean, or a table
 load(key, default)
-save_commit()      -- flush to storage; engine also auto-commits on exit
+save_commit()      -- flush to storage now
 ```
 
 Saves are a key-value blob capped at `save_size`. No filesystem access from
@@ -402,7 +422,34 @@ Keys are 1 to 32 characters from letters, digits, `_`, `-` and `.`. `save`
 returns `true`, or `false` if the key is bad, the value is of an unsupported
 type, the store is full, or the game has no `save_target`. Saving `nil`
 deletes the key. `load` returns the value with the type it was saved with.
-*Not yet: flat tables.*
+
+A **table** may hold numbers, text, booleans and other tables, and its keys
+may be numbers, text or booleans. Tables may be nested four deep. `save`
+returns `false` for a table that holds a function or other unsupported
+value or key, is nested deeper, or contains itself; the value kept is the
+table's contents, and `load` returns a new table each time, so changing it
+changes nothing until it is saved again. One saved value, a table included,
+is at most 65535 bytes. A stored table that does not read back whole is
+treated as never saved.
+
+**When saves are written.** Save data is kept in memory while the game runs.
+It is written to storage when the game ends and at the **checkpoints** the
+game chooses by calling `save_commit()`, for instance on reaching a new
+level or a save point. A crash or a flat battery loses what was saved since
+the last of these. The manifest's `save_mode` can add automatic writes:
+
+- `"exit"` (the default): only at the end of the game and at checkpoints.
+- `"auto"`: also in the background. A change is written once
+  `save_interval` seconds of game time have passed since the last write,
+  automatic or at a checkpoint. `save_interval` is the game's choice, from
+  **10** to 3600 seconds, and is 60 if the game says nothing; a value below
+  10 stops the game from starting. A game that saves every frame therefore
+  writes at most once in that time. A failed automatic write is not retried
+  until the next interval.
+
+Flash wears with every write, which is why the automatic interval has a
+floor. `save_commit()` has none, because a checkpoint is the game's own
+decision: call it at real checkpoints, not every frame.
 
 ### Link
 
@@ -479,9 +526,18 @@ game is written.
 ```lua
 sys.has(cap)       -- "video","wifi","cart","rumble","link" -- hardware varies by variant
 time()             -- seconds since boot, float
-stat("fps") stat("mem") stat("cpu")
+stat("fps") stat("mem") stat("cpu") stat("frame")
 dbg(...)           -- printf to host console / device serial; stripped in release
 ```
+
+`stat("frame")` is the number of updates since the game began, and
+`stat("mem")` the Lua memory in use, in KB. `stat("fps")` is the updates a
+second over the last second, and `stat("cpu")` the percentage of the last
+frame's 1/60 s that its update and draw used. These two come from a clock
+that the port supplies, and are `nil` where it has none. They are for
+finding out why a game is slow, not for the game to act on: they differ
+from run to run, and a game that depends on them is no longer deterministic
+(§4). Any other name gives `nil`.
 
 ### More than one Lua file
 
@@ -609,7 +665,13 @@ exact digits may differ between desktop and device.
 - Origin top-left, +y down, integer pixel centers.
 - Palette index 0 is transparent for sprites by default (`palt` overridable).
 - The default 64-colour palette (§8.3) is built into the runtime. Games
-  may load their own 64-entry palette; the API for that is not yet defined.
+  may supply their own 64 colours with a `palette.pal` (§2), and change
+  any colour while running with `palette(c, r, g, b)`, red, green and blue
+  from 0 to 255; `palette(c)` returns colour c's red, green and blue as they
+  are kept (5 bits of red and blue, 6 of green, widened back to 0..255 by
+  repeating their top bits); `palette()` puts the game's colours back.
+  Colour numbers wrap at 64, and `fade` applies to the new colours as to the
+  old. `tools/refgfx.py` models all of this and the tests hold the runtime to it.
 
 ---
 
@@ -721,6 +783,11 @@ covered by `tests/`; none is frozen.
    Lua files loaded with `require`, from its own package only; the
    helpers in `sdk/` (§3, "Batteries"); and `pack` supplying the helpers a
    game requires.
-16. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
+16. **Small items** (§2, §3, §5): tables in save data, and the manifest's
+   `save_mode` and `save_interval` for when saves are written, with
+   `save_commit()` as the game's own checkpoint; `palette.pal` and
+   `palette(c, r, g, b)` for a game's own colours; `music_pause`;
+   `stat("fps")` and `stat("cpu")`, from a port-supplied clock.
+17. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
    ADR-002.

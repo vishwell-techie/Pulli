@@ -158,6 +158,11 @@ def main():
         pressed = t.run_package(walk, frames=105, tap=f"{begin},start@100", sound=True).sound[99 * 735:]
         unpressed = t.run_package(walk, frames=105, tap=begin, sound=True).sound[99 * 735:]
         t.check("walk: pausing plays a tone", pressed != unpressed and pressed[:735] != unpressed[:735])
+        # While paused the tune is still: the only sound in the following second is silence.
+        waiting = t.run_package(walk, frames=220, tap=f"{begin},start@100", sound=True).sound
+        t.check("walk: the music stops while the game is paused", max(abs(s) for pair in waiting[130 * 735:] for s in pair) == 0)
+        later = t.run_package(walk, frames=260, tap=f"{begin},start@100,start@200", sound=True).sound
+        t.check("walk: the music carries on when the game is", max(abs(s) for pair in later[230 * 735:] for s in pair) > 0)
 
         # Level 1: follow a route to every gem, then press A for level 2.
         # The pictures are compared with a run that does not press A, and
