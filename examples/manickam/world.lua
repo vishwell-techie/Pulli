@@ -495,11 +495,13 @@ function w.update(dt)
   if script.active() then script.update(dt)
   elseif not talking and w.control then control(dt) end
   p.step = p.moving and p.step + dt or 0
-  -- Minmini drifts after Kayal, a little above and behind her
-  local mm, cx, cy, a = w.mm, p.x + 4, p.y + 3, AHEAD[p.face]
-  local k = math.min(1, dt * 4)
+  -- Minmini drifts after Kayal and keeps to the same place whichever way
+  -- she faces: just above her right shoulder as she faces us (our left),
+  -- clear of her face
+  local mm = w.mm
+  local k = math.min(1, dt * 12)            -- close behind, so she never trails across Kayal
   mm.t = mm.t + dt
-  mm.x, mm.y = mm.x + (cx - a[1] * 1.4 - mm.x) * k, mm.y + (cy - 16 - a[2] * 0.6 - mm.y) * k
+  mm.x, mm.y = mm.x + (p.x - 8 - mm.x) * k, mm.y + (p.y - 12 - mm.y) * k
   if not talking and not w.freeze then slimes(dt) end
   if w.region.update then w.region.update(w, dt) end
   w.camera(dt)

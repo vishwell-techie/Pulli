@@ -16,7 +16,7 @@ manickam frames=120 hold=- tap=- 7023533c47b6c055bfc40e9da3c43b7028aede21599f98c
 manickam frames=120 hold=- tap=- sound 53f8155d3a6236df2f2fa62fac88b394ed476b8c6d02ba20879e15d097529c65
 manickam frames=900 hold=- tap=a@5 5a861fbe2ec9af6fd4c2ca4b72e990cf17ccc420c409b300f7d54b2fcab6894e
 manickam frames=900 hold=- tap=a@5 sound 43ba83081fd9f73d09999d667869e0c91b86eafc476b154422bb336bdf98f3c5
-manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 41ad5b83befee6a153fdaa57693af5ebc7565406bb1ce2f9cc8ead14f594a9da
+manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 33e87863ec1a605cd35977fc2d6f65bf51c263d8c3357401fa413e278471681d
 manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 sound 8f93d03d87c90be922b2d38eca548eadaef19f9ebe2d17571c4e88150a8e8f74
 talk frames=120 hold=right tap=- d6fd49991cfcacab52786695b4b858b382718f9aa199ec7162176686b055f5cf
 talk frames=120 hold=right tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
