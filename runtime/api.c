@@ -47,11 +47,24 @@ static int l_sspr(lua_State *L) {
                arg_i(L,7,arg_i(L,3,0)), arg_i(L,8,arg_i(L,4,0)));
     return 0;
 }
+/* print(text, x, y, c) draws UTF-8 text with its top at y and returns where
+ * the next letter would go; text_size(text) is the width of its widest line
+ * and the height of all its lines. */
 static int l_print(lua_State *L) {
     lua_settop(L, 4);
-    const char *s = luaL_tolstring(L, 1, NULL);
-    pulli_print(&E->ctx.g, s, arg_i(L,2,0), arg_i(L,3,0), arg_i(L,4,7));
-    return 0;
+    size_t len;
+    const char *s = luaL_tolstring(L, 1, &len);
+    lua_pushinteger(L, pulli_print(&E->ctx.g, s, len, arg_i(L,2,0), arg_i(L,3,0), arg_i(L,4,7)));
+    return 1;
+}
+static int l_text_size(lua_State *L) {
+    size_t len;
+    int w, h;
+    const char *s = luaL_tolstring(L, 1, &len);
+    pulli_text_size(s, len, &w, &h);
+    lua_pushinteger(L, w);
+    lua_pushinteger(L, h);
+    return 2;
 }
 static int l_camera(lua_State *L) { pulli_camera(&E->ctx.g, arg_i(L,1,0), arg_i(L,2,0)); return 0; }
 static int l_clip(lua_State *L)   { pulli_clip(&E->ctx.g, arg_i(L,1,0),arg_i(L,2,0),arg_i(L,3,0),arg_i(L,4,0)); return 0; }
@@ -281,7 +294,7 @@ static int l_map_size(lua_State *L) {
 static const luaL_Reg CORE[] = {
     {"cls",l_cls},{"pset",l_pset},{"pget",l_pget},{"line",l_line},
     {"rect",l_rect},{"rectfill",l_rectfill},{"circ",l_circ},{"circfill",l_circfill},
-    {"spr",l_spr},{"sspr",l_sspr},{"print",l_print},{"camera",l_camera},
+    {"spr",l_spr},{"sspr",l_sspr},{"print",l_print},{"text_size",l_text_size},{"camera",l_camera},
     {"clip",l_clip},{"pal",l_pal},{"palt",l_palt},{"fade",l_fade},
     {"btn",l_btn},{"btnp",l_btnp},
     {"sfx",l_sfx},{"music",l_music},{"music_stop",l_music_stop},{"music_pause",l_music_pause},{"palette",l_palette},

@@ -150,6 +150,59 @@ def main():
     expect("coordinates round down, colours wrap, off-screen is ignored, junk does not crash", r,
            ["7\t0\t9\t0\t0", "true"])
 
+    # ---- text: English and Tamil (SPEC §3, "Text") --------------------------
+    import refgfx
+    ta = refgfx.TamilFont()
+    size = lambda text: refgfx.text_size(ta, text.encode())
+    SIG = """local function sig(x0, y0, w, h)
+               local t = {}
+               for y = y0, y0 + h - 1 do for x = x0, x0 + w - 1 do t[#t + 1] = pget(x, y) > 0 and '#' or '.' end end
+               return table.concat(t)
+             end
+             """
+    r = t.run_game("""function draw()
+        cls()
+        dbg(print("AB", 10, 0, 7), text_size(""))
+        dbg(text_size("AB\\nABCD"))
+        dbg(print("A\\0B", 0, 0, 7), text_size("A\\0B"))
+        dbg(print("கொ", 5, 50, 7), text_size("கொ\\nA"))
+    end""", frames=1)
+    expect("print returns where the next letter would go; text_size gives the widest line and the height", r,
+           ["26\t0\t8", "32\t16", "16\t16\t8", f"{5 + size('கொ')[0]}\t{size('கொ')[0]}\t{ta.rows + 8}"])
+    r = t.run_game("""function draw()
+        cls() print("கொ", 0, 0, 7)
+        local left, right = 99, -1
+        for y = 0, 40 do for x = 0, 60 do if pget(x, y) > 0 then left = math.min(left, x) right = math.max(right, x) end end end
+        dbg(left, right)
+    end""", frames=1)
+    width, kern, adv, rows = ta.glyphs["கொ"]
+    expect("a syllable is drawn whole: கொ is one glyph, its sign before and after the letter", r,
+           [f"{kern + min(row.index('#') for row in rows if '#' in row)}\t{kern + max(row.rindex('#') for row in rows if '#' in row)}"])
+    r = t.run_game(SIG + """function draw()
+        cls() print("\\255A", 0, 0, 7) local bad = sig(0, 0, 16, 8)
+        cls() print("?A", 0, 0, 7) local shown = sig(0, 0, 16, 8)
+        cls() print("€", 0, 0, 7) local missing = sig(0, 0, 8, 8)
+        cls() print("?", 0, 0, 7)
+        dbg(bad == shown, missing == sig(0, 0, 8, 8))
+    end""", frames=1)
+    expect("a byte that is not UTF-8, and a character the fonts lack, are drawn as ?", r, ["true\ttrue"])
+    r = t.run_game(f"""function draw()
+        cls() print("B\\nA", 0, 20, 7) local english = pget(2, 28)
+        cls() print("க\\nA", 0, 20, 7)
+        dbg(english, pget(2, {20 + ta.rows}), pget(2, 28))
+        cls() print("கA", 0, 20, 7)
+        dbg(pget({ta.glyphs["க"][2] + 2}, {20 + ta.above}), pget({ta.glyphs["க"][2] + 2}, 20))
+    end""", frames=1)
+    expect("a line holding Tamil is as tall as the Tamil font, and its English shares the Tamil baseline", r,
+           ["7\t7\t0", "7\t0"])
+    r = t.run_game(f"""function draw()
+        cls() print("க்", 0, 20, 7)
+        local top, bottom = 99, -1
+        for y = 0, 60 do for x = 0, 30 do if pget(x, y) > 0 then top = math.min(top, y) bottom = math.max(bottom, y) end end end
+        dbg(top >= 20, bottom < {20 + ta.rows})
+    end""", frames=1)
+    expect("Tamil is drawn inside its line, from the y given down", r, ["true\ttrue"])
+
     # ---- capabilities -------------------------------------------------
     src = "dbg(sys.has('video'), sys.has('wifi'), sys.has('cart'), sys.has('rumble'), sys.has('link'), sys.has('teleport'))"
     expect("sys.has() is false for everything on the minimum hardware", t.run_game(src),

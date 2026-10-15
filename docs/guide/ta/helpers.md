@@ -28,6 +28,9 @@ python3 tools/pulli.py add
 python3 tools/pulli.py add mygame dialog    # copies sdk/dialog.lua into mygame/
 ```
 
+சொற்களை வரையும் உதவி நிரல்களான `text`, `dialog`, `menu` ஆங்கிலத்தைப் போலவே
+தமிழையும் கையாளுகின்றன.
+
 ## நகர்தலும் வரைதலும்
 
 | உதவி நிரல் | எதற்கு | சுருக்கமாக |

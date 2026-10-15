@@ -159,20 +159,142 @@ void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
     }
 }
 
-void pulli_print(pulli_gfx *g, const char *s, int x, int y, int c) {
-    if (!g->font || !s) return;
-    int ox = x;
-    for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
-        if (*p == '\n') { x = ox; y += PULLI_SPRITE_CELL; continue; }
-        if (*p < 32 || *p > 127) continue;
-        const uint8_t *glyph = g->font + (*p - 32) * PULLI_SPRITE_CELL;
-        for (int j = 0; j < PULLI_SPRITE_CELL; j++) {
-            uint8_t row = glyph[j];
-            for (int i = 0; i < PULLI_SPRITE_CELL; i++)
-                if (row & (0x80u >> i)) put(g, x + i, y + j, c);
-        }
-        x += PULLI_SPRITE_CELL;
+/* ---- text ------------------------------------------------------------ */
+
+/* The character starting at byte i, and its length in bytes in *n. A byte
+ * that does not start a well-formed character gives -1, length 1. */
+static int32_t utf8_next(const unsigned char *s, size_t len, size_t i, int *n) {
+    unsigned b = s[i];
+    int32_t cp;
+    *n = 1;
+    if (b < 0x80) return (int32_t)b;
+    if (b >= 0xC2 && b <= 0xDF)      { *n = 2; cp = b & 0x1F; }
+    else if (b >= 0xE0 && b <= 0xEF) { *n = 3; cp = b & 0x0F; }
+    else if (b >= 0xF0 && b <= 0xF4) { *n = 4; cp = b & 0x07; }
+    else return -1;
+    if (i + (size_t)*n > len) { *n = 1; return -1; }
+    for (int k = 1; k < *n; k++) {
+        unsigned c = s[i + k];
+        if (c < 0x80 || c > 0xBF) { *n = 1; return -1; }
+        cp = (cp << 6) | (int32_t)(c & 0x3F);
     }
+    return cp;
+}
+
+/* The glyph that draws exactly these `count` characters, or NULL. The table
+ * is sorted by letters, zero-padded to four, so a binary search finds it. */
+static const pulli_ta_glyph *ta_find(const int32_t *cp, int count) {
+    uint32_t key[4] = { 0, 0, 0, 0 };
+    for (int k = 0; k < count; k++) key[k] = (uint32_t)cp[k];
+    int lo = 0, hi = pulli_font_ta_count - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) / 2, d = 0;
+        const uint32_t *l = pulli_font_ta[mid].letters;
+        for (int k = 0; k < 4 && d == 0; k++) d = l[k] < key[k] ? -1 : l[k] > key[k] ? 1 : 0;
+        if (d == 0) return &pulli_font_ta[mid];
+        if (d < 0) lo = mid + 1; else hi = mid - 1;
+    }
+    return NULL;
+}
+
+/* The next piece of a line that ends at byte `len`: Tamil matched longest
+ * first, so a syllable comes out whole (*gl), else an English code (*code,
+ * -1 for a control character to skip, '?' for a character the fonts lack).
+ * Returns the bytes it takes. */
+static size_t next_piece(const unsigned char *s, size_t len, size_t i, int *code, const pulli_ta_glyph **gl) {
+    int32_t cp[4];
+    int bytes[4], count = 0;
+    size_t j = i;
+    *gl = NULL;
+    while (count < 4 && j < len) {
+        cp[count] = utf8_next(s, len, j, &bytes[count]);
+        if (cp[count] < 0 || (count > 0 && cp[count] < 128)) break;
+        j += (size_t)bytes[count++];
+    }
+    if (count == 0) {                           /* not UTF-8 */
+        *code = '?';
+        return 1;
+    }
+    if (cp[0] < 128) {
+        *code = cp[0] >= 32 ? (int)cp[0] : -1;
+        return 1;
+    }
+    for (int n = count; n > 0; n--) {
+        if ((*gl = ta_find(cp, n)) != NULL) {
+            size_t used = 0;
+            for (int k = 0; k < n; k++) used += (size_t)bytes[k];
+            return used;
+        }
+    }
+    *code = '?';
+    return (size_t)bytes[0];
+}
+
+static void draw_english(pulli_gfx *g, int code, int x, int y, int c) {
+    const uint8_t *glyph = g->font + (code - 32) * PULLI_SPRITE_CELL;
+    for (int j = 0; j < PULLI_SPRITE_CELL; j++)
+        for (int i = 0; i < PULLI_SPRITE_CELL; i++)
+            if (glyph[j] & (0x80u >> i)) put(g, x + i, y + j, c);
+}
+
+static void draw_tamil(pulli_gfx *g, const pulli_ta_glyph *gl, int x, int y, int c) {
+    const uint8_t *row = pulli_font_ta_bits + gl->offset;
+    int stride = (gl->width + 7) / 8;
+    for (int j = 0; j < pulli_font_ta_rows; j++, row += stride)
+        for (int i = 0; i < gl->width; i++)
+            if (row[i >> 3] & (0x80u >> (i & 7))) put(g, x + i, y + j, c);
+}
+
+/* Lays out the text line by line, drawing it when g is not NULL. A line
+ * holding Tamil is pulli_font_ta_rows tall, with its English lowered to
+ * share the Tamil baseline; any other line is 8. Fills where the last line
+ * ended, the widest line and the height of them all. */
+static void lay_out(pulli_gfx *g, const char *str, size_t len, int ox, int oy, int c,
+                    int *end_x, int *widest, int *height) {
+    const unsigned char *s = (const unsigned char *)str;
+    const pulli_ta_glyph *gl;
+    int code, x = 0, y = 0;
+    size_t i = 0;
+    *widest = 0;
+    for (;;) {
+        size_t end = i;
+        while (end < len && s[end] != '\n') end++;
+        bool tamil = false;
+        for (size_t j = i; j < end; ) {
+            j += next_piece(s, end, j, &code, &gl);
+            if (gl) tamil = true;
+        }
+        int lower = tamil ? pulli_font_ta_above : 0;
+        x = 0;
+        for (size_t j = i; j < end; ) {
+            j += next_piece(s, end, j, &code, &gl);
+            if (gl) {
+                if (g) draw_tamil(g, gl, ox + x + gl->kern, oy + y, c);
+                x += gl->adv;
+            } else if (code >= 0) {
+                if (g) draw_english(g, code, ox + x, oy + y + lower, c);
+                x += PULLI_SPRITE_CELL;
+            }
+        }
+        if (x > *widest) *widest = x;
+        y += tamil ? pulli_font_ta_rows : PULLI_SPRITE_CELL;
+        if (end >= len) break;
+        i = end + 1;
+    }
+    *end_x = x;
+    *height = y;
+}
+
+int pulli_print(pulli_gfx *g, const char *s, size_t len, int x, int y, int c) {
+    int end_x, w, h;
+    if (!g->font || !s) return x;
+    lay_out(g, s, len, x, y, c, &end_x, &w, &h);
+    return x + end_x;
+}
+
+void pulli_text_size(const char *s, size_t len, int *w, int *h) {
+    int end_x;
+    lay_out(NULL, s ? s : "", s ? len : 0, 0, 0, 0, &end_x, w, h);
 }
 
 void pulli_camera(pulli_gfx *g, int x, int y) { g->cam_x = x; g->cam_y = y; }

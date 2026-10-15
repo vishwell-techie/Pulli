@@ -28,6 +28,7 @@
 | கணிதம் (`sin`, `cos`, `^` மற்றவை) | engine-இன் சொந்தம், ஒவ்வொரு கணினியிலும் அதே பிட்கள்; கணினியில் சோதிக்கப்பட்டது, இன்னும் ஒரு board-இல் ஓட்டப்படவில்லை |
 | 16.16 fixed point (`fix`) | விளையாட்டுகளுக்கு விருப்பத்துக்குரியது; உருவாக்கிச் சோதிக்கப்பட்டது |
 | இரண்டு கன்சோல்களுக்கு இடையே link | இரண்டு emulator சாளரங்களுக்கு இடையே வேலை செய்கிறது; இன்னும் வன்பொருள் link இல்லை |
+| உரை | ஆங்கிலமும் தமிழும், உள்ளமைந்த பிக்சல் எழுத்துருக்களிலிருந்து; தமிழ் எழுத்துகள் Noto Sans Tamil-இலிருந்து முழுதாக வரையப்படுகின்றன |
 | ஸ்பிரைட்டுகளும் வரைபடங்களும் | விளையாட்டு பேக் செய்யப்படும்போது PNG ஸ்பிரைட் தாள்களும் Tiled வரைபடங்களும் இறக்குமதியாகின்றன; ஒரு விளையாட்டு தன் சொந்த 64 நிறங்களைக் கொண்டுவரலாம் |
 | SDK உதவி நிரல்கள் | 17, tween, dialog முதல் pathfind, மெனுக்கள் வரை; சாதாரண Lua, ஒரு விளையாட்டு require செய்யும்போது சேர்க்கப்படும் |
 | விளையாட்டு உருவாக்குநர் வழிகாட்டி | தொடங்குதல், ஒரு பயிற்சி, ஓவியமும் ஒலியும், உதவி நிரல்கள், கையேடு: `docs/guide`; தமிழில் `docs/guide/ta` |
@@ -177,7 +178,7 @@ function init()      end   -- once
 function update(dt)  end   -- 60 times a second; dt is always 1/60
 function draw()      end   -- after each update
 
--- cls pset pget line rect rectfill circ circfill spr sspr print
+-- cls pset pget line rect rectfill circ circfill spr sspr print text_size
 -- camera clip pal palt palette fade   btn btnp
 -- sfx music music_stop music_pause   save load save_commit   time stat dbg
 -- map.load map.size map.draw map.get map.set map.flags   require
@@ -245,6 +246,12 @@ ninja -C firmware/build                           # firmware/build/pulli.uf2
 
 மென்பொருள் Apache License 2.0-இன் கீழ் உரிமம் பெற்றது (`LICENSE`, நன்றிகள்
 `NOTICE`-இல்). பங்களிப்புகள் அதே விதிகளின் கீழ் ஏற்கப்படுகின்றன.
+
+ஒரு பகுதி மட்டும் வேறு: தமிழ் எழுத்துரு (`runtime/font_ta.txt`, அதிலிருந்து
+உருவாக்கப்படும் `runtime/font_ta.c`) Noto Sans Tamil-இலிருந்து உருவாக்கப்பட்டது,
+SIL Open Font License 1.1-இன் கீழ் உள்ளது (`third_party/noto-sans-tamil/OFL.txt`).
+அதை Pulli-யிலும் அதன் firmware-இலும் பயன்படுத்தலாம், மாற்றலாம், சேர்த்து
+வழங்கலாம்; தனியாக விற்க முடியாது. தமிழ் அச்சிடும் விளையாட்டுகளை இது பாதிக்காது.
 
 வன்பொருள் வடிவமைப்புகள் சேர்க்கப்படும்போது CERN-OHL-S v2-இன் கீழ் வெளியிடப்படும்;
 இந்த repository-இல் இன்னும் எதுவும் இல்லை. Pulli, Vaasal மற்றும் பிற பெயர்கள்

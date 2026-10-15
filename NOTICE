@@ -8,3 +8,9 @@ It downloads and builds these projects, which keep their own licences:
   Lua 5.4        MIT      https://www.lua.org
   Pico SDK       BSD-3    https://github.com/raspberrypi/pico-sdk   (firmware only)
   SDL2           zlib     https://libsdl.org                        (desktop window only)
+
+It contains a font made from Noto Sans Tamil, which keeps its own licence:
+  Noto Sans Tamil  SIL Open Font License 1.1  https://github.com/notofonts/tamil
+                   Copyright 2022 The Noto Project Authors
+                   runtime/font_ta.txt and runtime/font_ta.c; licence and
+                   source font in third_party/noto-sans-tamil/

@@ -323,7 +323,8 @@ rect(x,y,w,h,c) rectfill(x,y,w,h,c)
 circ(x,y,r,c)   circfill(x,y,r,c)
 spr(n, x, y, w, h, flip_x, flip_y) -- n = sprite index; w,h in 8px cells
 sspr(sx,sy,sw,sh, dx,dy, dw,dh)    -- stretched blit
-print(text, x, y, c)
+print(text, x, y, c)               -- UTF-8, English and Tamil; returns the x after it
+text_size(text)                    -- width of the widest line and height of all, in pixels
 camera(x, y)                       -- world -> screen offset
 clip(x, y, w, h)                   -- nil = reset
 pal(a, b)                          -- remap palette index a -> b
@@ -339,6 +340,35 @@ command format carries, ADR-001). Colour indices wrap at 64, so `c` and
 `palt()` with no arguments restore the defaults. `fade` sets a level and
 does not accumulate: `fade(0.5)` every frame holds half brightness, and
 `fade(0)` restores the picture. Shapes may cross the screen edge freely.
+
+### Text
+
+`print` draws UTF-8 text in two scripts, with the top of its first line at
+the `y` given.
+
+- **English** (ASCII 32 to 127) comes from the built-in 8x8 font: every
+  character is 8 pixels wide and 8 tall.
+- **Tamil** comes from the built-in Tamil font, which draws whole
+  syllables: every consonant alone, with the pulli and with each vowel
+  sign, every vowel, and ஸ்ரீ. Text is matched longest first, so a consonant
+  and the sign after it are drawn as one glyph, already shaped: ெ, ே and ை
+  before the letter, ொ, ோ and ௌ around it, ு and ூ joined to it. Each glyph
+  has its own width and advance.
+- A line holding any Tamil is as tall as the Tamil font (22 pixels, in the
+  font's `! rows=` line), and English on it is lowered to share the Tamil
+  baseline. Any other line is 8 pixels tall. `\n` starts the next line
+  below the last one, at the `x` given.
+- A character neither font has, and a byte that does not begin a
+  well-formed UTF-8 character, are drawn as `?`.
+- `print` returns where the next character would have gone on the last
+  line. `text_size(text)` returns, without drawing, the width of the widest
+  line and the height of all the lines.
+
+The fonts are `runtime/font.txt` and `runtime/font_ta.txt`, plain text.
+The Tamil font is made from Noto Sans Tamil Medium at 17 pixels to the em
+by `tools/fontgen/ta_from_font.py`, and is under the SIL Open Font License
+1.1 (`third_party/noto-sans-tamil/`). `tools/refgfx.py` lays text out the
+same way, and the conformance tests hold the runtime to it.
 
 ### Map
 
@@ -802,3 +832,8 @@ covered by `tests/`; none is frozen.
    §6 lists today's commands.
 18. **Lua source only** (§2): until the store exists, packages carry Lua
    source and the runtime refuses bytecode.
+19. **Text in English and Tamil** (§3): `print` reads UTF-8 and draws Tamil
+   syllables whole from a built-in font made from Noto Sans Tamil (SIL Open
+   Font License); a line holding Tamil is 22 pixels tall with its English on
+   the Tamil baseline; unknown characters are `?`; `print` returns where the
+   text ended, and `text_size` is new.

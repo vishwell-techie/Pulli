@@ -100,6 +100,29 @@ and add a custom property:
   when the map is loaded, as `examples/manickam` does at the start of each
   level.
 
+## Text in Tamil
+
+Games can write Tamil as well as English, in titles, dialogue and anything
+else `print` draws. Type it straight into your Lua file:
+
+```lua
+print("வணக்கம்! Hello!", 8, 20, 7)     -- Tamil and English on one line
+local w = text_size("மாணிக்கம்")       -- how wide it is, to centre it
+print("மாணிக்கம்", 160 - w // 2, 50, 10)
+```
+
+- Save your Lua files as UTF-8. Every current editor does unless told not to.
+- A line holding Tamil is 22 pixels tall, so leave that much room for it.
+  `print` does this itself after a `\n`, and `text_size` tells you the size
+  of any text.
+- Pulli draws each syllable whole: type கொ as you normally would and it
+  comes out right, with its vowel signs where they belong.
+- The `text`, `dialog` and `menu` helpers measure and wrap Tamil properly,
+  and space their lines for it.
+- The Tamil letters come from the font Noto Sans Tamil, turned into pixels,
+  and are under the SIL Open Font License: games that use them are not
+  affected. See `docs/SPEC.md` §3, "Text".
+
 ## Sound effects and music
 
 Put `.wav` files in a `sfx` folder and a `music` folder inside the game.

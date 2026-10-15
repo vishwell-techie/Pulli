@@ -10,7 +10,7 @@ as it does on the console.
 |---|---|
 | [Getting started](start.md) | Building the tools, your first game, how a game is laid out, packing it |
 | [Tutorial: Catch](tutorial.md) | A complete small game, built in eight steps |
-| [Art and sound](art-and-sound.md) | Sprite sheets, the palette, maps made in Tiled, sound effects and music |
+| [Art and sound](art-and-sound.md) | Sprite sheets, the palette, maps made in Tiled, text in Tamil, sound effects and music |
 | [Helpers](helpers.md) | The 17 ready-made Lua helpers: dialog, menus, timers, pathfinding and more |
 | [Reference](reference.md) | Every function a game can call |
 

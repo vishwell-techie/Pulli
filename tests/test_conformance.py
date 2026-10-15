@@ -104,6 +104,14 @@ def build_scene():
     # text, including descenders and a line break
     op("print", "Pulli 0123 gjpqy {}", 12, 16, 7)
     op("print", "AB\ncd", 100, 108, 10)
+    # Tamil: whole syllables, vowel signs drawn before and around their
+    # letter, u and uu shapes, the pulli, ஸ்ரீ, a character no font has, and
+    # English sharing a Tamil line and following it (SPEC §3, "Text")
+    op("print", "மாணிக்கம்", 196, 184, 7)
+    op("print", "கொ கை ஸ்ரீ", 186, 208, 10)
+    op("print", "கு பூ டூ", 64, 210, 12)
+    op("print", "பு €\nA", 4, 150, 7)
+    op("print", "Hi தமிழ்\nok", 2, 96, 9)
 
     # fractions round down, on both sides of zero
     op("rectfill", 100.9, 140.2, 10.5, 6.99, 9)
@@ -176,8 +184,19 @@ def first_difference(a, b, unit):
     return f"lengths differ: reference {len(a)}, engine {len(b)}"
 
 
+# What the Tamil font must draw (SPEC §3, "Text"): every syllable whole.
+TA_VOWELS = "அஆஇஈஉஊஎஏஐஒஓஔ"
+TA_CONSONANTS = "கஙசஜஞடணதநனபமயரறலளழவஶஷஸஹ"
+TA_SIGNS = "்ாிீுூெேைொோௌ"
+
+
 def main():
     t = Suite("Pulli rasterizer conformance")
+    from refgfx import TamilFont
+    ta = TamilFont().glyphs
+    need = set(TA_VOWELS) | set(TA_CONSONANTS) | {c + v for c in TA_CONSONANTS for v in TA_SIGNS} | {"ஃ", "ஸ்ரீ"}
+    t.check("the Tamil font draws every vowel, consonant and syllable, and ஸ்ரீ", need <= set(ta),
+            sorted(need - set(ta))[:20])
     build_scene()
     g = reference()
     fb = bytes(g.fb)

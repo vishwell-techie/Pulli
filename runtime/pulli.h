@@ -95,6 +95,21 @@ typedef struct {
 
 /* ---- gfx primitives (pure, no platform deps) ----------------------- */
 extern const uint8_t pulli_font8x8[96 * 8];
+
+/* Tamil: whole syllables as pixels (font_ta.c, generated from font_ta.txt;
+ * SPEC §3 "Text"), sorted by their letters. Every glyph is
+ * pulli_font_ta_rows rows tall; its row pulli_font_ta_above lines up with
+ * row 0 of an English letter. */
+typedef struct {
+    uint32_t letters[4];        /* what it draws: 1 to 4 characters, the rest 0 */
+    uint8_t  width;             /* columns of pixels */
+    int8_t   kern;              /* where its first column is, from the pen */
+    uint8_t  adv;               /* how far the pen moves after it */
+    uint32_t offset;            /* its rows in pulli_font_ta_bits, (width + 7) / 8 bytes each, bit 7 leftmost */
+} pulli_ta_glyph;
+extern const pulli_ta_glyph pulli_font_ta[];
+extern const uint8_t pulli_font_ta_bits[];
+extern const int pulli_font_ta_count, pulli_font_ta_rows, pulli_font_ta_above;
 void pulli_default_palette(uint16_t out[PULLI_PALETTE_LEN]);
 
 void    pulli_gfx_init (pulli_gfx *g);    /* default palette and font, cleared screen */
@@ -110,7 +125,10 @@ void    pulli_spr      (pulli_gfx *g, int n, int x, int y, int cw, int ch,
                         bool flip_x, bool flip_y);
 void    pulli_sspr     (pulli_gfx *g, int sx, int sy, int sw, int sh,
                         int dx, int dy, int dw, int dh);
-void    pulli_print    (pulli_gfx *g, const char *s, int x, int y, int c);
+/* Text is UTF-8: English from the 8x8 font, Tamil laid out as SPEC §3
+ * "Text" says. Returns where the next letter would go on the last line. */
+int     pulli_print    (pulli_gfx *g, const char *s, size_t len, int x, int y, int c);
+void    pulli_text_size(const char *s, size_t len, int *w, int *h);  /* widest line; all lines */
 void    pulli_camera   (pulli_gfx *g, int x, int y);
 void    pulli_clip     (pulli_gfx *g, int x, int y, int w, int h);
 void    pulli_pal      (pulli_gfx *g, int a, int b);      /* a < 0 resets */
