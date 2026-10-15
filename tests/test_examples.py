@@ -162,6 +162,9 @@ def main():
         pressed = t.run_package(game, frames=645, tap=f"{go},start@640", sound=True).sound[639 * 735:]
         unpressed = t.run_package(game, frames=645, tap=go, sound=True).sound[639 * 735:]
         t.check("manickam: pausing plays a tone", pressed != unpressed)
+        shown = t.run_package(game, frames=700, tap=f"{go},select@640")
+        t.check("manickam: SELECT while playing shows how hard the machine is working",
+                shown.code == 0 and shown.fb != plain.fb, shown.err[-300:])
 
         # Every chapter loads its map and region and plays a while, in both
         # languages; and the worst case for memory, every module loaded with

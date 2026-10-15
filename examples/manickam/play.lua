@@ -88,7 +88,7 @@ core.add("play", {
     if play.debug then
       rectfill(0, 14, 320, 10, 32)
       print(string.format("fps %s cpu %s mem %dK spr %d fx %d slimes %d", stat("fps") or "-", stat("cpu") or "-",
-        stat("mem"), w.sprites or 0, fx.n, #w.slimes), 2, 15, 11)
+        stat("mem") // 1, w.sprites or 0, fx.n, #w.slimes), 2, 15, 11)
     end
     if not core.busy() then fade(w.fade) end
   end,
