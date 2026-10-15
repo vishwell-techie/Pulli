@@ -14,10 +14,10 @@ hello frames=120 hold=- tap=r@10,r@20,l@30,r@40 cb96dee2c65800aa24433084138f87d3
 hello frames=120 hold=- tap=r@10,r@20,l@30,r@40 sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
 manickam frames=120 hold=- tap=- 7023533c47b6c055bfc40e9da3c43b7028aede21599f98c2f083e76c2ed6681c
 manickam frames=120 hold=- tap=- sound 53f8155d3a6236df2f2fa62fac88b394ed476b8c6d02ba20879e15d097529c65
-manickam frames=900 hold=- tap=a@5 5a861fbe2ec9af6fd4c2ca4b72e990cf17ccc420c409b300f7d54b2fcab6894e
+manickam frames=900 hold=- tap=a@5 b3b33fae495f376156fe7c08bab25606a1c5888a6484360542c2666037aa5d26
 manickam frames=900 hold=- tap=a@5 sound 43ba83081fd9f73d09999d667869e0c91b86eafc476b154422bb336bdf98f3c5
-manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 33e87863ec1a605cd35977fc2d6f65bf51c263d8c3357401fa413e278471681d
-manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 sound 8f93d03d87c90be922b2d38eca548eadaef19f9ebe2d17571c4e88150a8e8f74
+manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 e5b16f63147974a4e71657ff1fd3e3c3e704bb711f30f0005fcda41039045f62
+manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 sound f9dc4bfed0a7bf9df41e6af9c7a964de9d991eb86fd05130cf493ffefae4a7ac
 talk frames=120 hold=right tap=- d6fd49991cfcacab52786695b4b858b382718f9aa199ec7162176686b055f5cf
 talk frames=120 hold=right tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
 catch frames=900 hold=right tap=a@30 50fcc6852afe2be7190ad1e4c101448010619d135e2d8dcbcdb30d2ecbea636e

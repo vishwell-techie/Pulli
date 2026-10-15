@@ -536,6 +536,9 @@ function w.draw_world()
   end
   for _, t in ipairs(w.things) do add(4, t, t.y + 3) end
   for _, a in ipairs(w.actors) do add(5, a, a.y) end
+  for _, l in ipairs(w.lamps) do
+    if l.x > c.x - 8 and l.x < c.x + 328 and l.y > c.y and l.y < c.y + 264 then add(6, l, l.y + 4) end
+  end
   table.sort(drawn, by_feet)
   for _, d in ipairs(drawn) do
     local kind, a = d[2], d[3]
@@ -558,6 +561,21 @@ function w.draw_world()
     elseif kind == 4 then
       spr(948, a.x - 4, a.y - 3)
       spr(ICON[a.kind], a.x - 4, a.y - 4 + math.sin(a.bob + f / 15) * 1.5)
+    elseif kind == 6 then                           -- a lamp post on its stone slab
+      if a.lit then
+        local fl = (f // 6 + a.cx) % 3
+        -- a soft glow: two rings of dots, turning and flickering
+        local r = 5 + (f // 8 + a.cy) % 2
+        for i = 0, 11 do
+          local t = i * 0.5236 + f * 0.02
+          pset(a.x + math.cos(t) * r, a.y - 15 + math.sin(t) * r * 0.8, i % 2 == 0 and 9 or 41)
+          if i % 3 == 0 then pset(a.x + math.cos(-t) * (r + 3), a.y - 15 + math.sin(-t) * (r + 2), 10) end
+        end
+        spr(814 + fl, a.x - 4, a.y - 17, 1, 2)
+        if (f + a.cx * 7) % 53 == 0 then fx.burst(a.x, a.y - 18, 1, fx.GLOW) end
+      else
+        spr(817, a.x - 4, a.y - 17, 1, 2)
+      end
     elseif not a.hide then
       if a.draw then a:draw() else spr(a.spr + (a.moving and f // 8 % 2 * 2 or 0), a.x - 8, a.y - 16, 2, 2, a.face == "left") end
     end
