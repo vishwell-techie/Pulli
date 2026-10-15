@@ -69,11 +69,13 @@ as English.
 - `examples/pong` uses `input`, `timer`, `text` and `particles`.
 - `examples/talk` uses `dialog`, `inventory`, `quest`, `tween`, `particles`,
   `camera_follow`, `input`, `anim` and `text`.
-- `examples/manickam` uses `scene`, `input`, `move`, `pathfind`, `anim`,
-  `camera_follow`, `timer`, `text`, `transition` and `particles`.
+- `examples/manickam` uses `scene`, `input`, `menu`, `move`, `pathfind`,
+  `anim`, `camera_follow`, `timer`, `text`, `transition` and `particles`.
 
 ## Helpers and memory
 
 Each helper costs some of your 256 KB of Lua memory: about 5 to 7 KB each,
-and about 15 KB for the biggest, `dialog`. `examples/manickam` requires ten
-and uses about 115 KB in all. `stat("mem")` shows what is in use.
+and about 15 KB for the biggest, `dialog`. `examples/manickam` requires
+eleven and, with its own modules, uses about 155 KB on its title screen; its
+benchmark takes it to about 230 KB, close to the limit on purpose.
+`stat("mem")` shows what is in use.

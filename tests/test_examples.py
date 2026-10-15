@@ -24,7 +24,7 @@ RUNS = [("hello", 120,    None,           None),
         ("hello", 120,    None,           "r@10,r@20,l@30,r@40"), # L and R change the box's colour
         ("manickam", 120,  None,          None),                  # waits on the title screen
         ("manickam", 300,  None,          "a@5"),                 # sprites, a map from Tiled, music
-        ("manickam", 600,  "right,down",  "a@5"),                 # walks until a wall stops it
+        ("manickam", 600,  None, "a@5,right@6-600,down@6-600"),   # walks until a wall stops it
         ("manickam", 3000, None,          "a@5,a@2900"),          # runs out of time, then tries again
         ("talk",  120,    "right",        None),                  # the SDK helpers; the camera follows
         ("catch", 900,    "right",        "a@30")]                # the tutorial's game, played until it is lost
@@ -37,7 +37,8 @@ TALK_ASKED, TALK_FLYING, TALK_FRAMES = 430, 516, 600
 # The same, but answering no: the villager replies, and A closes the box.
 TALK_NO_TAPS = "right@1-296,a@330,a@340,a@350,down@440,a@450,a@460,a@470"
 
-GEM_START = 5           # the frame on which A leaves Manickam's title screen; it also seeds the scattering
+GEM_START = 5           # the frame on which A chooses New game on Manickam's title; it also seeds the scattering
+OLD = lambda k: (30 + k // 8) * 64 + k % 8      # the gem hunt's 8x8 sprites, in the strip under the title art
 SOLID, WATER = 1, 2     # Manickam's tile flags
 
 
@@ -52,7 +53,7 @@ def sprite_pixels(package, n):
 def manickam_level(n):
     """Level n of Manickam as (width, ground, things, flags of each ground tile)."""
     path = os.path.join(ROOT, "examples", "manickam", f"level{n}.tmx")
-    w, h, layers, flags = pulli.read_ooru(pulli.ooru_from_tmx(path, 8))
+    w, h, layers, flags = pulli.read_ooru(pulli.ooru_from_tmx(path, 64))
     ground, things = ([c & pulli.TILE_MAX for c in layer] for layer in layers)
     return w, ground, things, [flags[t] if t < len(flags) else 0 for t in ground]
 
@@ -62,7 +63,7 @@ def manickam_gems(fb, package):
     That level is one screen, so a tile's place on the map is its place on
     the screen. The game scatters them at random; this is how the test
     learns where they went."""
-    gem = sprite_pixels(package, 6)
+    gem = sprite_pixels(package, OLD(6))
     return {(tx, ty) for ty in range(2, 30) for tx in range(40)
             if all(not c or fb[(ty * 8 + i // 8) * 320 + tx * 8 + i % 8] == c for i, c in enumerate(gem))}
 
@@ -70,8 +71,8 @@ def manickam_gems(fb, package):
 def player_at(fb, package):
     """The top-left corner of the player's sprite on the screen, found by
     the one colour of the sprite that nothing else on level 1 uses."""
-    me = sprite_pixels(package, 8)
-    others = {c for n in (1, 2, 3, 4, 5, 6, 7) for c in sprite_pixels(package, n)}
+    me = sprite_pixels(package, OLD(8))
+    others = {c for n in (1, 2, 3, 4, 5, 6, 7) for c in sprite_pixels(package, OLD(n))}
     mark = next(c for c in me if c and c not in others)
     dx, dy = min(i % 8 for i, c in enumerate(me) if c == mark), min(i // 8 for i, c in enumerate(me) if c == mark)
     seen = [(i % 320, i // 320) for i in range(12 * 320, len(fb)) if fb[i] == mark]
@@ -119,7 +120,7 @@ def manickam_route(at, goals, first_frame):
 def manickam_start():
     """The player's tile on level 1."""
     w, _, things, _ = manickam_level(1)
-    return divmod(things.index(8), w)[::-1]                        # the player's tile on the sheet is 8
+    return divmod(things.index(OLD(8)), w)[::-1]                   # the player's tile
 
 # Pong seeds its random numbers from the frame on which A is pressed. Pressed
 # on frame 6, the first serve goes to the console, which returns it: that
@@ -196,13 +197,37 @@ def main():
         t.check("manickam: gems are never scattered into water",
                 not any(flags1[y * w1 + x] & WATER for g in scatterings for x, y in g))
 
+        # The title: a menu in Tamil to start with; the language set in the
+        # options is kept for next time, as is a game once begun (Continue).
+        with tempfile.TemporaryDirectory() as saves:
+            fresh = t.run_package(game, frames=20).fb
+            t.run_package(game, frames=40, tap="down@5,a@10,a@20,b@30", saves=saves)     # Options, language, back
+            english = t.run_package(game, frames=20, saves=saves).fb
+            t.check("manickam: the language chosen in the options is kept for next time", english != fresh)
+        with tempfile.TemporaryDirectory() as saves:
+            t.run_package(game, frames=30, tap=begin, saves=saves)                        # New game
+            again = t.run_package(game, frames=20, saves=saves).fb
+            t.check("manickam: once a game is begun, the title offers to continue it", again != fresh)
+        marked = t.run_package(game, frames=20, tap="select@5").fb
+        unmarked = t.run_package(game, frames=20, tap="select@5,select@10").fb
+        t.check("manickam: SELECT on the title switches the benchmark on, and again off",
+                marked != fresh and unmarked == fresh)
+        # The benchmark: a fixed run through three heavy scenes, the same on every
+        # machine, reporting each scene through dbg().
+        runs = [t.run_package(game, frames=1830, tap="select@5,a@10") for _ in range(2)]
+        lines = [[l for l in r.lines if l.startswith("bench ") and "frames=" in l] for r in runs]
+        t.check("manickam: the benchmark runs its three scenes and reports each, the same every run",
+                all(r.code == 0 for r in runs) and len(lines[0]) == 3 and lines[0] == lines[1]
+                and all("frames=600" in l for l in lines[0]), lines[0] + [runs[0].err[-300:]])
+
         # Pause: START freezes the level and START again carries on, to the
         # same picture a run with no pause reaches.
-        plain = t.run_package(game, frames=300, hold="right,down", tap=begin)
-        held = t.run_package(game, frames=150, hold="right,down", tap=f"{begin},start@100")
-        resumed = t.run_package(game, frames=360, hold="right,down", tap=f"{begin},start@100,start@160")
+        walk = lambda n: f"right@6-{n},down@6-{n}"      # after New game, so the title menu does not move
+        plain = t.run_package(game, frames=300, tap=f"{begin},{walk(300)}")
+        held = t.run_package(game, frames=150, tap=f"{begin},{walk(150)},start@100")
+        resumed = t.run_package(game, frames=360, tap=f"{begin},{walk(360)},start@100,start@160")
         t.check("manickam: START pauses and START again carries on where it left off",
-                plain.code == 0 and held.fb != t.run_package(game, frames=150, hold="right,down", tap=begin).fb
+                plain.code == 0 and held.fb != t.run_package(game, frames=150, tap=f"{begin},{walk(150)}").fb
                 and resumed.fb == plain.fb, plain.err)
         # The music is the same in both, so any difference in the frame
         # where START is pressed is the pause tone.

@@ -71,12 +71,14 @@ python3 tools/pulli.py add mygame dialog    # copies sdk/dialog.lua into mygame/
 - `examples/pong` `input`, `timer`, `text`, `particles` பயன்படுத்துகிறது.
 - `examples/talk` `dialog`, `inventory`, `quest`, `tween`, `particles`,
   `camera_follow`, `input`, `anim`, `text` பயன்படுத்துகிறது.
-- `examples/manickam` `scene`, `input`, `move`, `pathfind`, `anim`,
+- `examples/manickam` `scene`, `input`, `menu`, `move`, `pathfind`, `anim`,
   `camera_follow`, `timer`, `text`, `transition`, `particles` பயன்படுத்துகிறது.
 
 ## உதவி நிரல்களும் நினைவகமும்
 
 ஒவ்வொரு உதவி நிரலும் உங்கள் 256 KB Lua நினைவகத்தில் கொஞ்சம் எடுத்துக்கொள்கிறது:
 ஒவ்வொன்றும் சுமார் 5 முதல் 7 KB, மிகப் பெரியதான `dialog` சுமார் 15 KB.
-`examples/manickam` பத்தை require செய்கிறது, மொத்தம் சுமார் 115 KB
-பயன்படுத்துகிறது. `stat("mem")` எவ்வளவு பயன்பாட்டில் உள்ளது என்று காட்டும்.
+`examples/manickam` பதினொன்றை require செய்கிறது; தன் சொந்த module-களோடு சேர்த்து
+முகப்புத் திரையில் சுமார் 155 KB பயன்படுத்துகிறது; அதன் benchmark அதை வேண்டுமென்றே
+வரம்புக்கு அருகில், சுமார் 230 KB வரை கொண்டு செல்கிறது. `stat("mem")` எவ்வளவு
+பயன்பாட்டில் உள்ளது என்று காட்டும்.
