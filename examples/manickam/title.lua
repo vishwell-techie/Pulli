@@ -3,7 +3,7 @@
 --
 -- The art is the top-left 320x240 of sprites.png, logo included. SELECT
 -- switches the benchmark on and off (bench.lua); with it on, starting a
--- game runs the benchmark instead. The benchmark is loaded only then, so a
+-- game runs the benchmark instead, and R turns its stress up. The benchmark is loaded only then, so a
 -- player who never asks for it never spends the memory.
 --
 -- One small menu serves all three screens: a list of items, a box sized to
@@ -16,7 +16,7 @@ local core     = require("core")
 local story    = require("story")
 local progress = require("progress")
 
-local PLAYABLE = 5                      -- chapters built so far
+local PLAYABLE = 7                      -- chapters built so far
 
 local screen = "main"                   -- "main", "chapters" or "options"
 local items, actions, pick = {}, {}, 1
@@ -71,6 +71,7 @@ core.add("title", {
   end,
   update = function(dt)
     if core.pressed("select") then progress.bench = not progress.bench end
+    if progress.bench and core.pressed("r") then progress.stress = (progress.stress or 1) % 4 * 2 end   -- x1, x2, x4
     if btnp("up") then pick = (pick - 2) % #items + 1; progress.sfx(17) end   -- move
     if btnp("down") then pick = pick % #items + 1; progress.sfx(17) end   -- move
     if core.pressed("a") then
@@ -102,8 +103,9 @@ core.add("title", {
       print(s, x + 18, iy, i == pick and 10 or 7)
     end
     if progress.bench then
-      rectfill(2, 2, core.width(story.t("bench_on")) + 4, 12, 32)
-      print(story.t("bench_on"), 4, 4, 8)
+      local mark = story.t("bench_on") .. " x" .. (progress.stress or 1)
+      rectfill(2, 2, core.width(mark) + 4, 12, 32)
+      print(mark, 4, 4, 8)
     end
   end,
 })

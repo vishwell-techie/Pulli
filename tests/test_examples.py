@@ -135,10 +135,10 @@ def main():
                 marked != fresh and unmarked == fresh)
         # The benchmark: a fixed run through heavy scenes, the same on every
         # machine, reporting each scene through dbg().
-        runs = [t.run_package(game, frames=1830, tap="select@5,a@10") for _ in range(2)]
+        runs = [t.run_package(game, frames=4230, tap="select@5,a@10") for _ in range(2)]
         lines = [[l for l in r.lines if l.startswith("bench ") and "frames=" in l] for r in runs]
         t.check("manickam: the benchmark runs its scenes and reports each, the same every run",
-                all(r.code == 0 for r in runs) and len(lines[0]) >= 3 and lines[0] == lines[1]
+                all(r.code == 0 for r in runs) and len(lines[0]) == 7 and lines[0] == lines[1]
                 and all("frames=600" in l for l in lines[0]), lines[0] + [runs[0].err[-300:]])
 
         # A new game opens with the cut-scene; START skips it to chapter 0,

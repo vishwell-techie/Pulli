@@ -110,10 +110,11 @@ as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.
 paint program to load. For a map, make one in [Tiled](https://www.mapeditor.org)
 with 8x8 tiles and `sprites.png` as its tileset, and save it as `map.tmx`
 beside it. `examples/manickam` does both, and is the fullest example: a
-full-size sprite sheet with title art, a menu in Tamil and English, saved
-settings and progress, three levels with enemies that find their way to
-you and water that slows you down, sound effects and music. SELECT on its
-title screen switches on a benchmark that reports how a machine copes.
+whole adventure in Tamil and English, with an opening cut-scene, six
+regions drawn in Tiled (the biggest 128x128 tiles), night lit by lamps,
+mirror puzzles, a confrontation and a festival, saved progress, ten music
+tracks and thirty sound effects. SELECT on its title screen switches on a
+benchmark that reports how a machine copes.
 
 For sound, put `.wav` files in a `sfx/` folder and a `music/` folder inside
 the game. `pack` and `run` number them from 0 in order of file name, so
@@ -146,8 +147,7 @@ python3 tools/pulli.py add mygame dialog     # copies dialog.lua in, to change i
 
 A file in the game's folder is used in place of the SDK's, which is how a
 game changes a helper. Each helper explains itself at the top of its file;
-`docs/SPEC.md` §3 lists them all, and every example uses some of them;
-`examples/manickam` uses eleven.
+`docs/SPEC.md` §3 lists them all, and every example uses some of them.
 
 A game is a folder with a `manifest.lua` and a `main.lua`:
 
