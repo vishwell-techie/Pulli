@@ -26,6 +26,9 @@ uses your copy:
 python3 tools/pulli.py add mygame dialog    # copies sdk/dialog.lua into mygame/
 ```
 
+Helpers that draw words, `text`, `dialog` and `menu`, handle Tamil as well
+as English.
+
 ## Moving and drawing
 
 | Helper | For | In short |

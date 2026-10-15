@@ -38,6 +38,139 @@ def load_font(path=_FONT_TXT):
     return [glyphs[c] for c in range(32, 128)]
 
 
+_FONT_TA_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "..", "runtime", "font_ta.txt")
+
+
+class TamilFont:
+    """runtime/font_ta.txt: whole Tamil syllables as pixels (SPEC §3, "Text").
+    rows: every glyph's height; above: how many of those rows are above row
+    0 of an English letter; glyphs: {letters: (width, kern, advance, rows)}."""
+
+    def __init__(self, path=_FONT_TA_TXT):
+        self.rows = self.above = None
+        self.glyphs = {}
+        name = None
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            line = line.rstrip("\n")
+            if not line or line.startswith(";"):
+                continue
+            if line.startswith("! "):
+                fields = dict(f.split("=") for f in line[2:].split())
+                self.rows, self.above = int(fields["rows"]), int(fields["above"])
+            elif line.startswith("= "):
+                parts = line[2:].split(" ")
+                name, attrs = parts[0], dict(a.split("=") for a in parts[1:])
+                if name in self.glyphs:
+                    raise ValueError(f"{path}:{n}: {name} is drawn twice")
+                if not 1 <= len(name) <= 4 or set(attrs) != {"adv", "kern"}:
+                    raise ValueError(f"{path}:{n}: a glyph needs 1 to 4 letters, adv= and kern=")
+                self.glyphs[name] = [int(attrs["kern"]), int(attrs["adv"]), []]
+            elif name is not None and line and set(line) <= set(".#"):
+                rows = self.glyphs[name][2]
+                if rows and len(line) != len(rows[0]):
+                    raise ValueError(f"{path}:{n}: rows of {name} differ in width")
+                rows.append(line)
+            else:
+                raise ValueError(f"{path}:{n}: not part of a glyph: {line!r}")
+        if self.rows is None:
+            raise ValueError(f"{path}: no '! rows= above=' line")
+        for name, (kern, adv, rows) in list(self.glyphs.items()):
+            if len(rows) != self.rows or not 1 <= len(rows[0]) <= 255:
+                raise ValueError(f"{path}: {name} must be {self.rows} rows of 1 to 255 columns")
+            self.glyphs[name] = (len(rows[0]), kern, adv, rows)
+
+
+def utf8_next(data, i):
+    """The character starting at byte i of `data` and its length in bytes.
+    A byte that does not start a well-formed character gives (-1, 1)."""
+    b = data[i]
+    if b < 0x80:
+        return b, 1
+    if 0xC2 <= b <= 0xDF:
+        n, cp = 2, b & 0x1F
+    elif 0xE0 <= b <= 0xEF:
+        n, cp = 3, b & 0x0F
+    elif 0xF0 <= b <= 0xF4:
+        n, cp = 4, b & 0x07
+    else:
+        return -1, 1
+    if i + n > len(data):
+        return -1, 1
+    for k in range(1, n):
+        if not 0x80 <= data[i + k] <= 0xBF:
+            return -1, 1
+        cp = (cp << 6) | (data[i + k] & 0x3F)
+    return cp, n
+
+
+def _pieces(ta, cps):
+    """One line of characters as ("en", code) and ("ta", letters) pieces.
+    Tamil is matched longest first, so a syllable comes out whole."""
+    out, i = [], 0
+    while i < len(cps):
+        cp = cps[i]
+        if 0 <= cp < 128:
+            if cp >= 32:
+                out.append(("en", cp))
+            i += 1
+            continue
+        for n in range(min(4, len(cps) - i), 0, -1):
+            seq = cps[i:i + n]
+            if min(seq) >= 0 and "".join(map(chr, seq)) in ta.glyphs:
+                out.append(("ta", "".join(map(chr, seq))))
+                i += n
+                break
+        else:
+            out.append(("en", ord("?")))      # a character the fonts do not have
+            i += 1
+    return out
+
+
+def layout(ta, data):
+    """Lay out `data` (bytes) as the engine does. Yields, line by line,
+    ("en", code, x, y) and ("ta", letters, x, y) for each glyph, giving where
+    its top-left goes, then ("end", x, height) where the line ends. x and y
+    are offsets from where the text starts. A line holding Tamil is ta.rows
+    tall and its English is lowered to share the baseline; any other is 8."""
+    cps, i = [], 0
+    while i < len(data):
+        cp, n = utf8_next(data, i)
+        cps.append(cp)
+        i += n
+    lines, line = [], []
+    for cp in cps:
+        if cp == 10:
+            lines.append(line)
+            line = []
+        else:
+            line.append(cp)
+    lines.append(line)
+    y = 0
+    for line in lines:
+        pieces = _pieces(ta, line)
+        tamil = any(kind == "ta" for kind, _ in pieces)
+        height, lower = (ta.rows, ta.above) if tamil else (CELL, 0)
+        x = 0
+        for kind, what in pieces:
+            if kind == "en":
+                yield ("en", what, x, y + lower)
+                x += CELL
+            else:
+                width, kern, adv, _ = ta.glyphs[what]
+                yield ("ta", what, x + kern, y)
+                x += adv
+        yield ("end", x, height)
+        y += height
+
+
+def text_size(ta, data):
+    """The width of the widest line of `data` (bytes) and the height of all
+    its lines, in pixels."""
+    ends = [item for item in layout(ta, data) if item[0] == "end"]
+    return max(e[1] for e in ends), sum(e[2] for e in ends)
+
+
 class RefGfx:
     def __init__(self):
         self.fb = bytearray(W * H)
@@ -52,6 +185,7 @@ class RefGfx:
         self.atlas_w = 0
         self.atlas_h = 0
         self.font = load_font()
+        self.font_ta = TamilFont()
         default_palette(self)
 
     # -- single choke point, mirrors put() in gfx.c --
@@ -184,19 +318,26 @@ class RefGfx:
                              bool(c & 0x8000), bool(c & 0x4000))
 
     def print(self, text, x, y, c):
-        ox = x
-        for ch in text.encode("latin-1"):
-            if ch == 10:
-                x, y = ox, y + CELL
-                continue
-            if ch < 32 or ch > 127:
-                continue
-            glyph = self.font[ch - 32]
-            for j in range(CELL):
-                for i in range(CELL):
-                    if glyph[j] & (0x80 >> i):
-                        self._put(x + i, y + j, c)
-            x += CELL
+        """Draw text, UTF-8 when given bytes. Returns where the next letter
+        would go on the last line."""
+        data = text.encode("utf-8") if isinstance(text, str) else bytes(text)
+        end = x
+        for item in layout(self.font_ta, data):
+            if item[0] == "en":
+                glyph = self.font[item[1] - 32]
+                for j in range(CELL):
+                    for i in range(CELL):
+                        if glyph[j] & (0x80 >> i):
+                            self._put(x + item[2] + i, y + item[3] + j, c)
+            elif item[0] == "ta":
+                rows = self.font_ta.glyphs[item[1]][3]
+                for j, row in enumerate(rows):
+                    for i, ch in enumerate(row):
+                        if ch == "#":
+                            self._put(x + item[2] + i, y + item[3] + j, c)
+            else:
+                end = x + item[1]
+        return end
 
     def camera(self, x=0, y=0):
         self.cam = (x, y)

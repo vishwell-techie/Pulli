@@ -26,6 +26,7 @@ Software first; hardware comes last.
 | Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; tested on desktop, not yet run on a board |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
+| Text | English and Tamil from built-in pixel fonts; Tamil syllables drawn whole, from Noto Sans Tamil |
 | Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed; a game may bring its own 64 colours |
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
@@ -153,7 +154,7 @@ function init()      end   -- once
 function update(dt)  end   -- 60 times a second; dt is always 1/60
 function draw()      end   -- after each update
 
--- cls pset pget line rect rectfill circ circfill spr sspr print
+-- cls pset pget line rect rectfill circ circfill spr sspr print text_size
 -- camera clip pal palt palette fade   btn btnp
 -- sfx music music_stop music_pause   save load save_commit   time stat dbg
 -- map.load map.size map.draw map.get map.set map.flags   require
@@ -219,6 +220,12 @@ Nothing is pushed to `main`. Work goes on a feature branch and reaches
 
 The software is licensed under the Apache License 2.0 (`LICENSE`, with
 credits in `NOTICE`). Contributions are accepted under the same terms.
+
+One part is not: the Tamil font (`runtime/font_ta.txt` and the generated
+`runtime/font_ta.c`) is made from Noto Sans Tamil and is under the SIL Open
+Font License 1.1 (`third_party/noto-sans-tamil/OFL.txt`). It may be used,
+changed and shipped inside Pulli and its firmware, but not sold on its own.
+Games that print Tamil are not affected by it.
 
 Hardware designs will be released under CERN-OHL-S v2 when they are added;
 there are none in this repository yet. The names Pulli, Vaasal and the rest

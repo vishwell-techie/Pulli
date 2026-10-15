@@ -9,6 +9,7 @@ here is a small game that uses one and reports through dbg().
 import os, subprocess, sys, tempfile
 
 from harness import Suite, ROOT, pulli
+import refgfx   # noqa: E402  (tools/ is on the path once harness is imported)
 
 SDK = os.path.join(ROOT, "sdk")
 SAVES = 'return { id = "test.sdk", title = "SDK", spec = 1, save_target = "sd", save_size = 512 }\n'
@@ -251,6 +252,18 @@ def main():
     heard = r.sound                               # worked out afresh each time it is asked for
     blips = sum(1 for i in range(1, len(heard)) if heard[i][0] and not heard[i - 1][0])
     t.check(f"dialog: a blip plays as the letters appear ({blips} in 40 frames)", r.code == 0 and 5 <= blips <= 14, r.err)
+    talk("dialog: a Tamil letter appears whole, with its vowel signs, as one letter",
+         "dialog.speed = 60 dialog.say(nil, 'கொகொகொ')", 7, "a@4", "####...")
+    def box_bottom(text):
+        r = t.run_game(f"local dialog = require('dialog') dialog.say('Elder', '{text}') "
+                       "function update(dt) dialog.update(dt) end function draw() cls() dialog.draw() end",
+                       extra=helper(*D), frames=2)
+        rows = [y for y in range(240) if r.fb[y * 320 + 100] == 7]
+        return max(rows) if rows else None
+    tall = 3 * (refgfx.TamilFont().rows + 2) + 2 * 8 - 2          # three Tamil lines and the padding
+    t.check("dialog: a box holding Tamil is as tall as its lines need, and moves up to stay on screen",
+            box_bottom("Hello") == 176 + 43 and box_bottom("வணக்கம்") == min(176, 236 - tall) + tall - 1,
+            (box_bottom("Hello"), box_bottom("வணக்கம்")))
 
     # What the box looks like is pinned as a picture; look at tests/dialog.png after an intended change.
     scene = """local dialog = require('dialog') dialog.speed = 0
@@ -504,6 +517,23 @@ def main():
             and cols(149, 159, 12) is not None and cols(150, 158, 10) is not None,
             (cols(50, 58, 7), cols(80, 88, 8), r.err))
 
+    ta = refgfx.TamilFont()
+    size = lambda text: refgfx.text_size(ta, text.encode())
+    room = max(size("வணக்கம்")[0], size("நண்பா")[0]) // 8 + 1     # wide enough for one word, not both
+    expect("text: Tamil is measured by its glyphs, and wrapped and cut between letters, never inside one",
+           f"""local text = require('text')
+           dbg(text.width('க'), text.width('கொ'), text.height('AB'), text.height('அ'), text.height('அ\\nB'))
+           local l = text.wrap('வணக்கம் நண்பா', {room}) dbg(#l, l[1], l[2])
+           l = text.wrap('கொகொகொகொகொ', 8)
+           local whole = true
+           for i = 1, #l do local c = utf8.codepoint(l[i], 1) if c >= 0x0BBE and c <= 0x0BCD then whole = false end end
+           dbg(#l > 1, whole, table.concat(l) == 'கொகொகொகொகொ')""",
+           [f"{size('க')[0]}\t{size('கொ')[0]}\t8\t{ta.rows}\t{ta.rows + 8}", "2\tவணக்கம்\tநண்பா", "true\ttrue\ttrue"], TX)
+    r = t.run_game("""local text = require('text') function draw() cls() text.center('தொடங்கு', 50, 7) end""",
+                   extra=helper(*TX))
+    t.check("text: Tamil is centred by its real width", r.code == 0 and cols(46, 60, 7) is not None
+            and abs((cols(46, 60, 7)[0] + cols(46, 60, 7)[1]) / 2 - 160) <= 3, (cols(46, 60, 7), r.err))
+
     # ---- timer ---------------------------------------------------------------------------
     TI = ("timer",)
     TIMER = """local timer = require('timer') local log = ''
@@ -556,6 +586,14 @@ def main():
                                                back = function() log = log .. 'back' end })
            function update(dt) m:update() end function draw() if stat('frame') == 6 then dbg(log) end end""",
            ["2Noback"], MN, frames=6, tap="down@2,a@3,b@5")
+    r = t.run_game("local m = require('menu').new({ 'தொடங்கு', 'Quit' }) function draw() cls() m:draw() end",
+                   extra=helper(*MN), frames=1)
+    border = [(x, y) for y in range(240) for x in range(320) if r.fb[y * 320 + x] == 7 and y > 8]
+    ta_menu = refgfx.TamilFont()
+    item_w = max(refgfx.text_size(ta_menu, "தொடங்கு".encode())[0], 32)
+    t.check("menu: Tamil items are measured by their width and given taller rows",
+            r.code == 0 and max(x for x, _ in border) == 8 + item_w + 16 + 12 - 1
+            and max(y for _, y in border) == 8 + 2 * (ta_menu.rows + 2) + 12 - 2 - 1, r.err)
     expect("menu: replacing the list keeps the highlight where it can",
            "local m = require('menu').new({ 'a', 'b', 'c' }) m.selected = 3 m:set_items({ 'x', 'y' }) dbg(m.selected)"
            " m:set_items({ 'p', 'q', 'r', 's' }) dbg(m.selected)", ["2", "2"], MN)

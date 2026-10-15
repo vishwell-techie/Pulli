@@ -53,9 +53,18 @@ The outline of a circle centred at `(x, y)` with radius `r`.
 A filled circle.
 
 ### `print(text, [x = 0], [y = 0], [c = 7])`
-Write text on the screen. Letters are 8 × 8 pixels. Numbers and other
-values are turned into text. This draws on the screen; to print to the
-terminal, use `dbg`.
+Write text on the screen, in English, Tamil or both, with its top at `y`.
+English letters are 8 × 8 pixels. Tamil is drawn a syllable at a time, each
+as wide as it needs, and a line holding Tamil is 22 pixels tall, with any
+English on it lowered to sit on the same line. A character Pulli has no
+letter for shows as `?`. Numbers and other values are turned into text.
+Returns the `x` where the next letter would go. This draws on the screen;
+to print to the terminal, use `dbg`.
+
+### `text_size(text)`
+The width and height of `text` in pixels, without drawing it: the width of
+its widest line and the height of all its lines. Use it to centre text or
+size a box; the `text` helper does.
 
 ### `camera([x = 0], [y = 0])`
 Move everything drawn afterwards up and left by `(x, y)`. Set it to the

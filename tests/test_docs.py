@@ -65,7 +65,7 @@ def main():
                 for kk, vv in pairs(v) do if type(vv) == 'function' then names[#names + 1] = k .. '.' .. kk end end
               end
             end
-            table.sort(names) dbg(table.concat(names, ' '))""")
+            table.sort(names) for i = 1, #names do dbg(names[i]) end""")   # one a line: dbg cuts long lines
         given = set(r.out.split()) - LUA
         t.check("the reference documents every function the runtime gives a game",
                 r.code == 0 and given <= documented, sorted(given - documented))

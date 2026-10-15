@@ -12,7 +12,8 @@
 -- Up and down move the highlight (held, they repeat), wrapping from the end
 -- to the start. A chooses; B calls `back`, if given.
 --
--- menu.new(items, options)   A menu of `items`, a list of text. Options:
+-- menu.new(items, options)   A menu of `items`, a list of text in English,
+--     Tamil or both (rows are as far apart as the tallest item needs). Options:
 --     x, y       top-left corner (8, 8)
 --     rows       how many items show at once; more scroll (all of them)
 --     choose     function(index, item) called when one is chosen
@@ -31,7 +32,7 @@ local menu = {}
 local Menu = {}
 Menu.__index = Menu
 
-local LINE, PAD = 10, 6
+local GAP, PAD = 2, 6                 -- rows are the tallest item plus GAP apart
 
 function menu.new(items, options)
   options = options or {}
@@ -51,8 +52,11 @@ end
 function Menu:set_items(items)
   if type(items) ~= "table" or #items == 0 then error("menu: give at least one item", 2) end
   self.items = items
-  self.width = 0
-  for i = 1, #items do self.width = math.max(self.width, #tostring(items[i])) end
+  self.width, self.line = 0, 0
+  for i = 1, #items do
+    local w, h = text_size(tostring(items[i]))
+    self.width, self.line = math.max(self.width, w), math.max(self.line, h + GAP)
+  end
   self.selected = math.min(self.selected, #items)
   self:scroll()
 end
@@ -88,16 +92,16 @@ end
 function Menu:draw()
   local c = self.colors
   local rows = math.min(self.rows or #self.items, #self.items)
-  local w, h = (self.width + 2) * 8 + 2 * PAD, rows * LINE + 2 * PAD - 2
+  local w, h = self.width + 16 + 2 * PAD, rows * self.line + 2 * PAD - 2
   if self.box then
     rectfill(self.x, self.y, w, h, c.back)
     rect(self.x, self.y, w, h, c.border)
   end
   for row = 1, rows do
     local i = self.first + row - 1
-    local ty = self.y + PAD + (row - 1) * LINE
+    local ty = self.y + PAD + (row - 1) * self.line
     local picked = i == self.selected
-    if picked then print(">", self.x + PAD, ty, c.picked) end
+    if picked then print(">", self.x + PAD, ty + (self.line - GAP - 8) // 2, c.picked) end
     print(tostring(self.items[i]), self.x + PAD + 16, ty, picked and c.picked or c.text)
   end
   if self.first > 1 then print("^", self.x + w - 12, self.y + 2, c.border) end

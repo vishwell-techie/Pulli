@@ -40,6 +40,8 @@ jobs:
         run: |
           mkdir -p dist
           cp firmware/build/pulli.uf2 dist/
+          cp LICENSE NOTICE dist/
+          cp third_party/noto-sans-tamil/OFL.txt dist/OFL-NotoSansTamil.txt   # the firmware carries this font
           for game in examples/*/; do python3 tools/pulli.py pack "$game" "dist/$(basename "$game").pulli"; done
           (cd dist && sha256sum * > SHA256SUMS)
       - name: Publish
