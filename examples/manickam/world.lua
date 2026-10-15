@@ -181,7 +181,7 @@ function w.start(chapter, region)
   end
   local s = w.marks.start and w.marks.start[1] or { x = 32, y = 32 }
   local p = w.p
-  p.x, p.y, p.face, p.moving, p.pose, p.hide = s.x - 4, s.y - 3, "down", false, nil, false
+  p.x, p.y, p.face, p.moving, p.pose, p.hide, p.dying = s.x - 4, s.y - 3, "down", false, nil, false, nil
   p.hearts, p.hurt, p.wet = progress.data.hearts, 0, 0
   w.checkpoint = { x = p.x, y = p.y }
   w.mm.x, w.mm.y, w.mm.hide = p.x, p.y - 12, false
@@ -213,24 +213,29 @@ function w.hurt(from_x, from_y)
   p.hearts, p.hurt = p.hearts - 1, 1.5
   w.shake(3, 0.25)
   if p.hearts <= 0 then
-    p.hearts = 0
-    progress.sfx(3)   -- lost
-    music_stop(300)
-    core.push("over")
+    w.die()
   else
     progress.sfx(1)   -- hurt
   end
 end
 
--- Back on her feet at the last lamp lit, after the dark caught her.
-function w.respawn()
+-- The dark catches her: she spins, shrinks and is gone in a swirl of dark,
+-- the world dims, and the game is over.
+function w.die()
   local p = w.p
-  p.x, p.y, p.hearts, p.hurt = w.checkpoint.x, w.checkpoint.y, progress.data.hearts, 2.5
-  for _, s in ipairs(w.slimes) do
-    if w.near(s, p, 120) then s.shrunk = 4 end
-  end
-  if w.region.music then progress.music(w.region.music, 800) end
-  if w.region.respawn then w.region.respawn(w) end
+  p.hearts = 0
+  talk.clear()
+  progress.sfx(3)   -- lost
+  music_stop(300)
+  script.run(function(s)
+    s.during(1.6, function(dt, k)
+      p.dying = k
+      if math.random() < 0.7 then fx.burst(p.x + 4, p.y - 2, 1, fx.DARK) end
+    end)
+    p.hide, p.dying = true, nil
+    fx.burst(p.x + 4, p.y - 2, 24, fx.DARK)
+    s.fade(0.6, 0.8)
+  end, function() core.push("over") end)
 end
 
 -- ---- beams of light -----------------------------------------------------------------
@@ -532,7 +537,12 @@ function w.draw_world()
   table.sort(drawn, by_feet)
   for _, d in ipairs(drawn) do
     local kind, a = d[2], d[3]
-    if kind == 1 then                               -- Kayal, blinking just after a hit
+    if kind == 1 and a.dying then                   -- Kayal caught: spinning, shrinking
+      local n = KAYAL[({ "down", "right", "up", "left" })[a.dying * 16 // 1 % 4 + 1]]
+      local size = 16 * (1 - a.dying)
+      if a.dying * 16 // 1 % 4 == 3 then size = -size end                -- facing left: drawn flipped
+      sspr(n % 64 * 8, n // 64 * 8, 16, 16, a.x + 4 - math.abs(size) / 2, a.y + 6 - math.abs(size), size, math.abs(size))
+    elseif kind == 1 then                           -- Kayal, blinking just after a hit
       if not a.hide and not (a.hurt > 0 and a.hurt * 10 % 2 < 1 and w.control) then
         spr(a.pose or KAYAL[a.face] + (a.moving and a.step * 8 % 2 < 1 and 2 or 0), a.x - 4, a.y - 10, 2, 2,
             a.face == "left" and not a.pose)

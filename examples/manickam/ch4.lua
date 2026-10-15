@@ -8,7 +8,6 @@ local script   = require("script")
 local talk     = require("talk")
 local story    = require("story")
 local fx       = require("fx")
-local core     = require("core")
 
 local region = { map = "hills.ooru", music = 5, pieces = { 5, 6 },   -- hills music
   lines = { villager = "c4_hermit", hint = "c4_exit", exit = "c4_exit" } }
@@ -56,14 +55,9 @@ function region.update(w, dt)
     if region.escape <= 0 then
       region.escape = 0
       w.say("minmini", "c4_late")
-      music_stop(300)
-      core.push("over")
+      w.die()
     end
   end
-end
-
-function region.respawn(w)
-  if region.escape then region.escape = ESCAPE end
 end
 
 -- The second piece: Irul brings the cave down. Inside the piece's cut-scene.

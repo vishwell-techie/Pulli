@@ -39,7 +39,7 @@ TALK_NO_TAPS = "right@1-296,a@330,a@340,a@350,down@440,a@450,a@460,a@470"
 MANICKAM = os.path.join(ROOT, "examples", "manickam")
 
 
-def manickam_variant(tmp, chapter, every=False):
+def manickam_variant(tmp, chapter, every=False, extra=""):
     """Manickam, changed to start straight in a chapter, and, with `every`,
     to load all of its modules first: the most Lua memory the game can need,
     as a player who goes through it all in one sitting ends up with every
@@ -52,7 +52,7 @@ def manickam_variant(tmp, chapter, every=False):
     if every:
         main = main.replace('require("title")', 'require("title")\nfor _, m in ipairs({ "opening", "ch0", "ch1", "ch2", '
                             '"ch3", "ch4", "ch5", "ch6" }) do require(m) end')
-    open(os.path.join(folder, "main.lua"), "w").write(main)
+    open(os.path.join(folder, "main.lua"), "w").write(main + extra)
     return pulli.build(folder)
 
 
@@ -174,6 +174,23 @@ def main():
                 r = t.run_package(manickam_variant(os.path.join(tmp, str(ch)), ch), frames=400,
                                   tap="a@100,a@160,a@220,a@280,right@300-400")
                 t.check(f"manickam: chapter {ch} starts and plays", r.code == 0 and f"chapter {ch}" in r.lines, r.err[-300:])
+            # Night with Minmini flaring again and again: lights of every
+            # size must not use up memory.
+            flares = ",".join(f"b@{f}" for f in range(300, 3000, 200))
+            r = t.run_package(manickam_variant(os.path.join(tmp, "flare"), 2), frames=3000,
+                              tap="a@100,a@160,a@220,a@280," + flares)
+            t.check("manickam: flaring in the dark forest for a minute keeps within memory", r.code == 0, r.err[-300:])
+            # Caught: Kayal spins and fades, the game is over, and A goes back
+            # to the title.
+            dies = 'local up = update\nfunction update(dt) up(dt) if stat("frame") == 120 then require("world").die() end end\n'
+            death = manickam_variant(os.path.join(tmp, "die"), 0, extra=dies)
+            dying = t.run_package(death, frames=170)
+            over = t.run_package(death, frames=330)
+            back = t.run_package(death, frames=600, tap="a@420")
+            title = t.run_package(game, frames=20).fb
+            t.check("manickam: when the dark catches Kayal she fades away and the game is over; A goes to the title",
+                    dying.code == 0 and over.code == 0 and back.code == 0 and dying.fb != over.fb
+                    and back.fb[:320 * 120] == title[:320 * 120], back.err[-300:])   # the title art, above the menu
             reads = ",".join(f"a@{f}" for f in range(200, 1000, 60))
             r = t.run_package(manickam_variant(os.path.join(tmp, "all"), 6, every=True), frames=2400, tap=reads)
             t.check("manickam: with every chapter loaded, the festival and its fireworks fit in memory",

@@ -179,17 +179,21 @@ core.add("pause", {
 -- ---- caught by the dark --------------------------------------------------------------------
 
 core.add("over", {
+  enter = function() w.fade, w.over_t = 0, 0 end,
   update = function(dt)
-    if core.pressed("a") then core.pop() w.respawn() end
+    w.over_t = w.over_t + dt
+    if w.over_t > 1.5 and (core.pressed("a") or core.pressed("start")) and not core.busy() then
+      core.through(1, function() core.go("title") end)
+    end
   end,
   draw = function()
-    local a, b = story.t("caught"), story.t("retry")
-    local bw, ha = math.max(core.width(a), core.width(b)) + 24, core.height(a)
-    local h = ha + core.height(b) + 16
-    rectfill(160 - bw // 2, 110 - h // 2, bw, h, 32)
-    rect(160 - bw // 2, 110 - h // 2, bw, h, 8)
-    core.center(a, 116 - h // 2, 8)
-    core.center(b, 120 - h // 2 + ha, 7)
+    local t, f = w.over_t, stat("frame")
+    cls(32)
+    for i = 0, 60 do pset(i * 53 % 320, (i * 97 + f // 3) % 240, i % 4 == 0 and 2 or 50) end   -- the dark, drifting
+    core.center(story.t("game_over"), 70, 8, 2)
+    core.center(story.t("caught"), 100, 6)
+    ring(126, 136)
+    if t > 1.5 and f // 20 % 2 == 0 then core.center(story.t("retry"), 186, 7) end
   end,
 })
 

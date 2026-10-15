@@ -7,27 +7,17 @@
 --
 -- Each row of the screen is worked out on its own: where every light
 -- crosses it, joined into spans, and the gaps between the spans filled with
--- black. A ring of scattered dots softens each light's edge. Half-widths of
--- a circle are worked out once for each radius and kept, so a frame does no
--- square roots.
+-- black. A ring of scattered dots softens each light's edge. A light's
+-- half-width on a row is worked out when it is needed: keeping a table of
+-- them for every radius cost too much memory, as a flare grows through
+-- dozens of radii.
 
 local dark = {}
 local MAX = 24                        -- lights at once
 local lx, ly, lr = {}, {}, {}
 local n = 0
-local widths = {}                     -- widths[r][dy] = half-width of a circle of radius r at dy
 local from, to = {}, {}               -- the spans of one row
 local EDGE = 4                        -- pixels of dotted edge
-
-local function half_widths(r)
-  local t = widths[r]
-  if not t then
-    t = {}
-    for dy = 0, r do t[dy] = math.floor(math.sqrt(r * r - dy * dy)) end
-    widths[r] = t
-  end
-  return t
-end
 
 function dark.clear() n = 0 end
 
@@ -36,7 +26,6 @@ function dark.light(x, y, r)
   if n >= MAX or r <= 0 or x + r < 0 or x - r >= 320 or y + r < 0 or y - r >= 240 then return end
   n = n + 1
   lx[n], ly[n], lr[n] = math.floor(x), math.floor(y), r
-  half_widths(r)
 end
 
 function dark.count() return n end
@@ -60,7 +49,7 @@ function dark.draw(colour)
       if dy < 0 then dy = -dy end
       local r = lr[i]
       if dy <= r then
-        local hw = widths[r][dy]
+        local hw = math.floor(math.sqrt(r * r - dy * dy))
         local a, b = lx[i] - hw, lx[i] + hw
         local j = k
         while j > 0 and from[j] > a do from[j + 1], to[j + 1] = from[j], to[j]; j = j - 1 end
