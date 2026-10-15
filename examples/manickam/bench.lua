@@ -13,9 +13,7 @@
 --
 -- Adds the scene "bench".
 
-local scene     = require("scene")
-local input     = require("input")
-local text      = require("text")
+local core      = require("core")
 local story     = require("story")
 local progress  = require("progress")
 
@@ -126,7 +124,7 @@ local function begin(n)
   STAGES[n].start()
 end
 
-scene.add("bench", {
+core.add("bench", {
   enter = function()
     math.randomseed(1)                -- the same frames on every machine
     results = {}
@@ -135,11 +133,11 @@ scene.add("bench", {
   end,
   update = function(dt)
     if stage > #STAGES then
-      if input.pressed("a") or input.pressed("start") then
+      if core.pressed("a") or core.pressed("start") then
         live, actors = 0, {}                  -- give the memory back
         sx, sy, svx, svy, sage = {}, {}, {}, {}, {}
         collectgarbage()
-        scene.go("title")
+        core.go("title")
       end
       return
     end
@@ -163,13 +161,13 @@ scene.add("bench", {
       return
     end
     cls(1)
-    text.center(story.t("bench_done"), 20, 10)
+    core.center(story.t("bench_done"), 20, 10)
     for i, r in ipairs(results) do
       print(STAGES[i].name, 8, 44 + (i - 1) * 40, 10)
       print(string.format("cpu %s/%s%%  fps %s", r.cpu_avg or "n/a", r.cpu_max or "n/a", r.fps_min or "n/a"), 16, 56 + (i - 1) * 40, 7)
       print(string.format("mem %d KB  frames %d", r.mem_peak, r.frames), 16, 66 + (i - 1) * 40, 7)
     end
-    text.center(story.t("press_start"), 210, 6)
+    core.center(story.t("press_start"), 210, 6)
   end,
 })
 

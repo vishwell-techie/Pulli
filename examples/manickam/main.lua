@@ -5,37 +5,38 @@
 -- She is no fighter: she dodges, and uses light.
 --
 -- The game is split over several files, each loaded with require():
---   story.lua      every word shown, in Tamil and English
+--   core.lua       scenes, buttons, fades and text: the game's own small
+--                  versions of four SDK helpers, as Lua memory is tight
+--   story.lua      every word shown; the words are in lines_ta.lua and lines_en.lua
 --   progress.lua   settings and progress, kept as one table in the save data
 --   title.lua      the title screen, chapter select and options
---   level.lua      the gem hunt, the first chapter so far
+--   play.lua       the chapters in order, the top bar, pause, Paati's stories
+--   world.lua      what every region shares: Kayal, Minmini, slimes, lamps...
+--   opening.lua, ch0.lua ... ch6.lua   the opening and the chapters
+--   script.lua     cut-scenes, written as functions that read in order
+--   talk.lua       the box people talk in
+--   irul.lua       the shadow serpent
+--   dark.lua       night, and the lights in it
+--   fx.lua         sparks, dust and fireworks
 --   bench.lua      the benchmark: SELECT on the title screen switches it on
--- The helpers they use (scene, menu, dialog and the rest) come from the
--- SDK's sdk/ folder; packing the game puts them in.
+-- The SDK helpers move and pathfind come from the SDK's sdk/ folder;
+-- packing the game puts them in.
 --
 -- sprites.png is a full 512x256 sheet, the most the console holds: the title
 -- art fills its top-left 320x240, and every sprite and tile fits around it.
+-- The maps are drawn in Tiled and share one tileset, sprites.tsx, which
+-- holds each tile's flags: solid, water, thorns, deep water, dark, lamp,
+-- mirror and beam.
 
-local scene      = require("scene")
-local input      = require("input")
-local transition = require("transition")
-local progress   = require("progress")
-require("level")
+local core     = require("core")
+local progress = require("progress")
+require("play")
 require("title")
-require("bench")
 
 function init()
   progress.load()
-  scene.go("title")
+  core.go("title")
 end
 
-function update(dt)
-  input.update(dt)
-  transition.update(dt)
-  scene.update(dt)
-end
-
-function draw()
-  scene.draw()
-  transition.draw()
-end
+function update(dt) core.update(dt) end
+function draw() core.draw() end

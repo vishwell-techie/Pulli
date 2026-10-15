@@ -1,125 +1,111 @@
--- title.lua — the title screen, its menu, chapter select and options.
+-- title.lua — the title screen and its menus: the main menu, chapter select
+-- and options.
 --
 -- The art is the top-left 320x240 of sprites.png, logo included. SELECT
 -- switches the benchmark on and off (bench.lua); with it on, starting a
--- game runs the benchmark instead.
+-- game runs the benchmark instead. The benchmark is loaded only then, so a
+-- player who never asks for it never spends the memory.
 --
--- Adds the scenes "title", "chapters" and "options".
+-- One small menu serves all three screens: a list of items, a box sized to
+-- the widest, up and down to move (held, they repeat), A to choose and B to
+-- go back.
+--
+-- Adds the scene "title".
 
-local scene    = require("scene")
-local input    = require("input")
-local menu     = require("menu")
-local text     = require("text")
+local core     = require("core")
 local story    = require("story")
 local progress = require("progress")
 
-local PLAYABLE = 1                    -- chapters built so far: Kayalur at dusk
-local COLORS = { back = 32, border = 10, text = 7, picked = 10 }
+local PLAYABLE = 5                      -- chapters built so far
 
-local main_menu, sub_menu
-local actions = {}                    -- what each item of main_menu does
+local screen = "main"                   -- "main", "chapters" or "options"
+local items, actions, pick = {}, {}, 1
 
-local function centred(m, y)
-  m.x, m.y = 160 - (m.width + 28) // 2, y
-  return m
-end
-
-local function start(chapter, fresh)
-  if fresh then progress.reset() end
-  progress.data.started, progress.data.chapter = true, chapter
-  progress.save()
+local function start(which)
   music_stop(300)
+  if progress.bench then
+    require("bench")
+    core.go("bench")
+    return
+  end
+  if which == "new" then progress.reset() end
   -- The runtime starts every game with the same random numbers. How long
   -- the player took to choose makes each game differ.
   math.randomseed(stat("frame"))
-  if progress.bench then scene.go("bench") else scene.go("play", 1, true) end
+  core.go("play", which == "new" and "opening" or which)
 end
 
--- The main menu, rebuilt whenever it shows, since the language may change.
-local function build()
-  local items = {}
-  for i = #actions, 1, -1 do actions[i] = nil end
-  local function add(key, fn) items[#items + 1] = story.t(key); actions[#actions + 1] = fn end
-  if progress.data.started then add("continue", function() start(progress.data.chapter, false) end) end
-  add("new_game", function() start(0, true) end)
-  if progress.data.started then add("chapters", function() scene.push("chapters") end) end
-  add("options", function() scene.push("options") end)
-  main_menu = centred(menu.new(items, { colors = COLORS, choose = function(i) actions[i]() end }), 0)
-  centred(main_menu, 236 - (#items * main_menu.line + 10))
+-- Fill the menu for a screen. Rebuilt whenever it shows, as the language
+-- or the settings may have changed.
+local function build(name, keep)
+  screen = name
+  for i = #items, 1, -1 do items[i], actions[i] = nil, nil end
+  local d = progress.data
+  local function add(line, fn) items[#items + 1], actions[#items + 1] = line, fn end
+  if name == "main" then
+    if d.started then add(story.t("continue"), function() start(d.chapter) end) end
+    add(story.t("new_game"), function() start("new") end)
+    if d.started then add(story.t("chapters"), function() build("chapters") end) end
+    add(story.t("options"), function() build("options") end)
+  elseif name == "chapters" then
+    for c = 0, math.min(d.unlocked, PLAYABLE - 1) do
+      add(story.t("chapter" .. c), function() start(c) end)
+    end
+    add(story.t("back"), function() build("main") end)
+  else
+    add(story.t("language"), function() d.lang = d.lang == "ta" and "en" or "ta"; story.lang = d.lang end)
+    add(story.t(d.music and "music_on" or "music_off"), function()
+      d.music = not d.music
+      if d.music then progress.music(0, 300) else music_stop() end   -- title music
+    end)
+    add(story.t(d.sfx and "sfx_on" or "sfx_off"), function() d.sfx = not d.sfx end)
+    add(story.t("back"), function() build("main") end)
+  end
+  pick = keep and math.min(pick, #items) or 1
 end
 
-scene.add("title", {
+core.add("title", {
   enter = function()
-    build()
-    progress.music(0, 600)
+    build("main")
+    progress.music(0, 600)   -- title music
   end,
   update = function(dt)
-    if input.pressed("select") then progress.bench = not progress.bench end
-    main_menu:update()
+    if core.pressed("select") then progress.bench = not progress.bench end
+    if btnp("up") then pick = (pick - 2) % #items + 1; progress.sfx(17) end   -- move
+    if btnp("down") then pick = pick % #items + 1; progress.sfx(17) end   -- move
+    if core.pressed("a") then
+      progress.sfx(18)   -- choose
+      local was = screen
+      actions[pick]()
+      if screen == "options" and was == "options" then
+        progress.save()
+        build("options", true)
+      end
+    elseif core.pressed("b") and screen ~= "main" then
+      build("main")
+    end
   end,
   draw = function()
     sspr(0, 0, 320, 240, 0, 0)
-    main_menu:draw()
+    local line_h, width = 0, 0
+    for _, s in ipairs(items) do
+      local tw, th = text_size(s)
+      width, line_h = math.max(width, tw), math.max(line_h, th + 2)
+    end
+    local h = #items * line_h + 10
+    local x, y = 160 - (width + 28) // 2, screen == "main" and 236 - h or 120 - h // 2
+    rectfill(x, y, width + 28, h, 32)
+    rect(x, y, width + 28, h, 10)
+    for i, s in ipairs(items) do
+      local iy = y + 5 + (i - 1) * line_h
+      if i == pick then spr(945, x + 6, iy + (line_h - 10) // 2) end
+      print(s, x + 18, iy, i == pick and 10 or 7)
+    end
     if progress.bench then
-      rectfill(2, 2, text.width(story.t("bench_on")) + 4, 12, 32)
+      rectfill(2, 2, core.width(story.t("bench_on")) + 4, 12, 32)
       print(story.t("bench_on"), 4, 4, 8)
     end
   end,
-})
-
--- The chapters reached so far, any of which can be played again.
-scene.add("chapters", {
-  enter = function()
-    local items = {}
-    for c = 0, math.min(progress.data.unlocked, PLAYABLE - 1) do items[#items + 1] = story.t("chapter" .. c) end
-    items[#items + 1] = story.t("back")
-    sub_menu = centred(menu.new(items, {
-      colors = COLORS,
-      choose = function(i) if i == #items then scene.pop() else start(i - 1, false) end end,
-      back = function() scene.pop() end,
-    }), 0)
-    centred(sub_menu, 120 - (#items * sub_menu.line + 10) // 2)
-  end,
-  update = function(dt) sub_menu:update() end,
-  draw = function() sub_menu:draw() end,
-  leave = build,
-})
-
-local function option_items()
-  local d = progress.data
-  return { story.t("language"), story.t(d.music and "music_on" or "music_off"),
-           story.t(d.sfx and "sfx_on" or "sfx_off"), story.t("back") }
-end
-
-scene.add("options", {
-  enter = function()
-    sub_menu = menu.new(option_items(), {
-      colors = COLORS,
-      choose = function(i)
-        local d = progress.data
-        if i == 1 then
-          d.lang = d.lang == "ta" and "en" or "ta"
-          story.lang = d.lang
-        elseif i == 2 then
-          d.music = not d.music
-          if d.music then progress.music(0, 300) else music_stop() end
-        elseif i == 3 then
-          d.sfx = not d.sfx
-        else
-          scene.pop()
-          return
-        end
-        progress.save()
-        sub_menu:set_items(option_items())
-        centred(sub_menu, 120 - (4 * sub_menu.line + 10) // 2)
-      end,
-      back = function() scene.pop() end,
-    })
-    centred(sub_menu, 120 - (4 * sub_menu.line + 10) // 2)
-  end,
-  update = function(dt) sub_menu:update() end,
-  draw = function() sub_menu:draw() end,
-  leave = build,
 })
 
 return { playable = PLAYABLE }

@@ -12,18 +12,14 @@ pong frames=3600 hold=x tap=down@1,a@5 81b99b15c947b9c1116e1e1ab881905bb9b57bb3b
 pong frames=3600 hold=x tap=down@1,a@5 sound c566ed0725e32dd28029750e50b5a3733b2f00a61b8ec68a0dfea1cd10a1dd5e
 hello frames=120 hold=- tap=r@10,r@20,l@30,r@40 cb96dee2c65800aa24433084138f87d31b3a7d2aa28cb8c29c92d24eecb40d01
 hello frames=120 hold=- tap=r@10,r@20,l@30,r@40 sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
-manickam frames=120 hold=- tap=- bfb1b9eefcd208893cef49fbc683374a684ecf4787a8fd7e97bc8ca3f5fb9b1e
-manickam frames=120 hold=- tap=- sound 60a5c974b59371de07eb92b5f905241589fcb134e0f3b990c95ac66ca63055ff
-manickam frames=300 hold=- tap=a@5 0ae3888b98644e6f8b804ed849d84fa152e702424d8676914e2824ab0830521b
-manickam frames=300 hold=- tap=a@5 sound 8f39704b8d60ceb8064af7587206863e67aa699ff39d262edae02ca181dce35d
-manickam frames=600 hold=- tap=a@5,right@6-600,down@6-600 b69bf9b4ab6d6e87b85596aace753bd78ad1d0ee2eecb9cfb9aa7684a0b15567
-manickam frames=600 hold=- tap=a@5,right@6-600,down@6-600 sound 95de21947c525d5b9fee58c819689bde243529496bd996e1e4ebfbbce038310f
-manickam frames=3000 hold=- tap=a@5,a@2900 65162b1fde924fce2aafd45709d3e9576f8c5287e282793bdcb9ae4669dd8a42
-manickam frames=3000 hold=- tap=a@5,a@2900 sound bb6dd6503fb6ea5f7c6df03dc0989515a2b5df03bd060806cf804285862cc311
+manickam frames=120 hold=- tap=- 7023533c47b6c055bfc40e9da3c43b7028aede21599f98c2f083e76c2ed6681c
+manickam frames=120 hold=- tap=- sound 53f8155d3a6236df2f2fa62fac88b394ed476b8c6d02ba20879e15d097529c65
+manickam frames=900 hold=- tap=a@5 5a861fbe2ec9af6fd4c2ca4b72e990cf17ccc420c409b300f7d54b2fcab6894e
+manickam frames=900 hold=- tap=a@5 sound 43ba83081fd9f73d09999d667869e0c91b86eafc476b154422bb336bdf98f3c5
+manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 41ad5b83befee6a153fdaa57693af5ebc7565406bb1ce2f9cc8ead14f594a9da
+manickam frames=600 hold=- tap=a@5,start@100,a@300,a@330,a@360,a@390,a@420,right@440-600 sound 8f93d03d87c90be922b2d38eca548eadaef19f9ebe2d17571c4e88150a8e8f74
 talk frames=120 hold=right tap=- d6fd49991cfcacab52786695b4b858b382718f9aa199ec7162176686b055f5cf
 talk frames=120 hold=right tap=- sound 24d598d6c0d8b67abc2ce3685b44af32e9fa363cd5968d9297a64d840e386cf3
 catch frames=900 hold=right tap=a@30 50fcc6852afe2be7190ad1e4c101448010619d135e2d8dcbcdb30d2ecbea636e
 catch frames=900 hold=right tap=a@30 sound e19b16e8daa4f006af478f15b46fe38e9ee4e69e24d02b9fe81ee168d863bff6
-manickam level 1 cleared 824ba3642c179b9de8cf658b479d207fdc33ac439ea1fad328c6029e2b636761
-manickam level 2 reached 5daa87053a47a4a6e996dcec413057bfd55686c4df41307f5b50e05bbde9e976
 talk given a gem 57dd5016d4e31228ad71cb2e2b6479ed17c15223db72fe253bb7afd148bd0939
