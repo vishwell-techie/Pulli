@@ -212,6 +212,23 @@ def main():
                     "hearts\t2" in told.out, told.out[-300:] + told.err[-300:])
             t.check("manickam: a chapter started afresh gives her all her hearts",
                     "hearts\t3" in fresh.out, fresh.out[-300:] + fresh.err[-300:])
+            # Picking up a ruby piece with a slime on top of her: while she
+            # holds it up nothing hostile moves, and the slime is scared off
+            # before the world moves again, so she loses no heart.
+            pick = ('local up = update\nlocal s0\nfunction update(dt) up(dt)\n'
+                    '  local w = require("world")\n'
+                    '  local f = stat("frame")\n'
+                    '  if f == 150 then require("talk").clear() w.add_slime(w.p.x, w.p.y) s0 = w.slimes[#w.slimes]\n'
+                    '    w.pick({ kind = "piece", n = 1, x = w.p.x, y = w.p.y }) s0.x0, s0.y0 = s0.x, s0.y end\n'
+                    '  if f == 220 then dbg("held", w.p.hearts, s0.x == s0.x0 and s0.y == s0.y0) end\n'
+                    '  if f == 460 then dbg("after", w.p.hearts) end\n'
+                    'end\n')
+            r = t.run_package(manickam_variant(os.path.join(tmp, "pick"), 0, extra=pick), frames=470,
+                              tap="a@100,a@130,a@260,a@290,a@320,a@350")
+            t.check("manickam: while Kayal holds up a piece, a slime on top of her stays still and does no harm",
+                    "held\t3\ttrue" in r.out, r.out[-300:] + r.err[-300:])
+            t.check("manickam: after the piece, the slime is scared off and she still has every heart",
+                    "after\t3" in r.out, r.out[-300:] + r.err[-300:])
             reads = ",".join(f"a@{f}" for f in range(200, 1000, 60))
             r = t.run_package(manickam_variant(os.path.join(tmp, "all"), 6, every=True), frames=2400, tap=reads)
             t.check("manickam: with every chapter loaded, the festival and its fireworks fit in memory",

@@ -23,6 +23,7 @@ function region.start(w)
 end
 
 function region.update(w, dt)
+  if w.still then return end                         -- rocks wait while she picks up or talks
   local p = w.p
   local px, py = p.x + 4, p.y + 3
   -- rocks fall near Kayal in the canyon, and everywhere while she escapes

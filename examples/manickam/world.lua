@@ -189,6 +189,7 @@ function w.start(chapter, region)
   w.mm.x, w.mm.y, w.mm.hide = p.x, p.y - 12, false
   w.keys, w.flare, w.flare_cd, w.card_t = 0, 99, 0, 0
   w.fade, w.flash, w.control, w.cam_lock, w.freeze, w.dark = 0, 0, true, nil, false, region.dark
+  w.hold, w.still = false, false
   w.cam.x, w.cam.y = s.x - 160, s.y - 120
   w.camera(1)
   if region.music then progress.music(region.music, 800) end
@@ -211,7 +212,7 @@ end
 
 function w.hurt(from_x, from_y)
   local p = w.p
-  if p.hurt > 0 or not w.control then return end
+  if p.hurt > 0 or not w.control or w.still then return end
   p.hearts, p.hurt = p.hearts - 1, 1.5
   w.shake(3, 0.25)
   if p.hearts <= 0 then
@@ -392,6 +393,11 @@ function w.pick(t)
   local d, k = progress.data, t.kind
   if t.id then d.got[t.id] = true end
   fx.burst(t.x, t.y, 14, k == "piece" and fx.RUBY or fx.SPARK)
+  -- the sparkle scares off slimes close by, so none is on her when the
+  -- world moves again
+  for _, s in ipairs(w.slimes) do
+    if w.near(s, w.p, 40) then s.shrunk = 2 end
+  end
   if k == "key" then w.keys = w.keys + 1
   elseif k == "pot" then d.pots = d.pots + 1
   elseif k == "lotus" then d.lotuses = d.lotuses + 1
@@ -399,6 +405,7 @@ function w.pick(t)
   if k == "piece" then
     d.pieces = d.pieces | (1 << ((w.region.pieces or { 1 })[t.n] - 1))
     -- Kayal holds the piece up, and it joins the ring of seven
+    w.hold = true                                      -- everything hostile waits
     script.run(function(s)
       music_stop(200)
       progress.sfx(2)   -- piece
@@ -407,6 +414,7 @@ function w.pick(t)
       s.during(1.6, function() if math.random() < 0.5 then fx.burst(w.held.x, w.held.y, 1, fx.RUBY) end end)
       w.held, w.p.pose = nil, nil
       s.say("minmini", "got_piece", progress.piece_count())
+      w.hold = false
       if w.region.music then progress.music(w.region.music, 600) end
       if w.region.event then w.region.event(w, "got", t) end
     end, progress.checkpoint)
@@ -496,6 +504,10 @@ function w.update(dt)
   local talking = talk.update(dt)
   if script.active() then script.update(dt)
   elseif not talking and w.control then control(dt) end
+  -- While Kayal holds up a piece, and while anyone talks, nothing hostile
+  -- moves or hurts: slimes, falling rocks and Irul's orbs all wait. Worked
+  -- out after she moves, so a piece picked up this frame counts at once.
+  w.still = talking or w.freeze or w.hold
   p.step = p.moving and p.step + dt or 0
   -- Minmini drifts after Kayal and keeps to the same place whichever way
   -- she faces: just above her right shoulder as she faces us (our left),
@@ -504,7 +516,7 @@ function w.update(dt)
   local k = math.min(1, dt * 12)            -- close behind, so she never trails across Kayal
   mm.t = mm.t + dt
   mm.x, mm.y = mm.x + (p.x - 8 - mm.x) * k, mm.y + (p.y - 12 - mm.y) * k
-  if not talking and not w.freeze then slimes(dt) end
+  if not w.still then slimes(dt) end
   if w.region.update then w.region.update(w, dt) end
   w.camera(dt)
 end
