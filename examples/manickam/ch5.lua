@@ -126,7 +126,7 @@ function top.update(w, dt)
   angle = angle + dt * (0.8 + phase * 0.25)
   local r = 70 - snake.scale * 20
   snake:go(CX + math.cos(angle) * r, CY - 10 + math.sin(angle) * r * 0.6)
-  if phase == 0 then return end
+  if phase == 0 or w.still then return end           -- orbs wait while anyone talks
   -- orbs, in a pattern for each phase
   clock = clock + dt
   if phase == 1 and clock > 2 then
