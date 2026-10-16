@@ -182,7 +182,9 @@ function w.start(chapter, region)
   local s = w.marks.start and w.marks.start[1] or { x = 32, y = 32 }
   local p = w.p
   p.x, p.y, p.face, p.moving, p.pose, p.hide, p.dying = s.x - 4, s.y - 3, "down", false, nil, false, nil
-  p.hearts, p.hurt, p.wet = progress.data.hearts, 0, 0
+  -- Hearts carry on from the chapter before; a fresh start has them all.
+  p.hearts, p.hurt, p.wet = w.carry or progress.data.hearts, 0, 0
+  w.carry = nil
   w.checkpoint = { x = p.x, y = p.y }
   w.mm.x, w.mm.y, w.mm.hide = p.x, p.y - 12, false
   w.keys, w.flare, w.flare_cd, w.card_t = 0, 99, 0, 0

@@ -26,6 +26,7 @@ function w.finish()
   d.unlocked, d.chapter = math.max(d.unlocked, ch + 1), math.min(ch + 1, 6)
   progress.checkpoint()
   music_stop(600)
+  if ch < 6 then w.carry = w.p.hearts end         -- the next chapter starts with what is left
   local function next() core.through(1.2, function() core.go(ch < 6 and "play" or "title", ch + 1) end) end
   if ch >= 1 and ch <= 5 then
     progress.music(0, 600)   -- title music
