@@ -191,19 +191,25 @@ def main():
             t.check("manickam: when the dark catches Kayal she fades away and the game is over; A goes to the title",
                     dying.code == 0 and over.code == 0 and back.code == 0 and dying.fb != over.fb
                     and back.fb[:320 * 120] == title[:320 * 120], back.err[-300:])   # the title art, above the menu
-            # Hearts carry on into the next chapter; starting a chapter
-            # afresh gives them all.
+            # Hearts carry on into the next chapter, and Paati's story
+            # between chapters gives one back; starting afresh gives them all.
             carry = ('local up = update\nfunction update(dt) up(dt)\n'
                      '  local w = require("world")\n'
                      '  if stat("frame") == 150 then w.p.hearts = 1 w.finish() end\n'
-                     '  if w.chapter == 2 and w.control and not shown then shown = true dbg("hearts", w.p.hearts) end\n'
+                     '  if w.chapter == NEXT and w.control and not shown then shown = true dbg("hearts", w.p.hearts) end\n'
                      'end\n')
             story = ",".join(f"a@{f}" for f in range(200, 1400, 30))
-            r = t.run_package(manickam_variant(os.path.join(tmp, "carry"), 1, extra=carry), frames=1500, tap=story)
-            fresh = t.run_package(manickam_variant(os.path.join(tmp, "fresh"), 2, extra=carry.replace("== 150", "== -1")),
+            told = t.run_package(manickam_variant(os.path.join(tmp, "carry"), 1, extra=carry.replace("NEXT", "2")),
+                                 frames=1500, tap=story)
+            r = t.run_package(manickam_variant(os.path.join(tmp, "carry0"), 0, extra=carry.replace("NEXT", "1")),
+                              frames=1500, tap=story)
+            fresh = t.run_package(manickam_variant(os.path.join(tmp, "fresh"), 2,
+                                                   extra=carry.replace("== 150", "== -1").replace("NEXT", "2")),
                                   frames=400, tap="a@100,a@130,a@160")
             t.check("manickam: Kayal starts the next chapter with the hearts she had left",
                     "hearts\t1" in r.out, r.out[-300:] + r.err[-300:])
+            t.check("manickam: Paati's story between chapters gives her one heart back",
+                    "hearts\t2" in told.out, told.out[-300:] + told.err[-300:])
             t.check("manickam: a chapter started afresh gives her all her hearts",
                     "hearts\t3" in fresh.out, fresh.out[-300:] + fresh.err[-300:])
             reads = ",".join(f"a@{f}" for f in range(200, 1000, 60))

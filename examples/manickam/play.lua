@@ -26,9 +26,12 @@ function w.finish()
   d.unlocked, d.chapter = math.max(d.unlocked, ch + 1), math.min(ch + 1, 6)
   progress.checkpoint()
   music_stop(600)
-  if ch < 6 then w.carry = w.p.hearts end         -- the next chapter starts with what is left
+  -- The next chapter starts with the hearts that are left, and Paati's
+  -- story, told after chapters 1 to 5, gives one back.
+  local told = ch >= 1 and ch <= 5
+  if ch < 6 then w.carry = math.min(w.p.hearts + (told and 1 or 0), d.hearts) end
   local function next() core.through(1.2, function() core.go(ch < 6 and "play" or "title", ch + 1) end) end
-  if ch >= 1 and ch <= 5 then
+  if told then
     progress.music(0, 600)   -- title music
     talk.say(story.t("story"), story.t("st" .. ch), next)
   else
