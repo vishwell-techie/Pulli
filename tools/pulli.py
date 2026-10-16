@@ -159,6 +159,7 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
     names = sorted(
         f for f in os.listdir(srcdir)
         if os.path.isfile(os.path.join(srcdir, f)) and not f.startswith(".")
+        and not f.lower().endswith(".md")               # notes for people, such as a README
     )
     for req in REQUIRED:
         if req not in names:
