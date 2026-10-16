@@ -46,6 +46,10 @@ them does not ship.
 | Display interface | ST7789 8080 8-bit parallel, driven by GPU via PIO | The whole reason the coprocessor pays for itself |
 | CPU<->GPU link | 8-bit parallel + CLK over PIO, DMA both ends, ~25-40 MB/s | Commands only, never pixels (ADR-001) |
 | MCUs | 2x RP2350B (48 GPIO each), A4+ | Pin budget is full on the CPU, 8 spare on the GPU |
+| CPU chip storage | 16 MB QSPI flash; 8 MB QSPI PSRAM on the same bus | Flash: firmware and the launcher. PSRAM: the game being played (§2, "Size, and the parts in memory") |
+| GPU chip storage | 4 MB QSPI flash | Its own firmware only; sprite sheets and maps arrive over the link |
+| Game package | **up to 64 MB, of which at most 6 MB is in memory at once** | Read from the SD card or a cartridge into PSRAM as the game uses it (§2) |
+| Cartridge slot | Quad-SPI flash read by PIO, save EEPROM on I2C | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
 | Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable (ADR-008) |
 | Tile layers | 2 scrolling + 1 sprite + 1 UI | |
 | Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core (ADR-002) |
@@ -64,6 +68,9 @@ them does not ship.
 | Audio buffers + ADPCM state | 32 KB | 44.1 kHz stereo |
 | Game data, engine, stack, OS | ~96 KB | |
 | **Total** | **~464 KB of 520 KB** | **~56 KB headroom** |
+
+Outside its SRAM the CPU chip has 8 MB of PSRAM: 6 MB holds the parts of
+the game's package in use (§2), and 2 MB is the system's.
 
 **GPU chip (RP2350 #2, 520 KB)**
 
@@ -86,8 +93,9 @@ with DMA to the panel. **Still must be measured at bring-up.**
 ## 2. Game package format (`.pulli`)
 
 A `.pulli` is a flat, uncompressed, memory-mappable archive. Deliberately *not*
-ZIP: no zlib on the MCU, and cartridge flash should be XIP-readable so assets
-are read in place rather than copied to RAM.
+ZIP: no zlib on the MCU, and a package held in memory-mapped flash or PSRAM
+is read in place: its sounds and sprite sheet are used where they lie,
+not copied again into RAM.
 
 ```
 offset  size  field
@@ -121,6 +129,52 @@ Conventional: `sprites.kolam`, `map.ooru`, `sfx.oli`, `music.isai`, `icon.kolam`
 `palette.pal`.
 The asset extensions follow the tools that make them: Kolam
 for sprites, Ooru for maps, Oli for sound effects, Isai for music.
+
+### Size, and the parts in memory
+
+A package may be up to **64 MB**. At most **6 MB** of it is held in memory
+at once, the game's **active set**; the rest stays on the SD card or the
+cartridge until the game needs it. This holds on every machine, the
+emulator included, so a game that fits on a desktop fits on a console.
+
+- A part of the package is read into the active set the first time the game
+  uses it: a Lua file on `require`, a map on `map.load`, a sprite sheet on
+  `sheet.load`, a sound the first time `sfx` or `music` plays it. A sound
+  bank's table is read when the game starts; its sounds are read one at a
+  time.
+- `preload` (§3, "Loading") reads parts ahead of time, behind a loading
+  screen, so nothing is read in the middle of play.
+- Some parts are used where they lie and stay in the active set while in
+  use: the sprite sheet in use and the sounds playing. Others are copied out
+  as they load and need not stay: a Lua file is compiled into the Lua heap,
+  a map is copied into the engine.
+- When the active set is full, the parts least recently used that are not
+  in use are let go, and read again if wanted. A part that cannot fit even
+  then stops the game with an error naming it, as running out of Lua memory
+  does.
+- Reading takes time, a fraction of a second for a large sound, but never
+  changes what the game computes: the game stays deterministic (§4).
+
+*Not yet: the runtime holds the whole package in memory, and the format
+allows 64 entries and checks the whole package at once. A 64 MB package
+needs more entries and a hash for each entry, checked as the entry is read,
+since reading a whole cartridge to check it would take seconds; the entry
+table changes with that work.*
+
+### Cartridges
+
+A cartridge holds one game: flash memory with the package and its seal at
+offset 0 (with its seal, below), sized to the game, up to 64 MB; and an EEPROM for
+the game's save data (§3, "Save data"). The console reads the flash over
+quad-SPI like the SD card, into the active set; nothing on the cartridge is
+run in place.
+
+- A cartridge pulled out while its game runs pauses the game until it is
+  back; the parts already in memory are not lost, and no save is written
+  while it is out.
+- The cartridge's contacts are 3.3 V, ground, the quad-SPI bus (clock,
+  select, four data lines), the I2C pair for its EEPROM, and a detect
+  contact that breaks first when it is pulled.
 
 ### The seal: licence and signature
 
@@ -173,8 +227,12 @@ offset  size  field
 8       w*h   pixels, 8-bit palette indices, row by row
 ```
 
-At most 128 KB of pixels (§1). The pixels are used in place, never copied.
-`spr(n)` counts 8x8 cells left to right, top to bottom.
+At most 128 KB of pixels (§1). On one chip the pixels are used in place,
+never copied; the two-chip console sends them to the GPU chip once, when
+the sheet comes into use.
+`spr(n)` counts 8x8 cells left to right, top to bottom. A package may hold
+several sheets; `sprites.kolam` is the one in use when the game starts, and
+`sheet.load` (§3, "Loading") changes it.
 
 `pulli pack` turns every `.png` in a game's folder into a `.kolam` of the
 same name, so a game keeps `sprites.png` and never handles the format.
@@ -409,6 +467,27 @@ map.flags(tile)                    -- 8 collision/meta bits per tile
   map loaded every function is harmless.
 - `map.flags` gives 0 for a tile that has no flags.
 
+### Loading
+
+```lua
+sheet.load(name)                   -- use another sprite sheet from the package
+preload(name, ...)                 -- read parts of the package into memory now
+stat("active")                     -- KB of the package in memory
+```
+
+- `sheet.load(name)` makes the `.kolam` called `name` the sheet that `spr`,
+  `sspr` and `map.draw` draw from, and is an error if the package has none
+  of that name. Sprites already drawn stay on the screen.
+- `preload` reads the named parts into the active set (§2) and returns
+  when they are there: entry names such as `"lake.ooru"` or `"lake.kolam"`,
+  and `"sfx 12"` or `"music 3"` for one sound. It returns `true`, or `false`
+  if a name is not in the package. Parts read this way may still be let go
+  later if the active set fills up with others.
+- A game that never calls them works as it does today: everything it uses
+  is read when first used.
+
+*Not yet: `sheet.load`, `preload` and `stat("active")` are not built.*
+
 ### Input
 
 ```lua
@@ -462,6 +541,12 @@ save_commit()      -- flush to storage now
 
 Saves are a key-value blob capped at `save_size`. No filesystem access from
 games — ever. This is what makes cartridge/SD parity trivial.
+
+`save_target = "cart"` keeps a cartridge game's saves in the cartridge's
+own EEPROM, so they go wherever the cartridge goes; the EEPROM holds at
+least the game's `save_size`. The same game run from the SD card (a
+developer's copy, say) keeps them on the SD card, as `"sd"` does. A game
+does not see the difference.
 
 Keys are 1 to 32 characters from letters, digits, `_`, `-` and `.`. `save`
 returns `true`, or `false` if the key is bad, the value is of an unsupported
@@ -755,8 +840,9 @@ static checks yet; hot reload and `flash` do not exist yet.
 | SPI display | **8080 8-bit parallel** | The actual unlock for 60 FPS; only affordable because a dedicated chip can spend the pins |
 | RGB565 framebuffer | 8-bit indexed + palette | Halves RAM, enables free fades/flashes |
 | 44.1 kHz stereo on device | **44.1 kHz stereo retained** | Core 1 is free once the display moves off-CPU (ADR-002) |
-| `.pulli` = folder/zip | Flat XIP-friendly archive | No zlib on MCU; cartridge flash reads in place |
-| Cartridges in v1 | SD only in v1 | Cartridges follow in a later generation |
+| `.pulli` = folder/zip | Flat XIP-friendly archive | No zlib on MCU; a package in memory is read in place |
+| Cartridges in v1 | **Cartridge slot in the first generation** | Read like the SD card, over quad-SPI, into memory; saves on the cartridge's EEPROM (§2) |
+| Package size set by memory | **64 MB package, 6 MB in memory at once** | Parts are read as the game uses them, so a big game needs no more memory (§2) |
 
 ---
 
@@ -786,6 +872,10 @@ static checks yet; hot reload and `flash` do not exist yet.
   chip where it has more room to be slow.
 - **Lua GC pauses.** Mitigation is stepped GC per frame plus object pooling in
   the SDK, but this is unproven at this scale on Cortex-M33.
+- **Reading parts of a package mid-play.** A game that does not preload
+  can pause for a fraction of a second when a large sound or map is first
+  used. The emulator must imitate SD and cartridge read speeds so this
+  shows up on a desktop.
 - **Audio can still sound cheap at 44.1 kHz stereo.** ADR-002 settled the
   sample rate; what people hear is the analog stage and the speaker's back
   volume. Needs a listening test early, not late.
@@ -865,3 +955,12 @@ covered by `tests/`; none is frozen.
    rectangle with round lights cut out of it and dotted edges.
 22. **Notes beside a game** (§6): `pack` leaves out Markdown files, so a
    game's folder can hold a README that does not go into the package.
+23. **Storage, package size and cartridges** (§1, §2, §3): flash and PSRAM
+   for each chip; a package of up to 64 MB with at most 6 MB in memory at
+   once, its parts read as the game uses them; `preload`, `sheet.load` and
+   more than one sprite sheet per game, and `stat("active")`; the cartridge
+   slot in the first generation, read over quad-SPI like the SD card, with
+   saves on its EEPROM (`save_target = "cart"`). §7 no longer says
+   cartridges wait for a later generation, nor that cartridge flash is read
+   in place. The format changes the 64 MB package needs (more entries, a
+   hash per entry) come with the runtime work.
