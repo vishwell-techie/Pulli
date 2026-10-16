@@ -125,6 +125,8 @@ python3 tools/pulli.py list mygame.pulli   # what is inside
 
 A `.pulli` file is the whole game in one file: code, pictures, maps and
 sounds, converted into the forms the console reads. It is what you share.
+Notes in Markdown, such as a `README.md` about the game, stay in the folder
+and are left out.
 
 ## Saving
 

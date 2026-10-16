@@ -23,7 +23,7 @@ Software first; hardware comes last.
 | Desktop host, windowed and headless | built and tested on Linux (Raspberry Pi 5) |
 | Reference rasterizer and conformance suite | passing; the C engine matches it byte for byte |
 | Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add` |
-| Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; tested on desktop, not yet run on a board |
+| Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; a Pico 2 passes the self-check |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Text | English and Tamil from built-in pixel fonts; Tamil syllables drawn whole, from Noto Sans Tamil |
@@ -31,8 +31,8 @@ Software first; hardware comes last.
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
 | Examples | hello, pong, manickam, talk, catch; all use the SDK helpers |
-| Audio | 8 effect channels plus music, built from WAV files; plays in the window; not yet on a board |
-| Firmware | the CPU chip's side compiles for a Pico 2 (RP2350); never run on a board. The GPU chip's firmware is not started |
+| Audio | 8 effect channels plus music, built from WAV files; plays in the window; no sound output on a board yet |
+| Firmware | one-chip firmware runs on a Pico 2 (RP2350): Pong at 60 frames a second, and Manickam and its benchmark, with no screen or buttons yet; its second core helps draw. The GPU chip's firmware is not started |
 | Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
 
 ## Not implemented yet
@@ -46,7 +46,12 @@ Measured against `docs/SPEC.md`:
   are refused.
 - `check` does no static analysis, and `run` has no hot reload.
 - The spec's GPU coprocessor (§1) exists only as a plan: today one chip
-  does everything.
+  does everything, with its second core helping to draw.
+- Packages are read whole into memory. Reading a package of up to 64 MB in
+  parts, `preload`, `sheet.load` and `stat("active")` (SPEC §2 and §3) are
+  not built, nor is the cartridge slot.
+- The firmware has no screen, buttons, sound output, SD card or save
+  storage yet.
 - Maps made in Tiled bring across tile layers only, not objects.
 - The desktop's Lua heap limit is stricter than the device's will be,
   because Lua values are larger on a 64-bit machine.
@@ -114,12 +119,17 @@ whole adventure in Tamil and English, with an opening cut-scene, six
 regions drawn in Tiled (the biggest 128x128 tiles), night lit by lamps,
 mirror puzzles, a confrontation and a festival, saved progress, ten music
 tracks and thirty sound effects. SELECT on its title screen switches on a
-benchmark that reports how a machine copes.
+benchmark that reports how a machine copes. Its own
+[README](examples/manickam/README.md) explains how to play it, its story
+and every file.
 
 For sound, put `.wav` files in a `sfx/` folder and a `music/` folder inside
 the game. `pack` and `run` number them from 0 in order of file name, so
 `sfx/0-jump.wav` plays with `sfx(0)` and `music/0-theme.wav` with
 `music(0)`. See `examples/pong/sfx`.
+
+Notes in Markdown, such as a `README.md` for the game, stay in its folder
+and are left out of the package.
 
 To try link play, start two windows with the same port and pick LINK PLAY
 in both:
@@ -178,8 +188,17 @@ cmake -S firmware -B firmware/build -G Ninja      # board: pico2
 ninja -C firmware/build                           # firmware/build/pulli.uf2
 ```
 
+To put it on a Pico 2, hold BOOTSEL while plugging the board in and copy
+`pulli.uf2` to the drive that appears, or, with
+[picotool](https://github.com/raspberrypi/picotool) installed, run
+`picotool load -x -f firmware/build/pulli.uf2`.
+
 It runs Pong with no display and prints update, draw and screen-conversion
-times and Lua memory over USB serial once a second. At start-up it prints
+times and Lua memory over USB serial once a second. On a Pico 2 at 150 MHz
+Pong takes about 2 ms a frame to update and draw, and converting a frame to
+the screen's colours about 5 ms. The biggest drawing calls, `map.draw`,
+`shade` and `sspr`, are drawn as two halves of the screen, one on each of
+the chip's two cores. At start-up it prints
 whether the maths check passed: the board must compute exactly what the
 desktop computes. `-DPULLI_GAME=<folder>`
 links in a different game. The board has no buttons yet: for Pong the

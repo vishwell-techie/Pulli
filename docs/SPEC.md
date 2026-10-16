@@ -86,7 +86,9 @@ the game's package in use (§2), and 2 MB is the system's.
 Splitting across two chips is what turned "zero headroom" into "126 KB
 spare on the tighter side". The index-to-RGB565 conversion still has to
 happen, but it now happens on a chip with nothing else to do, overlapped
-with DMA to the panel. **Still must be measured at bring-up.**
+with DMA to the panel. Measured on a Pico 2 at 150 MHz, converting a whole
+frame takes about 5.1 ms; overlapping it with DMA to a real panel is still
+to be measured.
 
 ---
 
@@ -785,7 +787,7 @@ What the runtime does to make that true:
 - **A port proves it.** The runtime carries a self-check that runs these
   functions, plain float arithmetic and fixed point over a fixed set of
   inputs and compares a checksum of the results with a recorded value. A
-  port is not conformant until it passes.
+  port is not conformant until it passes. The Pico 2 firmware passes.
 
 Not yet covered: turning a number into text and text into a number
 (`tostring`, `string.format`, `tonumber`, and decimal numbers written in
@@ -868,8 +870,9 @@ static checks yet; hot reload and `flash` do not exist yet.
 - **One frame of added input latency** from the CPU/GPU pipeline. Fine for
   RPGs; a `lowlatency` manifest flag is planned for twitch games, but is
   not part of v0.1.
-- **Index-to-RGB565 conversion cost is still unmeasured**, now on the GPU
-  chip where it has more room to be slow.
+- **Index-to-RGB565 conversion overlapped with the panel's DMA is
+  unmeasured.** The conversion alone takes about 5.1 ms a frame on a Pico 2
+  at 150 MHz.
 - **Lua GC pauses.** Mitigation is stepped GC per frame plus object pooling in
   the SDK, but this is unproven at this scale on Cortex-M33.
 - **Reading parts of a package mid-play.** A game that does not preload
@@ -964,3 +967,6 @@ covered by `tests/`; none is frozen.
    cartridges wait for a later generation, nor that cartridge flash is read
    in place. The format changes the 64 MB package needs (more entries, a
    hash per entry) come with the runtime work.
+24. **Measured on a board** (§1, §4, §9): on a Pico 2 at 150 MHz,
+   converting a frame to RGB565 takes about 5.1 ms, and the firmware passes
+   the maths self-check.

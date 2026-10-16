@@ -19,8 +19,8 @@
 --   dark.lua       night, and the lights in it
 --   fx.lua         sparks, dust and fireworks
 --   bench.lua      the benchmark: SELECT on the title screen switches it on
--- The SDK helpers move and pathfind come from the SDK's sdk/ folder;
--- packing the game puts them in.
+-- The SDK helper move comes from the SDK's sdk/ folder; packing the game
+-- puts it in.
 --
 -- sprites.png is a full 512x256 sheet, the most the console holds: the title
 -- art fills its top-left 320x240, and every sprite and tile fits around it.

@@ -572,4 +572,7 @@ function draw() scene.draw() end
   a basket that speeds up.
 - Look through [the helpers](helpers.md): `tween` makes things glide,
   `menu` makes an options screen, `dialog` lets characters talk.
-- `examples/manickam` is a bigger game with maps, enemies, water, levels and music.
+- `examples/manickam` is a whole adventure: chapters drawn in Tiled,
+  cut-scenes, night lit by lamps, mirror puzzles, saved progress, music,
+  and every word in Tamil and English. Its
+  [README](../../examples/manickam/README.md) explains every file.
