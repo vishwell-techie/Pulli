@@ -369,19 +369,39 @@ static size_t next_piece(const unsigned char *s, size_t len, size_t i, int *code
     return (size_t)bytes[0];
 }
 
+/* A 1-bit glyph, `w` pixels wide and `h` tall, rows `stride` bytes apart,
+ * drawn in colour c with its top-left at (x, y). A glyph wholly inside the
+ * clip rectangle, as nearly all are, is written straight into the
+ * framebuffer a byte of bits at a time; one cut off goes through put(). */
+PULLI_HOT static void draw_bits(pulli_gfx *g, const uint8_t *row, int stride, int w, int h,
+                                int x, int y, int c) {
+    const int sx = x - g->cam_x, sy = y - g->cam_y;
+    if (sx >= g->clip_x && sy >= g->clip_y &&
+        sx + w <= g->clip_x + g->clip_w && sy + h <= g->clip_y + g->clip_h) {
+        const uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
+        uint8_t *dst = g->fb + sy * PULLI_SCREEN_W + sx;
+        for (int j = 0; j < h; j++, row += stride, dst += PULLI_SCREEN_W)
+            for (int b = 0; b < stride; b++) {
+                unsigned bits = row[b];
+                if (!bits) continue;
+                uint8_t *d = dst + b * 8;
+                int n = w - b * 8 < 8 ? w - b * 8 : 8;
+                for (int i = 0; i < n; i++) if (bits & (0x80u >> i)) d[i] = v;
+            }
+        return;
+    }
+    for (int j = 0; j < h; j++, row += stride)
+        for (int i = 0; i < w; i++)
+            if (row[i >> 3] & (0x80u >> (i & 7))) put(g, x + i, y + j, c);
+}
+
 static void draw_english(pulli_gfx *g, int code, int x, int y, int c) {
-    const uint8_t *glyph = g->font + (code - 32) * PULLI_SPRITE_CELL;
-    for (int j = 0; j < PULLI_SPRITE_CELL; j++)
-        for (int i = 0; i < PULLI_SPRITE_CELL; i++)
-            if (glyph[j] & (0x80u >> i)) put(g, x + i, y + j, c);
+    draw_bits(g, g->font + (code - 32) * PULLI_SPRITE_CELL, 1, PULLI_SPRITE_CELL, PULLI_SPRITE_CELL, x, y, c);
 }
 
 static void draw_tamil(pulli_gfx *g, const pulli_ta_glyph *gl, int x, int y, int c) {
-    const uint8_t *row = pulli_font_ta_bits + gl->offset;
-    int stride = (gl->width + 7) / 8;
-    for (int j = 0; j < pulli_font_ta_rows; j++, row += stride)
-        for (int i = 0; i < gl->width; i++)
-            if (row[i >> 3] & (0x80u >> (i & 7))) put(g, x + i, y + j, c);
+    draw_bits(g, pulli_font_ta_bits + gl->offset, (gl->width + 7) / 8, gl->width,
+              pulli_font_ta_rows, x, y, c);
 }
 
 /* Lays out the text line by line, drawing it when g is not NULL. A line
@@ -399,7 +419,7 @@ static void lay_out(pulli_gfx *g, const char *str, size_t len, int ox, int oy, i
         size_t end = i;
         while (end < len && s[end] != '\n') end++;
         bool tamil = false;
-        for (size_t j = i; j < end; ) {
+        for (size_t j = i; j < end && !tamil; ) {    /* one Tamil syllable is enough to know */
             j += next_piece(s, end, j, &code, &gl);
             if (gl) tamil = true;
         }
