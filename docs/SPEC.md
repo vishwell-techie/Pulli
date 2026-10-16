@@ -734,6 +734,11 @@ pulli check            static checks: API misuse, budget overruns, GC churn
 pulli flash            push to device over USB
 ```
 
+`pack` takes every file in the game's folder except hidden ones (a name
+starting with `.`), Tiled tilesets (`.tsx`, read through the maps that use
+them) and Markdown (`.md`), which is left for people to read, such as a
+game's README.
+
 Today the CLI is `python3 tools/pulli.py`. `new`, `pack`, `list`, `unpack`
 and `run` work, as do `palette` (write the palette for a paint program) and
 `add` (list the SDK helpers, or copy one into a game to change it); `check`
@@ -858,3 +863,5 @@ covered by `tests/`; none is frozen.
    other bits than the desktop's, and the runtime's self-check failed.
 21. **Shade** (§3): `shade(c, lights, edge)`, darkness over the clip
    rectangle with round lights cut out of it and dotted edges.
+22. **Notes beside a game** (§6): `pack` leaves out Markdown files, so a
+   game's folder can hold a README that does not go into the package.
