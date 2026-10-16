@@ -1,7 +1,8 @@
 /* lua_math.h — included by Lua's luaconf.h (see cmake/patch_lua.cmake).
  *
  * Sends every maths call Lua makes whose result depends on the C library
- * to pmath.c instead. This covers the math library and the ^ operator.
+ * to pmath.c instead. This covers the math library, the ^ operator, and the
+ * % operator and math.fmod on floats.
  */
 #ifndef PULLI_LUA_MATH_H
 #define PULLI_LUA_MATH_H
@@ -22,5 +23,6 @@
 #define log2f  pulli_log2f
 #define log10f pulli_log10f
 #define powf   pulli_powf
+#define fmodf  pulli_fmodf
 
 #endif /* PULLI_LUA_MATH_H */
