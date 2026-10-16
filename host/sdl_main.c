@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
     backend.save_read = host_save_read;
     backend.save_write = host_save_write;
     backend.log = host_log;
+    backend.halves = host_halves;
     backend.micros = micros;
     /* No sound card is not an error: the game runs silently. */
     SDL_AudioSpec want = { 0 };

@@ -119,6 +119,7 @@ int main(int argc, char **argv) {
     backend.save_read = host_save_read;
     backend.save_write = host_save_write;
     backend.log = host_log;
+    backend.halves = host_halves;
 
     if (argc == 2 && !strcmp(argv[1], "--maths-check")) {
         uint32_t sum = pulli_math_check();
