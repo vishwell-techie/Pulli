@@ -18,8 +18,8 @@
 பிறகு repository-இன் மூலக் கோப்புறையிலிருந்து:
 
 ```bash
-python3 tools/pulli.py run examples/manickam        # in a window
-python3 tools/pulli.py run examples/manickam 3      # three times the size
+python3 tools/pulli.py run examples/manickam        # in a window, three times the size
+python3 tools/pulli.py run examples/manickam 2      # a smaller window: twice the size
 ```
 
 விளையாட்டு தமிழில் தொடங்குகிறது. ஆங்கிலத்துக்கு மாற, அல்லது இசையையும்

@@ -17,8 +17,8 @@ Build the desktop host first (see the repository's README), then, from the
 repository's root:
 
 ```bash
-python3 tools/pulli.py run examples/manickam        # in a window
-python3 tools/pulli.py run examples/manickam 3      # three times the size
+python3 tools/pulli.py run examples/manickam        # in a window, three times the size
+python3 tools/pulli.py run examples/manickam 2      # a smaller window: twice the size
 ```
 
 The game starts in Tamil. Choose **Options** on the title screen to switch

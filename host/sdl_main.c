@@ -1,6 +1,6 @@
 /* sdl_main.c — Pulli desktop host: a window, a keyboard and a clock.
  *
- *   pulli-host <game.pulli> [scale] [--link PORT]
+ *   pulli-host <game.pulli> [scale] [--link PORT]      (scale 3 when left out)
  *
  * Start two with the same --link port to play a linked game between them.
  *
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
         }
     }
     if (!game || bad) {
-        fprintf(stderr, "usage: pulli-host <game.pulli> [scale] [--link PORT]\n");
+        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT]\n");
         return 2;
     }
 

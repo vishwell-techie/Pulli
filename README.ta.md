@@ -123,12 +123,14 @@ python3 tools/pulli.py run mygame          # play it in a window
 python3 tools/pulli.py check mygame        # run 600 frames with no window
 python3 tools/pulli.py pack mygame         # write mygame.pulli
 
-python3 tools/pulli.py run examples/pong 3 # 3 = window scale
+python3 tools/pulli.py run examples/pong 2 # 2 = window scale; 3 when left out
 ```
 
 `new` manifest.lua, main.lua-வை உருவாக்குகிறது; `run` சாளரத்தில் விளையாட வைக்கிறது;
 `check` சாளரமின்றி 600 ஃப்ரேம்கள் ஓட்டுகிறது; `pack` mygame.pulli எழுதுகிறது.
-கடைசி வரியில் 3 என்பது சாளரப் பெரிதாக்கல்.
+கடைசி வரியில் 2 என்பது சாளரப் பெரிதாக்கல். அது இல்லாவிட்டால் `run` சாளரத்தைக்
+கன்சோலின் 320×240-ஐ விட மூன்று மடங்காக, 960×720-இல் திறக்கும்; விளையாட்டுக்குப்
+பின் 1 முதல் ஒரு எண் கொடுத்தால் வேறு அளவு.
 
 படங்களுக்கு, எந்த ஓவிய நிரலிலும் 8x8 ஸ்பிரைட் கட்டம் வரைந்து, விளையாட்டின்
 கோப்புறையில் `sprites.png` என்று சேமியுங்கள்: `spr(n)` n-ஆவதை வரையும்.
