@@ -224,12 +224,20 @@ def random_scene(seed, count=600):
             op("line", r(-30, 350), r(-30, 270), r(-30, 350), r(-30, 270), r(70))
         elif k == 12:
             op("shade", r(70), random_lights(rng), r(-2, 40))
+        elif k in (13, 14):
+            op("print", rng.choice(TEXTS), r(-60, 330), r(-30, 250), r(70))
         else:
             continue
     op("camera", 0, 0)
     op("clip")
     op("pal")
     op("palt")
+
+
+# Text for the random scenes: English, Tamil, both on one line, lines
+# broken, and bytes that are not UTF-8.
+TEXTS = ["Hello, Pulli!", "தாமரைக் குளம்", "Score 120 மதிப்பெண்", "ஸ்ரீ\nஒளி 3",
+         "a\x80b\xffc", "கொ கௌ க்ஷ ஃ"]
 
 
 def random_lights(rng):
