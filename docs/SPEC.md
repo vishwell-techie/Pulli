@@ -680,9 +680,12 @@ What the runtime does to make that true:
   `acos`, `atan`, `exp`, `log` and the `^` operator are computed by the
   runtime itself, in integer arithmetic, and not by the C library. They
   return the same bits on every machine, and each result is within one unit
-  in the last place of the true value. `math.sqrt`, `math.fmod`, `%`, `//`,
-  `math.floor` and `math.ceil` are left to the platform, because IEEE 754
-  defines their results exactly.
+  in the last place of the true value. `math.fmod` and `%` on floats are
+  computed by the runtime too, exactly: IEEE 754 defines the remainder
+  exactly, but the C library the Pico SDK links does not always find it.
+  `math.sqrt`, `//`, `math.floor` and `math.ceil` are left to the platform,
+  because IEEE 754 defines their results exactly and every library checked
+  gets them right; the runtime's self-check covers them.
 - **A float unit is optional.** Games always compute in 32-bit IEEE floats.
   A chip with a float unit uses it; a chip without one does the same
   arithmetic in software and gets the same bits, only more slowly. A port
@@ -855,6 +858,9 @@ covered by `tests/`; none is frozen.
    Font License); a line holding Tamil is 22 pixels tall with its English on
    the Tamil baseline; unknown characters are `?`; `print` returns where the
    text ended, and `text_size` is new.
+20. **The remainder is the runtime's** (§4): `math.fmod` and `%` on floats
+   no longer come from the C library. On a Pico 2 the SDK's `fmodf` gave
+   other bits than the desktop's, and the runtime's self-check failed.
 21. **Shade** (§3): `shade(c, lights, edge)`, darkness over the clip
    rectangle with round lights cut out of it and dotted edges.
 22. **Notes beside a game** (§6): `pack` leaves out Markdown files, so a

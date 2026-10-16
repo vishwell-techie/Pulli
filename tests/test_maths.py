@@ -3,8 +3,8 @@
 
 Run: python3 tests/test_maths.py
 
-SPEC §4 promises that sin, cos, ^ and the rest give the same bits on every
-machine. Three things are checked here:
+SPEC §4 promises that sin, cos, ^, % and the rest give the same bits on
+every machine. Three things are checked here:
 
   - the runtime's self-check returns the value recorded in runtime/pmath.h,
     which is what a new port compares itself with;
@@ -21,7 +21,7 @@ from harness import Suite
 
 LIBRARY = {"sinf", "cosf", "tanf", "asinf", "acosf", "atanf", "atan2f", "expf", "logf",
            "log2f", "log10f", "powf", "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
-           "exp", "log", "log2", "log10", "pow"}
+           "exp", "log", "log2", "log10", "pow", "fmodf", "fmod"}
 PER_CASE = 2000
 LIMIT = 0.55            # units in the last place; a perfect answer is at most 0.5
 
@@ -111,6 +111,13 @@ def power(x, y):
 
 
 # name, Lua expression, reference, then one list of argument kinds per case
+def fmod(x, y):
+    """The remainder of x / y with the sign of x: exact in doubles, so exact here."""
+    if y == 0 or math.isinf(x) or math.isnan(x) or math.isnan(y):
+        return math.nan
+    return math.fmod(x, y)
+
+
 CASES = [
     ("sin",   "math.sin(a)",     trig(math.sin),      [[ANY], [MID]]),
     ("cos",   "math.cos(a)",     trig(math.cos),      [[ANY], [MID]]),
@@ -124,6 +131,9 @@ CASES = [
     ("log10", "math.log(a, 10)", log(math.log10),     [[ANY], [MID + (True,)], [NEAR1 + (True,)]]),
     ("^",     "a ^ b",           power,               [[ANY, ANY], [MID + (True,), MID],
                                                        [NEAR1 + (True,), MID], [UNIT, MID]]),
+    # fmod has one right answer, and a C library may miss it: Lua's % and
+    # math.fmod use the runtime's own, which must find it every time.
+    ("fmod",  "math.fmod(a, b)", fmod,                [[ANY, ANY], [MID, MID], [ANY, MID]]),
 ]
 
 
@@ -201,7 +211,7 @@ def main():
     listing = subprocess.run([nm, "-u", t.headless], capture_output=True, text=True) if nm else None
     if listing and listing.returncode == 0 and listing.stdout.strip():
         used = {line.split()[-1].split("@")[0].lstrip("_") for line in listing.stdout.splitlines()}
-        t.check("the host takes no sin, cos, exp, log or pow from the C library",
+        t.check("the host takes no sin, cos, exp, log, pow or fmod from the C library",
                 not used & LIBRARY, sorted(used & LIBRARY))
     else:
         print("  SKIP  C library check (needs nm and a dynamically linked host)")
