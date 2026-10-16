@@ -48,6 +48,29 @@ def main():
         t.check("Markdown files, such as a README, are left out",
                 not {"README.md", "notes.MD"} & set(dict(pulli.parse(data))))
 
+        # Copied into WSL from a Windows download, every file gains a
+        # "<name>:Zone.Identifier" twin; Windows also leaves Thumbs.db and
+        # desktop.ini. None of them is part of the game.
+        made = [n + ":Zone.Identifier" for n in files] + ["Thumbs.db", "desktop.ini"]
+        for name in made:
+            open(os.path.join(tmp, name), "wb").close()
+        notes = []
+        data = pulli.build(tmp, notes=notes)
+        t.check("files the operating system made are left out, and the developer is told",
+                dict(pulli.parse(data)) == files and len(notes) == 1 and "operating system" in notes[0], notes)
+        for name in made:
+            os.remove(os.path.join(tmp, name))
+        for i in range(70):
+            open(os.path.join(tmp, f"extra{i}.bin"), "wb").close()
+        try:
+            pulli.build(tmp)
+            listed = ""
+        except pulli.PackageError as e:
+            listed = str(e)
+        t.check("too many files: the error says which are being packed", "extra69.bin" in listed, listed[:120])
+        for i in range(70):
+            os.remove(os.path.join(tmp, f"extra{i}.bin"))
+
         os.remove(os.path.join(tmp, "main.lua"))
         t.check("packer refuses a game with no main.lua", rejects(pulli.build, tmp))
 

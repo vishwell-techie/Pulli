@@ -122,7 +122,8 @@ def read_seal(data: bytes):
 def build_entries(entries, flags: int = 0) -> bytes:
     """Lay out (name, bytes) pairs as a sealed package. No policy, just the format."""
     if len(entries) > MAX_ENTRIES:
-        raise PackageError(f"{len(entries)} entries, max {MAX_ENTRIES}")
+        raise PackageError(f"{len(entries)} entries, max {MAX_ENTRIES}: "
+                           + ", ".join(name for name, _ in entries))
     for name, _ in entries:
         if not name or len(name) > NAME_MAX or not name.isascii() or not name.isprintable() \
                 or "/" in name or "\\" in name:
@@ -150,15 +151,31 @@ def build_entries(entries, flags: int = 0) -> bytes:
     return seal(MAGIC + struct.pack("<BBHII", VERSION, flags, len(entries), total, crc) + body)
 
 
+# Files an operating system leaves in folders, never part of a game: Windows
+# writes a "<name>:Zone.Identifier" beside every file downloaded from the
+# internet when it is copied into WSL, and Thumbs.db and desktop.ini for its
+# own use. Packed, they would fill the package's entry table.
+OS_FILES = {"thumbs.db", "desktop.ini"}
+
+
+def os_made(name: str) -> bool:
+    return ":" in name or name.lower() in OS_FILES
+
+
 def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
     """Package every file in a game directory, turning .png, .tmx and .wav
     files into the formats the console reads. Anything worth telling the
     developer is added to `notes`."""
     if not os.path.isdir(srcdir):
         raise PackageError(f"{srcdir} is not a directory")
+    files = [f for f in os.listdir(srcdir) if os.path.isfile(os.path.join(srcdir, f))]
+    skipped = sorted(f for f in files if os_made(f))
+    if skipped and notes is not None:
+        notes.append(f"left out {len(skipped)} file{'s' if len(skipped) > 1 else ''} the operating system made, "
+                     f"such as {skipped[0]}")
     names = sorted(
-        f for f in os.listdir(srcdir)
-        if os.path.isfile(os.path.join(srcdir, f)) and not f.startswith(".")
+        f for f in files
+        if not f.startswith(".") and not os_made(f)
         and not f.lower().endswith(".md")               # notes for people, such as a README
     )
     for req in REQUIRED:

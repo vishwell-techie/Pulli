@@ -823,8 +823,11 @@ pulli flash            push to device over USB
 
 `pack` takes every file in the game's folder except hidden ones (a name
 starting with `.`), Tiled tilesets (`.tsx`, read through the maps that use
-them) and Markdown (`.md`), which is left for people to read, such as a
-game's README.
+them), Markdown (`.md`), which is left for people to read, such as a
+game's README, and files the operating system makes: any name with a `:`
+in it (Windows adds a `<name>:Zone.Identifier` beside each downloaded file
+copied into WSL), `Thumbs.db` and `desktop.ini`. A package with more
+entries than it may hold is refused with the list of what was packed.
 
 Today the CLI is `python3 tools/pulli.py`. `new`, `pack`, `list`, `unpack`
 and `run` work, as do `palette` (write the palette for a paint program) and
@@ -970,3 +973,6 @@ covered by `tests/`; none is frozen.
 24. **Measured on a board** (§1, §4, §9): on a Pico 2 at 150 MHz,
    converting a frame to RGB565 takes about 5.1 ms, and the firmware passes
    the maths self-check.
+25. **Files the operating system makes** (§6): `pack` leaves out names with
+   a `:` (Windows' Zone.Identifier files), `Thumbs.db` and `desktop.ini`,
+   and an over-full package is refused with the list of what was packed.
