@@ -106,8 +106,11 @@ python3 tools/pulli.py run mygame          # play it in a window
 python3 tools/pulli.py check mygame        # run 600 frames with no window
 python3 tools/pulli.py pack mygame         # write mygame.pulli
 
-python3 tools/pulli.py run examples/pong 3 # 3 = window scale
+python3 tools/pulli.py run examples/pong 2 # 2 = window scale; 3 when left out
 ```
+
+`run` opens the window at three times the console's 320×240, 960×720;
+a number after the game, from 1 up, picks another size.
 
 For pictures, draw an 8x8 grid of sprites in any paint program and save it
 as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.

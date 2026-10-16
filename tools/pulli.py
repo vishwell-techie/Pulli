@@ -6,7 +6,8 @@
     python3 tools/pulli.py list   <game.pulli>             show what is inside
     python3 tools/pulli.py unpack <game.pulli> <dir>       extract the files
     python3 tools/pulli.py run    <dir|game.pulli> [scale] [--link PORT]
-                                                           play it in a window
+                                                           play it in a window, scale 3
+                                                           when left out
     python3 tools/pulli.py check  <dir|game.pulli> [frames] run it with no window
     python3 tools/pulli.py palette [<dir|game.pulli>] <out.gpl|out.hex|out.png>
                                                            the 64 colours, standard or a

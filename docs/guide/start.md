@@ -31,8 +31,10 @@ python3 tools/pulli.py new mygame
 python3 tools/pulli.py run mygame
 ```
 
-`new` makes a folder with two files, and `run` opens it in a window. Move
-the square with the arrow keys. Escape closes the window.
+`new` makes a folder with two files, and `run` opens it in a window, three
+times the console's 320 × 240 unless you give another size after the game:
+`python3 tools/pulli.py run mygame 2` for twice. Move the square with the
+arrow keys. Escape closes the window.
 
 | Console | Keyboard |
 |---|---|
