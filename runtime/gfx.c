@@ -4,6 +4,13 @@
 #include "pulli.h"
 #include <string.h>
 
+/* PULLI_HOT marks the functions that draw most of every frame. A port may
+ * define it to place them where its CPU runs code fastest: the Pico 2
+ * firmware puts them in RAM rather than flash. Here it means nothing. */
+#ifndef PULLI_HOT
+#define PULLI_HOT
+#endif
+
 static inline bool in_clip(const pulli_gfx *g, int x, int y) {
     return x >= g->clip_x && y >= g->clip_y &&
            x <  g->clip_x + g->clip_w && y < g->clip_y + g->clip_h;
@@ -15,6 +22,26 @@ static inline void put(pulli_gfx *g, int x, int y, int c) {
     x -= g->cam_x; y -= g->cam_y;
     if (!in_clip(g, x, y)) return;
     g->fb[y * PULLI_SCREEN_W + x] = g->pal_map[c & PULLI_COLOR_MASK];
+}
+
+/* Clip a box of pixels, given in screen space (after the camera), to the
+ * clip rectangle: [*x0, *x1) by [*y0, *y1). False if nothing is left.
+ * The fast paths below use it to work out once per call which rows and
+ * columns can be drawn, instead of asking put() about every pixel; what
+ * they draw is exactly what put() would. */
+static inline bool clip_box(const pulli_gfx *g, int *x0, int *y0, int *x1, int *y1) {
+    if (*x0 < g->clip_x) *x0 = g->clip_x;
+    if (*y0 < g->clip_y) *y0 = g->clip_y;
+    if (*x1 > g->clip_x + g->clip_w) *x1 = g->clip_x + g->clip_w;
+    if (*y1 > g->clip_y + g->clip_h) *y1 = g->clip_y + g->clip_h;
+    return *x0 < *x1 && *y0 < *y1;
+}
+
+/* A run of one colour from x0 to x1 inclusive on row y, in world space. */
+PULLI_HOT static void hline(pulli_gfx *g, int x0, int x1, int y, int c) {
+    int sx0 = x0 - g->cam_x, sx1 = x1 - g->cam_x + 1, sy0 = y - g->cam_y, sy1 = sy0 + 1;
+    if (!clip_box(g, &sx0, &sy0, &sx1, &sy1)) return;
+    memset(g->fb + sy0 * PULLI_SCREEN_W + sx0, g->pal_map[c & PULLI_COLOR_MASK], (size_t)(sx1 - sx0));
 }
 
 /* 32 base hues, then the same hues at 9/16 brightness 32 indices later, so
@@ -91,10 +118,12 @@ void pulli_rect(pulli_gfx *g, int x, int y, int w, int h, int c) {
     for (int j = 1; j < h-1; j++) { put(g, x, y+j, c); put(g, x+w-1, y+j, c); }
 }
 
-void pulli_rectfill(pulli_gfx *g, int x, int y, int w, int h, int c) {
-    for (int j = 0; j < h; j++)
-        for (int i = 0; i < w; i++)
-            put(g, x+i, y+j, c);
+PULLI_HOT void pulli_rectfill(pulli_gfx *g, int x, int y, int w, int h, int c) {
+    if (w <= 0 || h <= 0) return;
+    int x0 = x - g->cam_x, y0 = y - g->cam_y, x1 = x0 + w, y1 = y0 + h;
+    if (!clip_box(g, &x0, &y0, &x1, &y1)) return;
+    uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
+    for (int j = y0; j < y1; j++) memset(g->fb + j * PULLI_SCREEN_W + x0, v, (size_t)(x1 - x0));
 }
 
 void pulli_circ(pulli_gfx *g, int cx, int cy, int r, int c) {
@@ -110,15 +139,24 @@ void pulli_circ(pulli_gfx *g, int cx, int cy, int r, int c) {
     }
 }
 
-void pulli_circfill(pulli_gfx *g, int cx, int cy, int r, int c) {
-    for (int y = -r; y <= r; y++)
-        for (int x = -r; x <= r; x++)
-            if (x*x + y*y <= r*r) put(g, cx+x, cy+y, c);
+/* Every point with x*x + y*y <= r*r, drawn a row at a time: on row y the
+ * widest such x shrinks as y grows, so it is found by stepping down. */
+PULLI_HOT void pulli_circfill(pulli_gfx *g, int cx, int cy, int r, int c) {
+    if (r < 0) return;
+    int x = r;
+    for (int y = 0; y <= r; y++) {
+        while (x * x + y * y > r * r) x--;
+        hline(g, cx - x, cx + x, cy + y, c);
+        if (y) hline(g, cx - x, cx + x, cy - y, c);
+    }
 }
 
 /* Sprite n indexes 8x8 cells in the atlas, left-to-right, top-to-bottom.
- * cw/ch are cell counts, so spr(n,x,y,2,2) draws a 16x16 sprite. */
-void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
+ * cw/ch are cell counts, so spr(n,x,y,2,2) draws a 16x16 sprite. Only the
+ * rows and columns inside the clip rectangle are visited; each pixel is
+ * read from the atlas, skipped if transparent, and written through the
+ * palette remap, as put() would. */
+PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
                bool flip_x, bool flip_y) {
     if (!g->atlas || g->atlas_w <= 0 || n < 0) return;
     if (cw <= 0) cw = 1;
@@ -128,33 +166,65 @@ void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
     const int ax = (n % cells_per_row) * PULLI_SPRITE_CELL;
     const int ay = (n / cells_per_row) * PULLI_SPRITE_CELL;
     const int pw = cw * PULLI_SPRITE_CELL, ph = ch * PULLI_SPRITE_CELL;
+    const int dx = x - g->cam_x, dy = y - g->cam_y;
+    int x0 = dx, y0 = dy, x1 = dx + pw, y1 = dy + ph;
+    if (!clip_box(g, &x0, &y0, &x1, &y1)) return;
 
-    for (int j = 0; j < ph; j++) {
+    /* Columns whose atlas pixel lies past the sheet's right edge are not
+     * drawn; cut them off once rather than test every pixel. */
+    if (flip_x) { int lo = dx + pw - (g->atlas_w - ax); if (x0 < lo) x0 = lo; }
+    else        { int hi = dx + g->atlas_w - ax;       if (x1 > hi) x1 = hi; }
+    if (x0 >= x1) return;
+    const uint8_t *lut = g->sprite_lut;
+    const int run = x1 - x0;
+    for (int sy0 = y0; sy0 < y1; sy0++) {
+        int j = sy0 - dy;
         int sy = ay + (flip_y ? ph - 1 - j : j);
         if (sy < 0 || sy >= g->atlas_h) continue;
-        for (int i = 0; i < pw; i++) {
-            int sx = ax + (flip_x ? pw - 1 - i : i);
-            if (sx < 0 || sx >= g->atlas_w) continue;
-            int c = g->atlas[sy * g->atlas_w + sx] & PULLI_COLOR_MASK;
-            if (g->transparent[c]) continue;
-            put(g, x + i, y + j, c);
+        uint8_t *dst = g->fb + sy0 * PULLI_SCREEN_W + x0;
+        if (flip_x) {
+            const uint8_t *src = g->atlas + sy * g->atlas_w + ax + pw - 1 - (x0 - dx);
+            for (int k = 0; k < run; k++) {
+                uint8_t v = lut[src[-k] & PULLI_COLOR_MASK];
+                if (v != 0xFF) dst[k] = v;
+            }
+        } else {
+            const uint8_t *src = g->atlas + sy * g->atlas_w + ax + (x0 - dx);
+            for (int k = 0; k < run; k++) {
+                uint8_t v = lut[src[k] & PULLI_COLOR_MASK];
+                if (v != 0xFF) dst[k] = v;
+            }
         }
     }
 }
 
-/* Nearest-neighbour stretched blit. Integer-only: identical on host and MCU. */
-void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
+/* Nearest-neighbour stretched blit. Integer-only: identical on host and MCU.
+ * Destination column i reads source column sx + floor(i * sw / dw); the
+ * quotient is carried from one column to the next instead of divided out
+ * for each pixel. */
+PULLI_HOT void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
                 int dx, int dy, int dw, int dh) {
     if (!g->atlas || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
-    for (int j = 0; j < dh; j++) {
-        int ty = sy + (j * sh) / dh;
+    const int ox = dx - g->cam_x, oy = dy - g->cam_y;
+    int x0 = ox, y0 = oy, x1 = ox + dw, y1 = oy + dh;
+    if (!clip_box(g, &x0, &y0, &x1, &y1)) return;
+    const int step_q = sw / dw, step_r = sw % dw;
+    for (int sy0 = y0; sy0 < y1; sy0++) {
+        int j = sy0 - oy;
+        int ty = sy + (int)(((long long)j * sh) / dh);
         if (ty < 0 || ty >= g->atlas_h) continue;
-        for (int i = 0; i < dw; i++) {
-            int tx = sx + (i * sw) / dw;
-            if (tx < 0 || tx >= g->atlas_w) continue;
-            int c = g->atlas[ty * g->atlas_w + tx] & PULLI_COLOR_MASK;
-            if (g->transparent[c]) continue;
-            put(g, dx + i, dy + j, c);
+        const uint8_t *src = g->atlas + ty * g->atlas_w;
+        uint8_t *dst = g->fb + sy0 * PULLI_SCREEN_W;
+        long long first = (long long)(x0 - ox) * sw;
+        int q = (int)(first / dw), r = (int)(first % dw);
+        for (int sx0 = x0; sx0 < x1; sx0++) {
+            int tx = sx + q;
+            if (tx >= 0 && tx < g->atlas_w) {
+                uint8_t v = g->sprite_lut[src[tx] & PULLI_COLOR_MASK];
+                if (v != 0xFF) dst[sx0] = v;
+            }
+            q += step_q; r += step_r;
+            if (r >= dw) { q++; r -= dw; }
         }
     }
 }
@@ -314,21 +384,31 @@ void pulli_clip(pulli_gfx *g, int x, int y, int w, int h) {
     g->clip_h = h > 0 ? h : 0;
 }
 
+/* Sprites look up each pixel's colour on screen, or 0xFF for one not
+ * drawn, in one table; pal() and palt() keep it up to date. */
+static void refresh_lut(pulli_gfx *g) {
+    for (int i = 0; i < PULLI_PALETTE_LEN; i++)
+        g->sprite_lut[i] = g->transparent[i] ? 0xFF : g->pal_map[i];
+}
+
 void pulli_pal(pulli_gfx *g, int a, int b) {
     if (a < 0) {
         for (int i = 0; i < PULLI_PALETTE_LEN; i++) g->pal_map[i] = (uint8_t)i;
-        return;
+    } else {
+        g->pal_map[a & PULLI_COLOR_MASK] = (uint8_t)(b & PULLI_COLOR_MASK);
     }
-    g->pal_map[a & PULLI_COLOR_MASK] = (uint8_t)(b & PULLI_COLOR_MASK);
+    refresh_lut(g);
 }
 
 void pulli_palt(pulli_gfx *g, int c, bool t) {
     if (c < 0) {
         for (int i = 0; i < PULLI_PALETTE_LEN; i++) g->transparent[i] = false;
         g->transparent[0] = true;          /* index 0 transparent by default */
+        refresh_lut(g);
         return;
     }
     g->transparent[c & PULLI_COLOR_MASK] = t;
+    refresh_lut(g);
 }
 
 /* Palette-level fade: costs nothing per pixel, which is the whole point of
@@ -360,7 +440,7 @@ void pulli_load_palette(pulli_gfx *g, const uint16_t rgb565[PULLI_PALETTE_LEN]) 
     refresh_shown(g);
 }
 
-void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
+PULLI_HOT void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
     if (layer < 0 || layer >= m->layers) return;
     const int cell = PULLI_SPRITE_CELL;
     const uint16_t *cells = m->cells + (size_t)layer * m->w * m->h;
@@ -382,7 +462,7 @@ void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy)
 /* Strip-wise index -> RGB565. On the RP2350 this runs into a small buffer
  * that is DMA'd to the panel while the next strip converts. The cost of
  * this loop is the number that decides whether 320x240 survives (SPEC §9). */
-void pulli_scanout(const pulli_gfx *g, int y0, int rows, uint16_t *out) {
+PULLI_HOT void pulli_scanout(const pulli_gfx *g, int y0, int rows, uint16_t *out) {
     const uint8_t *src = g->fb + (size_t)y0 * PULLI_SCREEN_W;
     size_t n = (size_t)rows * PULLI_SCREEN_W;
     for (size_t i = 0; i < n; i++) out[i] = g->shown[src[i] & PULLI_COLOR_MASK];

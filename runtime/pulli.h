@@ -67,6 +67,7 @@ typedef struct {
     uint16_t shown[PULLI_PALETTE_LEN];     /* palette with fade applied       */
     uint8_t  pal_map[PULLI_PALETTE_LEN];   /* draw-time index remap (pal())   */
     bool     transparent[PULLI_PALETTE_LEN];
+    uint8_t  sprite_lut[PULLI_PALETTE_LEN]; /* a sprite pixel's colour on screen, or 0xFF if not drawn: pal_map and transparent together, kept by pal() and palt() */
     int      fade_k;                       /* 32 = full brightness, 0 = black */
     int      cam_x, cam_y;
     int      clip_x, clip_y, clip_w, clip_h;

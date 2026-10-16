@@ -17,6 +17,12 @@ static const char *BTN_NAMES[PULLI_BTN_COUNT] = {
  * range that the CPU-to-GPU command format carries. */
 static int arg_i(lua_State *L, int i, int def) {
     if (lua_isnoneornil(L, i)) return def;
+    /* Most arguments are whole numbers already: take them as they are,
+     * without the float floor below, which on a chip with no double unit is
+     * a library call for every argument of every drawing call. */
+    int whole;
+    lua_Integer v = lua_tointegerx(L, i, &whole);
+    if (whole) return v < -32768 ? -32768 : v > 32767 ? 32767 : (int)v;
     lua_Number n = l_mathop(floor)(lua_tonumber(L, i));
     if (!(n > -32768)) return -32768;      /* also catches NaN */
     if (n > 32767) return 32767;

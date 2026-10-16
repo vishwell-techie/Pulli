@@ -176,6 +176,55 @@ def reference():
     return g
 
 
+def random_scene(seed, count=600):
+    """A long, seeded mix of the drawing calls with awkward arguments:
+    sprites hanging off the screen and past the atlas, flipped and several
+    cells wide; stretched and shrunk blits; fills and circles of every size,
+    under moving cameras, clips and palette changes. The fast paths in
+    runtime/gfx.c must draw exactly what the obvious reference does."""
+    import random
+    global SCENE
+    rng = random.Random(seed)
+    SCENE = []
+    op("cls", 1)
+    for _ in range(count):
+        k = rng.randrange(12)
+        r = rng.randrange
+        if k == 0:
+            op("camera", r(-60, 61), r(-60, 61))
+        elif k == 1:
+            if r(3):
+                op("clip", r(-40, 300), r(-40, 220), r(-10, 260), r(-10, 200))
+            else:
+                op("clip")
+        elif k == 2:
+            if r(4):
+                op("pal", r(64), r(64))
+            else:
+                op("pal")
+        elif k == 3:
+            if r(4):
+                op("palt", r(64), bool(r(2)))
+            else:
+                op("palt")
+        elif k in (4, 5, 6):
+            op("spr", r(0, 10), r(-30, 330), r(-30, 250), r(0, 4), r(0, 4), bool(r(2)), bool(r(2)))
+        elif k == 7:
+            op("sspr", r(-8, 40), r(-8, 24), r(-2, 40), r(-2, 30), r(-40, 330), r(-40, 250), r(-2, 120), r(-2, 90))
+        elif k == 8:
+            op("rectfill", r(-40, 330), r(-40, 250), r(-10, 150), r(-10, 120), r(70))
+        elif k == 9:
+            op("circfill", r(-30, 350), r(-30, 270), r(-3, 50), r(70))
+        elif k == 10:
+            op("circ", r(-30, 350), r(-30, 270), r(-3, 50), r(70))
+        else:
+            op("line", r(-30, 350), r(-30, 270), r(-30, 350), r(-30, 270), r(70))
+    op("camera", 0, 0)
+    op("clip")
+    op("pal")
+    op("palt")
+
+
 def first_difference(a, b, unit):
     for i in range(0, min(len(a), len(b)), unit):
         if a[i:i + unit] != b[i:i + unit]:
@@ -251,6 +300,14 @@ def main():
                     first_difference(fb, r.fb, 1))
             t.check("engine screen (RGB565) matches the reference", r.rgb == rgb,
                     first_difference(rgb, r.rgb, 2))
+        for seed in (1, 2, 3, 4):
+            random_scene(seed)
+            want = bytes(reference().fb)
+            body = "\n".join("  " + src for src, _ in SCENE)
+            r = t.run_game(f"function draw()\n{body}\nend\n", frames=1,
+                           extra={"sprites.kolam": pulli.kolam(aw, ah, bytes(atlas))})
+            t.check(f"engine matches the reference on 600 random calls (seed {seed})",
+                    r.code == 0 and r.fb == want, r.err or first_difference(want, r.fb, 1))
 
     return t.finish()
 

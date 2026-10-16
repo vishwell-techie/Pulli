@@ -76,6 +76,10 @@ endif()
 
 include(../cmake/lua.cmake)
 add_subdirectory(../runtime runtime)
+# The functions that draw most of a frame run from RAM: code in flash is
+# read through a small cache shared with the game's sprites, and drawing
+# from there was measured at half the speed.
+target_compile_definitions(pulli_runtime PRIVATE "PULLI_HOT=__attribute__((section(\".time_critical.pulli\")))")
 
 # --- the built-in game: packed, then linked in as a byte array -----------
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
