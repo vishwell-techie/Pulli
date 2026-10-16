@@ -41,21 +41,46 @@ local function ring(x, y)
 end
 
 core.add("play", {
+  -- Loading a chapter (its module and a scan of its whole map) takes a
+  -- moment, all in one frame. So entering only asks for it: the loading
+  -- screen fades in and stays a little while, then the work is done
+  -- behind it.
   enter = function(which)
     local d = progress.data
     if which ~= "opening" then
       d.started, d.chapter, d.unlocked = true, which, math.max(d.unlocked, which)
       progress.checkpoint()
     end
-    dbg("chapter " .. tostring(which))
-    collectgarbage()                    -- room to load the region in
-    w.start(which == "opening" and 0 or which, require(which == "opening" and "opening" or "ch" .. which))
+    play.loading, play.shown, play.wait = which, false, 0.6
   end,
   update = function(dt)
+    local which = play.loading
+    if which ~= nil then
+      play.wait = play.wait - dt
+      if not play.shown or play.wait > 0 or core.busy() then return end
+      play.loading = nil
+      dbg("chapter " .. tostring(which))
+      collectgarbage()                    -- room to load the region in
+      w.start(which == "opening" and 0 or which, require(which == "opening" and "opening" or "ch" .. which))
+      return
+    end
     if core.pressed("select") and w.control then play.debug = not play.debug end
     w.update(dt)
   end,
   draw = function()
+    if play.loading ~= nil then           -- the loading screen: the chapter's name, and Minmini
+      local which, f = play.loading, stat("frame")
+      cls(32)
+      if which ~= "opening" then
+        local num = story.t("chapter", which)
+        core.center(num, 92, 9)
+        core.center(story.t("chapter" .. which), 96 + core.height(num), 10, 41)
+      end
+      circ(160, 160, 4 + f // 6 % 2, 10)
+      spr(936 + f // 5 % 2, 156, 156)
+      play.shown = true
+      return
+    end
     local p, r, f = w.p, w.region, stat("frame")
     cls(0)
     w.draw_world()
@@ -94,7 +119,7 @@ core.add("play", {
   end,
   leave = function()
     fade(0)
-    if w.region.leave then w.region.leave(w) end
+    if w.region and w.region.leave and play.loading == nil then w.region.leave(w) end
   end,
 })
 
