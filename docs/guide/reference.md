@@ -52,6 +52,18 @@ The outline of a circle centred at `(x, y)` with radius `r`.
 ### `circfill(x, y, [r = 1], [c = 7])`
 A filled circle.
 
+### `shade([c = 0], lights, [edge = 0])`
+Night with lights in it. Paints colour `c` over the screen (inside the
+`clip` rectangle) everywhere except round the lights. `lights` is a list
+of numbers, three for each light: `{x1, y1, r1, x2, y2, r2, ...}`, where
+each light is the circle `circfill(x, y, r)` would draw. With an `edge`
+of a few pixels, the rim of the light is dotted, which looks softer than a
+hard line. Up to 64 lights; `edge` can be up to 32.
+
+```lua
+shade(0, {player_x, player_y, 40, lamp_x, lamp_y, 24}, 4)
+```
+
 ### `print(text, [x = 0], [y = 0], [c = 7])`
 Write text on the screen, in English, Tamil or both, with its top at `y`.
 English letters are 8 × 8 pixels. Tamil is drawn a syllable at a time, each

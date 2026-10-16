@@ -321,6 +321,7 @@ pset(x, y, c)   pget(x, y)
 line(x0,y0,x1,y1,c)
 rect(x,y,w,h,c) rectfill(x,y,w,h,c)
 circ(x,y,r,c)   circfill(x,y,r,c)
+shade(c, lights, edge)             -- darkness with lights cut out of it
 spr(n, x, y, w, h, flip_x, flip_y) -- n = sprite index; w,h in 8px cells
 sspr(sx,sy,sw,sh, dx,dy, dw,dh)    -- stretched blit
 print(text, x, y, c)               -- UTF-8, English and Tamil; returns the x after it
@@ -340,6 +341,18 @@ command format carries, ADR-001). Colour indices wrap at 64, so `c` and
 `palt()` with no arguments restore the defaults. `fade` sets a level and
 does not accumulate: `fade(0.5)` every frame holds half brightness, and
 `fade(0)` restores the picture. Shapes may cross the screen edge freely.
+
+**Shade.** `shade(c, lights, edge)` paints colour `c` (default 0) on every
+pixel of the clip rectangle that no light reaches. `lights` is a flat list
+`{x1, y1, r1, x2, y2, r2, ...}` in drawing coordinates, each number taken
+like any coordinate; a light covers exactly the pixels `circfill(x, y, r)`
+would. Only the first 64 lights count, and anything but a table means no
+lights. On each row the lights' spans are joined where they overlap or
+touch; on the first and last `edge` pixels of each joined span (0 to 32,
+default 0, and no more than half the span's width, rounded down), `c` goes
+on the pixels whose `x + y` is even, in drawing coordinates, softening the
+edge. It does in one call what a night scene would otherwise draw with
+hundreds of `rectfill` and `pset` calls.
 
 ### Text
 
@@ -837,3 +850,5 @@ covered by `tests/`; none is frozen.
    Font License); a line holding Tamil is 22 pixels tall with its English on
    the Tamil baseline; unknown characters are `?`; `print` returns where the
    text ended, and `text_size` is new.
+21. **Shade** (§3): `shade(c, lights, edge)`, darkness over the clip
+   rectangle with round lights cut out of it and dotted edges.

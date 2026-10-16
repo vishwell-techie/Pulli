@@ -9,11 +9,13 @@ same scene through both and compares byte-for-byte.
 
 Slow and readable is the whole point. Do not optimise this file.
 """
-import os, struct, zlib
+import math, os, struct, zlib
 
 W, H = 320, 240
 CELL = 8
 COLORS = 64          # palette length; colour indices wrap modulo this
+SHADE_LIGHTS = 64    # shade() takes this many lights; the rest are left out
+SHADE_EDGE = 32      # and dots no more than this many pixels of each edge
 
 _FONT_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          "..", "runtime", "font.txt")
@@ -263,6 +265,38 @@ class RefGfx:
             for x in range(-r, r + 1):
                 if x * x + y * y <= r * r:
                     self._put(cx + x, cy + y, c)
+
+    def shade(self, c=0, lights=(), edge=0):
+        lights = list(lights)[:SHADE_LIGHTS * 3]
+        lights = [lights[i:i + 3] for i in range(0, len(lights) - 2, 3)]
+        edge = max(0, min(SHADE_EDGE, edge))
+        cx, cy, cw, ch = self.clip
+        ox, oy = self.cam
+        for sy in range(cy, cy + ch):
+            y = sy + oy
+            # where each light crosses the row: the circfill pixels
+            spans = []
+            for lx, ly, r in lights:
+                if r >= 0 and abs(y - ly) <= r:
+                    hw = math.isqrt(r * r - (y - ly) ** 2)
+                    spans.append([lx - hw, lx + hw])
+            spans.sort(key=lambda s: s[0])
+            joined = []
+            for a, b in spans:
+                if joined and a <= joined[-1][1] + 1:
+                    joined[-1][1] = max(joined[-1][1], b)
+                else:
+                    joined.append([a, b])
+            for sx in range(cx, cx + cw):
+                x = sx + ox
+                dark = True
+                for a, b in joined:
+                    if a <= x <= b:
+                        w = min(edge, (b - a + 1) // 2)
+                        dark = (x < a + w or x > b - w) and (x + y) % 2 == 0
+                        break
+                if dark:
+                    self._put(x, y, c)
 
     def spr(self, n, x, y, cw=1, ch=1, flip_x=False, flip_y=False):
         if not self.atlas or self.atlas_w <= 0:

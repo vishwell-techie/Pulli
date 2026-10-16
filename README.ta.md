@@ -181,7 +181,7 @@ function init()      end   -- once
 function update(dt)  end   -- 60 times a second; dt is always 1/60
 function draw()      end   -- after each update
 
--- cls pset pget line rect rectfill circ circfill spr sspr print text_size
+-- cls pset pget line rect rectfill circ circfill shade spr sspr print text_size
 -- camera clip pal palt palette fade   btn btnp
 -- sfx music music_stop music_pause   save load save_commit   time stat dbg
 -- map.load map.size map.draw map.get map.set map.flags   require

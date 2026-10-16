@@ -67,6 +67,7 @@ typedef struct {
     uint16_t shown[PULLI_PALETTE_LEN];     /* palette with fade applied       */
     uint8_t  pal_map[PULLI_PALETTE_LEN];   /* draw-time index remap (pal())   */
     bool     transparent[PULLI_PALETTE_LEN];
+    uint8_t  sprite_lut[PULLI_PALETTE_LEN]; /* a sprite pixel's colour on screen, or 0xFF if not drawn: pal_map and transparent together, kept by pal() and palt() */
     int      fade_k;                       /* 32 = full brightness, 0 = black */
     int      cam_x, cam_y;
     int      clip_x, clip_y, clip_w, clip_h;
@@ -121,6 +122,11 @@ void    pulli_rect     (pulli_gfx *g, int x, int y, int w, int h, int c);
 void    pulli_rectfill (pulli_gfx *g, int x, int y, int w, int h, int c);
 void    pulli_circ     (pulli_gfx *g, int cx, int cy, int r, int c);
 void    pulli_circfill (pulli_gfx *g, int cx, int cy, int r, int c);
+/* Colour c over the clip rectangle except inside n lights, each x, y, r;
+ * the last `edge` pixels inside each lit span are dotted (SPEC §3). */
+#define PULLI_SHADE_LIGHTS 64
+#define PULLI_SHADE_EDGE   32
+void    pulli_shade    (pulli_gfx *g, int c, const int *lights, int n, int edge);
 void    pulli_spr      (pulli_gfx *g, int n, int x, int y, int cw, int ch,
                         bool flip_x, bool flip_y);
 void    pulli_sspr     (pulli_gfx *g, int sx, int sy, int sw, int sh,
