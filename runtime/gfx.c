@@ -38,6 +38,36 @@ static inline bool clip_box(const pulli_gfx *g, int *x0, int *y0, int *x1, int *
     return *x0 < *x1 && *y0 < *y1;
 }
 
+/* A rectangle of screen pixels, [x0, x1) by [y0, y1). */
+typedef struct { int x0, y0, x1, y1; } box;
+
+/* clip_box, against a given rectangle instead of the clip. */
+static inline bool clip_to(const box *c, int *x0, int *y0, int *x1, int *y1) {
+    if (*x0 < c->x0) *x0 = c->x0;
+    if (*y0 < c->y0) *y0 = c->y0;
+    if (*x1 > c->x1) *x1 = c->x1;
+    if (*y1 > c->y1) *y1 = c->y1;
+    return *x0 < *x1 && *y0 < *y1;
+}
+
+/* The clip rectangle; with half 0 or 1, only its top or bottom half. The
+ * calls that draw most of a frame are drawn a half at a time, through
+ * g->halves when the port gives one: on a chip with two cores, both halves
+ * are drawn at once. The halves share no pixels, so the picture is the
+ * same either way. */
+static inline box clip_half(const pulli_gfx *g, int half) {
+    box b = { g->clip_x, g->clip_y, g->clip_x + g->clip_w, g->clip_y + g->clip_h };
+    int mid = b.y0 + (b.y1 - b.y0) / 2;
+    if (half == 0) b.y1 = mid;
+    else if (half == 1) b.y0 = mid;
+    return b;
+}
+
+static void in_halves(const pulli_gfx *g, void (*fn)(void *arg, int half), void *arg) {
+    if (g->halves) g->halves(fn, arg);
+    else { fn(arg, 0); fn(arg, 1); }
+}
+
 /* A run of one colour from x0 to x1 inclusive on row y, in world space. */
 PULLI_HOT static void hline(pulli_gfx *g, int x0, int x1, int y, int c) {
     int sx0 = x0 - g->cam_x, sx1 = x1 - g->cam_x + 1, sy0 = y - g->cam_y, sy1 = sy0 + 1;
@@ -170,13 +200,14 @@ static inline int isqrt_floor(int v) {
  * goes c; on the first and last `edge` pixels of each (no more than half
  * its width, rounded down), c goes on every pixel whose x + y is even,
  * softening the edge. x and y there are world coordinates. */
-PULLI_HOT void pulli_shade(pulli_gfx *g, int c, const int *lights, int n, int edge) {
-    if (n > PULLI_SHADE_LIGHTS) n = PULLI_SHADE_LIGHTS;
-    if (n < 0) n = 0;
-    if (edge < 0) edge = 0;
-    if (edge > PULLI_SHADE_EDGE) edge = PULLI_SHADE_EDGE;
-    const int sx0 = g->clip_x, sx1 = g->clip_x + g->clip_w;
-    const int sy0 = g->clip_y, sy1 = g->clip_y + g->clip_h;
+typedef struct { pulli_gfx *g; int c; const int *lights; int n, edge; } shade_job;
+
+PULLI_HOT static void shade_half(void *arg, int half) {
+    const shade_job *J = arg;
+    pulli_gfx *g = J->g;
+    const int c = J->c, *lights = J->lights, n = J->n, edge = J->edge;
+    const box cb = clip_half(g, half);
+    const int sx0 = cb.x0, sx1 = cb.x1, sy0 = cb.y0, sy1 = cb.y1;
     if (sx0 >= sx1 || sy0 >= sy1) return;
     const uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
     const int wx0 = sx0 + g->cam_x, wx1 = sx1 + g->cam_x;     /* the clip in world x */
@@ -206,7 +237,7 @@ PULLI_HOT void pulli_shade(pulli_gfx *g, int c, const int *lights, int n, int ed
                 int e = a < wx1 ? a : wx1;
                 if (e > x) memset(row + x, v, (size_t)(e - x));
             }
-            const int half = (b - a + 1) / 2, w = edge < half ? edge : half;
+            const int most = (b - a + 1) / 2, w = edge < most ? edge : most;
             for (int p = 0; p < 2; p++) {
                 int lo = p ? b - w + 1 : a, hi = p ? b : a + w - 1;      /* inclusive */
                 if (lo < wx0) lo = wx0;
@@ -220,13 +251,22 @@ PULLI_HOT void pulli_shade(pulli_gfx *g, int c, const int *lights, int n, int ed
     }
 }
 
+PULLI_HOT void pulli_shade(pulli_gfx *g, int c, const int *lights, int n, int edge) {
+    if (n > PULLI_SHADE_LIGHTS) n = PULLI_SHADE_LIGHTS;
+    if (n < 0) n = 0;
+    if (edge < 0) edge = 0;
+    if (edge > PULLI_SHADE_EDGE) edge = PULLI_SHADE_EDGE;
+    shade_job J = { g, c, lights, n, edge };
+    in_halves(g, shade_half, &J);
+}
+
 /* Sprite n indexes 8x8 cells in the atlas, left-to-right, top-to-bottom.
  * cw/ch are cell counts, so spr(n,x,y,2,2) draws a 16x16 sprite. Only the
  * rows and columns inside the clip rectangle are visited; each pixel is
  * read from the atlas, skipped if transparent, and written through the
  * palette remap, as put() would. */
-PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
-               bool flip_x, bool flip_y) {
+PULLI_HOT static void spr_in(pulli_gfx *g, const box *cb, int n, int x, int y, int cw, int ch,
+                             bool flip_x, bool flip_y) {
     if (!g->atlas || g->atlas_w <= 0 || n < 0) return;
     if (cw <= 0) cw = 1;
     if (ch <= 0) ch = 1;
@@ -237,7 +277,7 @@ PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
     const int pw = cw * PULLI_SPRITE_CELL, ph = ch * PULLI_SPRITE_CELL;
     const int dx = x - g->cam_x, dy = y - g->cam_y;
     int x0 = dx, y0 = dy, x1 = dx + pw, y1 = dy + ph;
-    if (!clip_box(g, &x0, &y0, &x1, &y1)) return;
+    if (!clip_to(cb, &x0, &y0, &x1, &y1)) return;
 
     /* Columns whose atlas pixel lies past the sheet's right edge are not
      * drawn; cut them off once rather than test every pixel. */
@@ -267,16 +307,26 @@ PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
     }
 }
 
+PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
+               bool flip_x, bool flip_y) {
+    const box cb = clip_half(g, -1);
+    spr_in(g, &cb, n, x, y, cw, ch, flip_x, flip_y);
+}
+
 /* Nearest-neighbour stretched blit. Integer-only: identical on host and MCU.
  * Destination column i reads source column sx + floor(i * sw / dw); the
  * quotient is carried from one column to the next instead of divided out
  * for each pixel. */
-PULLI_HOT void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
-                int dx, int dy, int dw, int dh) {
-    if (!g->atlas || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
+typedef struct { pulli_gfx *g; int sx, sy, sw, sh, dx, dy, dw, dh; } sspr_job;
+
+PULLI_HOT static void sspr_half(void *arg, int half) {
+    const sspr_job *J = arg;
+    pulli_gfx *g = J->g;
+    const int sx = J->sx, sy = J->sy, sw = J->sw, sh = J->sh, dx = J->dx, dy = J->dy, dw = J->dw, dh = J->dh;
+    const box cb = clip_half(g, half);
     const int ox = dx - g->cam_x, oy = dy - g->cam_y;
     int x0 = ox, y0 = oy, x1 = ox + dw, y1 = oy + dh;
-    if (!clip_box(g, &x0, &y0, &x1, &y1)) return;
+    if (!clip_to(&cb, &x0, &y0, &x1, &y1)) return;
     const int step_q = sw / dw, step_r = sw % dw;
     for (int sy0 = y0; sy0 < y1; sy0++) {
         int j = sy0 - oy;
@@ -296,6 +346,13 @@ PULLI_HOT void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
             if (r >= dw) { q++; r -= dw; }
         }
     }
+}
+
+PULLI_HOT void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
+                int dx, int dy, int dw, int dh) {
+    if (!g->atlas || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
+    sspr_job J = { g, sx, sy, sw, sh, dx, dy, dw, dh };
+    in_halves(g, sspr_half, &J);
 }
 
 /* ---- text ------------------------------------------------------------ */
@@ -549,21 +606,27 @@ PULLI_HOT static void tile8(const uint8_t *lut, const uint8_t *src, int stride,
     }
 }
 
-PULLI_HOT void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
-    if (layer < 0 || layer >= m->layers) return;
+typedef struct { pulli_gfx *g; const pulli_map *m; int layer, sx, sy; } map_job;
+
+PULLI_HOT static void map_half(void *arg, int half) {
+    const map_job *J = arg;
+    pulli_gfx *g = J->g;
+    const pulli_map *m = J->m;
+    const int sx = J->sx, sy = J->sy;
     const int cell = PULLI_SPRITE_CELL;
-    const uint16_t *cells = m->cells + (size_t)layer * m->w * m->h;
-    const int per_row = g->atlas ? g->atlas_w / cell : 0;
-    if (per_row <= 0) return;                      /* no sheet: pulli_spr draws nothing either */
-    const int cx0 = g->clip_x, cy0 = g->clip_y;
-    const int cx1 = cx0 + g->clip_w - cell, cy1 = cy0 + g->clip_h - cell;  /* last whole-tile spots */
+    const uint16_t *cells = m->cells + (size_t)J->layer * m->w * m->h;
+    const int per_row = g->atlas_w / cell;
+    const box cb = clip_half(g, half);
+    if (cb.y0 >= cb.y1) return;
+    const int cx1 = cb.x1 - cell, cy1 = cb.y1 - cell;      /* last whole-tile spots */
     /* The first tile on screen. Division rounds toward zero, which is only
      * wrong left of and above the map, where there are no tiles to miss. */
     int first_x = (g->cam_x + sx) / cell, first_y = (g->cam_y + sy) / cell;
     for (int my = first_y; my <= first_y + PULLI_SCREEN_H / cell; my++) {
         if (my < 0 || my >= m->h) continue;
         const int wy = my * cell - sy, ty = wy - g->cam_y;
-        const bool row_whole = ty >= cy0 && ty <= cy1;
+        if (ty + cell <= cb.y0 || ty >= cb.y1) continue;       /* not in this half */
+        const bool row_whole = ty >= cb.y0 && ty <= cy1;
         for (int mx = first_x; mx <= first_x + PULLI_SCREEN_W / cell; mx++) {
             if (mx < 0 || mx >= m->w) continue;
             uint16_t c = cells[my * m->w + mx];
@@ -571,13 +634,20 @@ PULLI_HOT void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int s
             if (!n) continue;                              /* tile 0 is empty */
             const int wx = mx * cell - sx, tx = wx - g->cam_x;
             const int ax = (n % per_row) * cell, ay = (n / per_row) * cell;
-            if (row_whole && tx >= cx0 && tx <= cx1 && ax + cell <= g->atlas_w && ay + cell <= g->atlas_h)
+            if (row_whole && tx >= cb.x0 && tx <= cx1 && ax + cell <= g->atlas_w && ay + cell <= g->atlas_h)
                 tile8(g->sprite_lut, g->atlas + ay * g->atlas_w + ax, g->atlas_w,
                       g->fb + ty * PULLI_SCREEN_W + tx, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
             else
-                pulli_spr(g, n, wx, wy, 1, 1, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
+                spr_in(g, &cb, n, wx, wy, 1, 1, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
         }
     }
+}
+
+PULLI_HOT void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
+    if (layer < 0 || layer >= m->layers) return;
+    if (!g->atlas || g->atlas_w / PULLI_SPRITE_CELL <= 0) return;   /* spr would draw nothing either */
+    map_job J = { g, m, layer, sx, sy };
+    in_halves(g, map_half, &J);
 }
 
 /* Strip-wise index -> RGB565. On the RP2350 this runs into a small buffer

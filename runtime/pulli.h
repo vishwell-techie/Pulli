@@ -75,6 +75,8 @@ typedef struct {
     const uint8_t *atlas;
     int      atlas_w, atlas_h;
     const uint8_t *font;                   /* 8x8 1bpp, 96 glyphs from ' '   */
+    /* The backend's halves hook (below), or NULL. */
+    void (*halves)(void (*fn)(void *arg, int half), void *arg);
 } pulli_gfx;
 
 /* ---- the loaded map (SPEC §3 "Map") --------------------------------- */
@@ -245,6 +247,11 @@ typedef struct {
     pulli_link_state (*link_poll)(int *side);
     bool (*link_send)(const void *msg, size_t len);
     int  (*link_recv)(void *msg, size_t max);         /* length, or <0: none */
+    /* The biggest drawing calls are drawn as two halves of the screen,
+     * fn(arg, 0) and fn(arg, 1), that touch different pixels. A port with
+     * a second core runs one half there while this core runs the other,
+     * and returns when both are done. NULL: one after the other. */
+    void (*halves)(void (*fn)(void *arg, int half), void *arg);
 } pulli_backend;
 
 /* ---- engine --------------------------------------------------------- */

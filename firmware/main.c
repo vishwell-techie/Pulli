@@ -4,10 +4,14 @@
  * image, and measures the numbers the hardware plan rests on (SPEC §9):
  * time spent in update() and draw(), the cost of converting a frame to
  * RGB565, and the Lua heap a real game needs. Results go to USB serial
- * once a second. */
+ * once a second.
+ *
+ * The second core helps draw: the biggest drawing calls come in two
+ * halves of the screen, and it draws one while this core draws the other. */
 #include <stdio.h>
 
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 
 #include "pulli.h"
 #include "pmath.h"
@@ -25,6 +29,33 @@ static void present(const uint16_t *rgb565, int y0, int rows) {
     (void)rgb565; (void)y0; (void)rows;
 }
 
+/* The half the second core is to draw. Written before the FIFO hands it
+ * over, read after; the FIFO handshake orders the two. */
+static void (*volatile half_fn)(void *arg, int half);
+static void *volatile half_arg;
+
+static void core1_main(void) {
+    for (;;) {
+        multicore_fifo_pop_blocking();          /* a half to draw */
+        __dmb();
+        half_fn(half_arg, 1);
+        __dmb();
+        multicore_fifo_push_blocking(0);        /* drawn */
+    }
+}
+
+/* Nothing on the second core touches flash: when save storage arrives,
+ * writing flash will need multicore_lockout around it. */
+static void halves(void (*fn)(void *arg, int half), void *arg) {
+    half_fn = fn;
+    half_arg = arg;
+    __dmb();
+    multicore_fifo_push_blocking(1);
+    fn(arg, 0);
+    multicore_fifo_pop_blocking();
+    __dmb();
+}
+
 static void log_line(const char *msg) {
     printf("[game] %s\n", msg);
 }
@@ -33,6 +64,7 @@ static const pulli_backend backend = {
     .present = present,
     .log = log_line,
     .micros = time_us_32,
+    .halves = halves,
     /* no audio, no save storage, no optional hardware yet */
 };
 
@@ -98,6 +130,7 @@ int main(void) {
     uint32_t maths = pulli_math_check();
     printf("[pulli] maths check %s (%08x, expected %08x)\n",
            maths == PULLI_MATH_CHECK ? "passed" : "FAILED", (unsigned)maths, (unsigned)PULLI_MATH_CHECK);
+    multicore_launch_core1(core1_main);
     for (;;) {
         run_game();
         printf("[pulli] game stopped, restarting in 5 s\n");
