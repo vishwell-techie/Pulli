@@ -2,6 +2,7 @@
  * Compiles unchanged for the desktop host and the RP2350 firmware.
  * tools/refgfx.py mirrors every primitive here; tests/ compares the two. */
 #include "pulli.h"
+#include <math.h>
 #include <string.h>
 
 /* PULLI_HOT marks the functions that draw most of every frame. A port may
@@ -148,6 +149,74 @@ PULLI_HOT void pulli_circfill(pulli_gfx *g, int cx, int cy, int r, int c) {
         while (x * x + y * y > r * r) x--;
         hline(g, cx - x, cx + x, cy + y, c);
         if (y) hline(g, cx - x, cx + x, cy - y, c);
+    }
+}
+
+/* The largest whole s with s * s <= v, for 0 <= v <= 32767 * 32767. The
+ * float square root only gives a first guess; the steps make it exact on
+ * every machine. */
+static inline int isqrt_floor(int v) {
+    int s = (int)sqrtf((float)v);
+    while (s * s > v) s--;
+    while ((s + 1) * (s + 1) <= v) s++;
+    return s;
+}
+
+/* Darkness with lights cut out of it: every pixel of the clip rectangle
+ * that no light reaches becomes colour c. lights holds n triples x, y, r in
+ * world space; a light covers exactly the pixels circfill(x, y, r) would.
+ * Row by row, the lights crossing the row give spans, sorted by where they
+ * start and joined where they overlap or touch. Between the joined spans
+ * goes c; on the first and last `edge` pixels of each (no more than half
+ * its width, rounded down), c goes on every pixel whose x + y is even,
+ * softening the edge. x and y there are world coordinates. */
+PULLI_HOT void pulli_shade(pulli_gfx *g, int c, const int *lights, int n, int edge) {
+    if (n > PULLI_SHADE_LIGHTS) n = PULLI_SHADE_LIGHTS;
+    if (n < 0) n = 0;
+    if (edge < 0) edge = 0;
+    if (edge > PULLI_SHADE_EDGE) edge = PULLI_SHADE_EDGE;
+    const int sx0 = g->clip_x, sx1 = g->clip_x + g->clip_w;
+    const int sy0 = g->clip_y, sy1 = g->clip_y + g->clip_h;
+    if (sx0 >= sx1 || sy0 >= sy1) return;
+    const uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
+    const int wx0 = sx0 + g->cam_x, wx1 = sx1 + g->cam_x;     /* the clip in world x */
+    int from[PULLI_SHADE_LIGHTS], to[PULLI_SHADE_LIGHTS];
+    for (int sy = sy0; sy < sy1; sy++) {
+        const int y = sy + g->cam_y;
+        int k = 0;
+        for (int i = 0; i < n; i++) {
+            const int lx = lights[3*i], ly = lights[3*i + 1], r = lights[3*i + 2];
+            int dy = y - ly;
+            if (dy < 0) dy = -dy;
+            if (r < 0 || dy > r) continue;
+            const int hw = isqrt_floor(r * r - dy * dy);
+            const int a = lx - hw, b = lx + hw;
+            int j = k;
+            while (j > 0 && from[j-1] > a) { from[j] = from[j-1]; to[j] = to[j-1]; j--; }
+            from[j] = a; to[j] = b;
+            k++;
+        }
+        /* row points at world x 0 of this row, so row[x] is world pixel x */
+        uint8_t *row = g->fb + sy * PULLI_SCREEN_W - g->cam_x;
+        int x = wx0;                        /* the next world x not yet decided */
+        for (int i = 0; i < k; ) {
+            int a = from[i], b = to[i];
+            for (i++; i < k && from[i] <= b + 1; i++) if (to[i] > b) b = to[i];
+            if (a > x) {
+                int e = a < wx1 ? a : wx1;
+                if (e > x) memset(row + x, v, (size_t)(e - x));
+            }
+            const int half = (b - a + 1) / 2, w = edge < half ? edge : half;
+            for (int p = 0; p < 2; p++) {
+                int lo = p ? b - w + 1 : a, hi = p ? b : a + w - 1;      /* inclusive */
+                if (lo < wx0) lo = wx0;
+                if (hi >= wx1) hi = wx1 - 1;
+                if ((lo + y) & 1) lo++;
+                for (int px = lo; px <= hi; px += 2) row[px] = v;
+            }
+            if (b + 1 > x) x = b + 1;
+        }
+        if (x < wx1) memset(row + x, v, (size_t)(wx1 - x));
     }
 }
 

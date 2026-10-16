@@ -42,6 +42,24 @@ static int l_rectfill(lua_State *L) { pulli_rectfill(&E->ctx.g, arg_i(L,1,0),arg
 static int l_circ(lua_State *L) { pulli_circ(&E->ctx.g, arg_i(L,1,0),arg_i(L,2,0),arg_i(L,3,1),arg_i(L,4,7)); return 0; }
 static int l_circfill(lua_State *L){ pulli_circfill(&E->ctx.g, arg_i(L,1,0),arg_i(L,2,0),arg_i(L,3,1),arg_i(L,4,7)); return 0; }
 
+/* shade(c, lights, edge): lights is a list of x, y, r, x, y, r...; each
+ * number is taken like any coordinate. Past PULLI_SHADE_LIGHTS lights the
+ * rest are left out; anything but a table is no lights at all. */
+static int l_shade(lua_State *L) {
+    int lights[PULLI_SHADE_LIGHTS * 3], n = 0;
+    if (lua_istable(L, 2)) {
+        lua_Unsigned len = lua_rawlen(L, 2) / 3;
+        n = len > PULLI_SHADE_LIGHTS ? PULLI_SHADE_LIGHTS : (int)len;
+        for (int i = 0; i < n * 3; i++) {
+            lua_rawgeti(L, 2, i + 1);
+            lights[i] = arg_i(L, -1, 0);
+            lua_pop(L, 1);
+        }
+    }
+    pulli_shade(&E->ctx.g, arg_i(L,1,0), lights, n, arg_i(L,3,0));
+    return 0;
+}
+
 static int l_spr(lua_State *L) {
     pulli_spr(&E->ctx.g, arg_i(L,1,0), arg_i(L,2,0), arg_i(L,3,0),
               arg_i(L,4,1), arg_i(L,5,1), arg_b(L,6,false), arg_b(L,7,false));
@@ -299,7 +317,7 @@ static int l_map_size(lua_State *L) {
 
 static const luaL_Reg CORE[] = {
     {"cls",l_cls},{"pset",l_pset},{"pget",l_pget},{"line",l_line},
-    {"rect",l_rect},{"rectfill",l_rectfill},{"circ",l_circ},{"circfill",l_circfill},
+    {"rect",l_rect},{"rectfill",l_rectfill},{"circ",l_circ},{"circfill",l_circfill},{"shade",l_shade},
     {"spr",l_spr},{"sspr",l_sspr},{"print",l_print},{"text_size",l_text_size},{"camera",l_camera},
     {"clip",l_clip},{"pal",l_pal},{"palt",l_palt},{"fade",l_fade},
     {"btn",l_btn},{"btnp",l_btnp},

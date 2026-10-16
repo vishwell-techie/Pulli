@@ -35,6 +35,8 @@ def api_int(v):
 def lua(v):
     if v is True or v is False:
         return "true" if v else "false"
+    if isinstance(v, list):
+        return "{" + ", ".join(lua(x) for x in v) + "}"
     if isinstance(v, str):
         return '"' + v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
     return repr(v)
@@ -45,7 +47,8 @@ def op(name, *args):
     method = {"clip": "set_clip"}.get(name, name)
 
     def apply(g):
-        conv = [a if isinstance(a, (str, bool)) else api_int(a) for a in args]
+        conv = [a if isinstance(a, (str, bool)) else [api_int(x) for x in a]
+                if isinstance(a, list) else api_int(a) for a in args]
         if name == "fade":
             conv = list(args)
         getattr(g, method)(*conv)
@@ -188,7 +191,7 @@ def random_scene(seed, count=600):
     SCENE = []
     op("cls", 1)
     for _ in range(count):
-        k = rng.randrange(12)
+        k = rng.randrange(40)
         r = rng.randrange
         if k == 0:
             op("camera", r(-60, 61), r(-60, 61))
@@ -217,12 +220,49 @@ def random_scene(seed, count=600):
             op("circfill", r(-30, 350), r(-30, 270), r(-3, 50), r(70))
         elif k == 10:
             op("circ", r(-30, 350), r(-30, 270), r(-3, 50), r(70))
-        else:
+        elif k == 11:
             op("line", r(-30, 350), r(-30, 270), r(-30, 350), r(-30, 270), r(70))
+        elif k == 12:
+            op("shade", r(70), random_lights(rng), r(-2, 40))
+        else:
+            continue
     op("camera", 0, 0)
     op("clip")
     op("pal")
     op("palt")
+
+
+def random_lights(rng):
+    """Lights for shade(): overlapping, touching, off the screen, of radius
+    0 and below, now and then more than the 64 it takes, and a float or two."""
+    out = []
+    for _ in range(rng.choice((0, 1, 3, 8, 24, 70))):
+        out += [rng.randrange(-60, 380), rng.randrange(-60, 300), rng.randrange(-2, 90)]
+    if out and rng.randrange(2):
+        out[0] += 0.75
+    return out
+
+
+def shade_scene(seed):
+    """A busy picture, then darkness over it with lights cut out, under a
+    random camera, clip and palette."""
+    import random
+    global SCENE
+    rng = random.Random(seed)
+    SCENE = []
+    r = rng.randrange
+    op("cls", 1)
+    for _ in range(40):
+        op("rectfill", r(-20, 320), r(-20, 240), r(1, 80), r(1, 60), r(64))
+    op("camera", r(-50, 51), r(-50, 51))
+    if r(2):
+        op("clip", r(-20, 200), r(-20, 150), r(20, 300), r(20, 200))
+    if r(2):
+        op("pal", r(64), r(64))
+    op("shade", r(64), random_lights(rng), r(-2, 40))
+    op("camera", 0, 0)
+    op("clip")
+    op("pal")
 
 
 def first_difference(a, b, unit):
@@ -254,6 +294,22 @@ def main():
     t.check("framebuffer is exactly 76800 bytes", len(fb) == W * H == 76800)
 
     # clip must have confined the fullscreen fill to its rectangle
+    # shade (SPEC §3): darkness everywhere but the lights, dotted edges
+    sg = RefGfx()
+    sg.cls(7)
+    sg.shade(0, [100, 100, 10, 121, 100, 10, 250, 50, 0], 3)
+    px = lambda x, y: sg.fb[y * W + x]
+    lit = lambda x, y: (x - 100) ** 2 + (y - 100) ** 2 <= 100 or (x - 121) ** 2 + (y - 100) ** 2 <= 100
+    t.check("shade leaves a light's middle alone", px(100, 100) == 7 and px(121, 103) == 7)
+    t.check("shade darkens what no light reaches", px(0, 0) == 0 and px(200, 200) == 0 and px(100, 89) == 0)
+    t.check("shade's lit area is circfill's",
+            all((px(x, y) == 7) == lit(x, y) for y in range(88, 113) for x in range(86, 136) if (x + y) % 2))
+    t.check("shade joins touching lights into one span: no dots between them", px(110, 100) == 7)
+    t.check("shade dots edge pixels at each end of a span, where x + y is even",
+            [px(x, 100) for x in range(89, 95)] == [0, 0, 7, 0, 7, 7]
+            and [px(x, 100) for x in range(127, 133)] == [7, 7, 7, 0, 7, 0])
+    t.check("shade: a light of radius 0 is one pixel, too narrow to dot", px(250, 50) == 7 and px(251, 50) == 0)
+
     t.check("clip contains the fill", fb[130 * W + 210] == 10)
     t.check("clip rejects pixels left of the region", fb[130 * W + 190] != 10)
     t.check("clip rejects pixels above the region", fb[110 * W + 210] != 10)
@@ -307,6 +363,13 @@ def main():
             r = t.run_game(f"function draw()\n{body}\nend\n", frames=1,
                            extra={"sprites.kolam": pulli.kolam(aw, ah, bytes(atlas))})
             t.check(f"engine matches the reference on 600 random calls (seed {seed})",
+                    r.code == 0 and r.fb == want, r.err or first_difference(want, r.fb, 1))
+        for seed in range(1, 9):
+            shade_scene(seed)
+            want = bytes(reference().fb)
+            body = "\n".join("  " + src for src, _ in SCENE)
+            r = t.run_game(f"function draw()\n{body}\nend\n", frames=1)
+            t.check(f"engine shades like the reference (seed {seed})",
                     r.code == 0 and r.fb == want, r.err or first_difference(want, r.fb, 1))
 
     return t.finish()
