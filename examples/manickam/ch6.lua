@@ -20,6 +20,7 @@ local fx       = require("fx")
 local region = { map = "village.ooru", music = 8, night = true, no_hud = true }   -- festival music
 local CROWD = 28
 local lit, fireworks, roll, clock, credits = false, false, 0, 0, nil
+local cx, cy = {}, {}                   -- where each line of the credits starts, worked out once
 local rx, ry, rv = {}, {}, {}           -- rockets on their way up
 
 -- four colours of firework, and a trail
@@ -33,6 +34,11 @@ function region.start(w)
   for i = #w.slimes, 1, -1 do w.slimes[i] = nil end
   for _, l in ipairs(w.lamps) do l.beam = true end
   credits = core.wrap(story.t("credits"), 38)
+  local y = 0
+  for i, l in ipairs(credits) do
+    cx[i], cy[i] = 160 - core.width(l) // 2, y
+    y = y + core.height(l) + 4
+  end
   lit, fireworks, roll, clock = false, false, 0, 0
   local p = w.p
   script.run(function(s)
@@ -86,18 +92,20 @@ end
 
 -- the clay lamps along the street, and the crowd walking up and down it
 function region.draw(w)
-  local f = stat("frame")
+  local f, left = stat("frame"), w.cam.x - 16
   for x = 24, 480, 24 do
-    for y = 154, 194, 40 do
+    if x > left and x < left + 336 then for y = 154, 194, 40 do
       spr(940, x, y)
       if lit then pset(x + 3, y - 1 - (f + x) // 6 % 2, 10) end
-    end
+    end end
   end
   if not lit then return end
   for i = 1, CROWD do
     local x = (40 + i * 97 + (i % 2 * 2 - 1) * f * 0.1) % 480
-    pal(14, i % 3 == 0 and 12 or 14)
-    spr(i % 4 == 0 and 564 or 572 + f // 8 % 2 * 2, x, 160 + i * 13 % 22, 2, 2, i % 2 == 0)
+    if x > left and x < left + 336 then
+      pal(14, i % 3 == 0 and 12 or 14)
+      spr(i % 4 == 0 and 564 or 572 + f // 8 % 2 * 2, x, 160 + i * 13 % 22, 2, 2, i % 2 == 0)
+    end
   end
   pal()
 end
@@ -105,10 +113,10 @@ end
 function region.draw_top(w)
   if roll <= 0 then return end
   camera()
-  local y = 240 - roll * (240 + #credits * 14)
-  for _, l in ipairs(credits) do
-    if y > -24 and y < 240 then core.center(l, y, 7, 32) end
-    y = y + core.height(l) + 4
+  local top = 240 - roll * (240 + #credits * 14)
+  for i, l in ipairs(credits) do
+    local y = top + cy[i]
+    if y > -24 and y < 240 then core.center(l, y, 7, 32, cx[i]) end
   end
   if roll > 0.95 then core.center(story.t("the_end"), 112, 10, 32) end
   camera(w.cam.x, w.cam.y)

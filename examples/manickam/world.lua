@@ -511,6 +511,10 @@ end
 
 local function by_feet(a, b) return a[1] < b[1] end
 
+-- cos and sin of 24 angles a turn, one after the other, for the lamps' glow
+local RING = {}
+for k = 0, 23 do RING[2 * k + 1], RING[2 * k + 2] = math.cos(k * 0.2618), math.sin(k * 0.2618) end
+
 local function add(kind, a, y)
   local n = #drawn + 1
   local s = slots[n] or {}
@@ -566,10 +570,14 @@ function w.draw_world()
         local fl = (f // 6 + a.cx) % 3
         -- a soft glow: two rings of dots, turning and flickering
         local r = 5 + (f // 8 + a.cy) % 2
+        local turn = f // 13                           -- a step of the ring every 13 frames
         for i = 0, 11 do
-          local t = i * 0.5236 + f * 0.02
-          pset(a.x + math.cos(t) * r, a.y - 15 + math.sin(t) * r * 0.8, i % 2 == 0 and 9 or 41)
-          if i % 3 == 0 then pset(a.x + math.cos(-t) * (r + 3), a.y - 15 + math.sin(-t) * (r + 2), 10) end
+          local k = (i * 2 + turn) % 24 * 2
+          pset(a.x + RING[k + 1] * r, a.y - 15 + RING[k + 2] * r * 0.8, i % 2 == 0 and 9 or 41)
+          if i % 3 == 0 then
+            k = (-i * 2 - turn) % 24 * 2                 -- the outer ring turns the other way
+            pset(a.x + RING[k + 1] * (r + 3), a.y - 15 + RING[k + 2] * (r + 2), 10)
+          end
         end
         spr(814 + fl, a.x - 4, a.y - 17, 1, 2)
         if (f + a.cx * 7) % 53 == 0 then fx.burst(a.x, a.y - 18, 1, fx.GLOW) end

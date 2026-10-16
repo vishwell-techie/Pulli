@@ -94,8 +94,9 @@ end
 function core.width(s) return (text_size(s)) end
 function core.height(s) local _, h = text_size(s) return h end
 
-function core.center(s, y, c, outline)
-  local x = 160 - core.width(s) // 2
+-- x, when given, is where the text starts, worked out beforehand.
+function core.center(s, y, c, outline, x)
+  x = x or 160 - core.width(s) // 2
   if outline then
     for d = -1, 1, 2 do print(s, x + d, y, outline) print(s, x, y + d, outline) end
   end
