@@ -454,19 +454,24 @@ void pulli_clip(pulli_gfx *g, int x, int y, int w, int h) {
 }
 
 /* Sprites look up each pixel's colour on screen, or 0xFF for one not
- * drawn, in one table; pal() and palt() keep it up to date. */
+ * drawn, in one table; pal() and palt() keep it up to date, changing only
+ * the entry they touch unless they reset everything. */
+static void refresh_lut_entry(pulli_gfx *g, int i) {
+    g->sprite_lut[i] = g->transparent[i] ? 0xFF : g->pal_map[i];
+}
+
 static void refresh_lut(pulli_gfx *g) {
-    for (int i = 0; i < PULLI_PALETTE_LEN; i++)
-        g->sprite_lut[i] = g->transparent[i] ? 0xFF : g->pal_map[i];
+    for (int i = 0; i < PULLI_PALETTE_LEN; i++) refresh_lut_entry(g, i);
 }
 
 void pulli_pal(pulli_gfx *g, int a, int b) {
     if (a < 0) {
         for (int i = 0; i < PULLI_PALETTE_LEN; i++) g->pal_map[i] = (uint8_t)i;
-    } else {
-        g->pal_map[a & PULLI_COLOR_MASK] = (uint8_t)(b & PULLI_COLOR_MASK);
+        refresh_lut(g);
+        return;
     }
-    refresh_lut(g);
+    g->pal_map[a & PULLI_COLOR_MASK] = (uint8_t)(b & PULLI_COLOR_MASK);
+    refresh_lut_entry(g, a & PULLI_COLOR_MASK);
 }
 
 void pulli_palt(pulli_gfx *g, int c, bool t) {
@@ -477,7 +482,7 @@ void pulli_palt(pulli_gfx *g, int c, bool t) {
         return;
     }
     g->transparent[c & PULLI_COLOR_MASK] = t;
-    refresh_lut(g);
+    refresh_lut_entry(g, c & PULLI_COLOR_MASK);
 }
 
 /* Palette-level fade: costs nothing per pixel, which is the whole point of
@@ -509,21 +514,48 @@ void pulli_load_palette(pulli_gfx *g, const uint16_t rgb565[PULLI_PALETTE_LEN]) 
     refresh_shown(g);
 }
 
+/* One whole 8x8 tile, every pixel of it inside the clip rectangle and the
+ * atlas: what most of map.draw is made of. It draws what pulli_spr would,
+ * without the checks for rows and columns that might be cut off, and with
+ * loops of a known length the compiler can unroll. */
+PULLI_HOT static void tile8(const uint8_t *lut, const uint8_t *src, int stride,
+                            uint8_t *dst, bool flip_x, bool flip_y) {
+    if (flip_y) { src += 7 * stride; stride = -stride; }
+    for (int j = 0; j < 8; j++, src += stride, dst += PULLI_SCREEN_W) {
+        uint8_t p[8];
+        if (flip_x) for (int k = 0; k < 8; k++) p[k] = lut[src[7 - k] & PULLI_COLOR_MASK];
+        else        for (int k = 0; k < 8; k++) p[k] = lut[src[k] & PULLI_COLOR_MASK];
+        for (int k = 0; k < 8; k++) if (p[k] != 0xFF) dst[k] = p[k];
+    }
+}
+
 PULLI_HOT void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
     if (layer < 0 || layer >= m->layers) return;
     const int cell = PULLI_SPRITE_CELL;
     const uint16_t *cells = m->cells + (size_t)layer * m->w * m->h;
+    const int per_row = g->atlas ? g->atlas_w / cell : 0;
+    if (per_row <= 0) return;                      /* no sheet: pulli_spr draws nothing either */
+    const int cx0 = g->clip_x, cy0 = g->clip_y;
+    const int cx1 = cx0 + g->clip_w - cell, cy1 = cy0 + g->clip_h - cell;  /* last whole-tile spots */
     /* The first tile on screen. Division rounds toward zero, which is only
      * wrong left of and above the map, where there are no tiles to miss. */
     int first_x = (g->cam_x + sx) / cell, first_y = (g->cam_y + sy) / cell;
     for (int my = first_y; my <= first_y + PULLI_SCREEN_H / cell; my++) {
         if (my < 0 || my >= m->h) continue;
+        const int wy = my * cell - sy, ty = wy - g->cam_y;
+        const bool row_whole = ty >= cy0 && ty <= cy1;
         for (int mx = first_x; mx <= first_x + PULLI_SCREEN_W / cell; mx++) {
             if (mx < 0 || mx >= m->w) continue;
             uint16_t c = cells[my * m->w + mx];
-            if (!(c & PULLI_TILE_MASK)) continue;         /* tile 0 is empty */
-            pulli_spr(g, c & PULLI_TILE_MASK, mx * cell - sx, my * cell - sy, 1, 1,
-                      c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
+            int n = c & PULLI_TILE_MASK;
+            if (!n) continue;                              /* tile 0 is empty */
+            const int wx = mx * cell - sx, tx = wx - g->cam_x;
+            const int ax = (n % per_row) * cell, ay = (n / per_row) * cell;
+            if (row_whole && tx >= cx0 && tx <= cx1 && ax + cell <= g->atlas_w && ay + cell <= g->atlas_h)
+                tile8(g->sprite_lut, g->atlas + ay * g->atlas_w + ax, g->atlas_w,
+                      g->fb + ty * PULLI_SCREEN_W + tx, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
+            else
+                pulli_spr(g, n, wx, wy, 1, 1, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
         }
     }
 }
