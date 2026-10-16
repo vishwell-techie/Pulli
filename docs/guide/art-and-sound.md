@@ -98,7 +98,7 @@ and add a custom property:
 - Object layers are not imported. To place things such as a player's start
   or enemies, draw their tiles on a layer and look for them with `map.get`
   when the map is loaded, as `examples/manickam` does at the start of each
-  level.
+  chapter.
 
 ## Text in Tamil
 

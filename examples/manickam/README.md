@@ -1,5 +1,7 @@
 # Manickam (மாணிக்கம்)
 
+**தமிழ்:** [README.ta.md](README.ta.md)
+
 *Manickam* means "ruby". It is Pulli's showcase game: a short adventure in
 Tamil and English, with an opening cut-scene, six chapters, a final meeting
 with the shadow serpent and a festival to end on. It is also a test of the
@@ -181,7 +183,7 @@ The pause screen shows the ruby pieces found, the hearts and these.
 
 Packing the game turns `sprites.png` into `sprites.kolam`, each `.tmx` into
 an `.ooru` map, and `music/` and `sfx/` into sound banks, and adds the
-SDK's `move` and `pathfind` helpers. This README is left out.
+SDK's `move` helper. The READMEs are left out.
 
 ### The maps
 
