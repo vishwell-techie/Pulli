@@ -97,3 +97,8 @@ void host_log(const char *msg) {
     printf("%s\n", msg);
     fflush(stdout);
 }
+
+void host_halves(void (*fn)(void *arg, int half), void *arg) {
+    fn(arg, 1);
+    fn(arg, 0);
+}

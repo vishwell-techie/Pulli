@@ -321,6 +321,7 @@ pset(x, y, c)   pget(x, y)
 line(x0,y0,x1,y1,c)
 rect(x,y,w,h,c) rectfill(x,y,w,h,c)
 circ(x,y,r,c)   circfill(x,y,r,c)
+shade(c, lights, edge)             -- darkness with lights cut out of it
 spr(n, x, y, w, h, flip_x, flip_y) -- n = sprite index; w,h in 8px cells
 sspr(sx,sy,sw,sh, dx,dy, dw,dh)    -- stretched blit
 print(text, x, y, c)               -- UTF-8, English and Tamil; returns the x after it
@@ -340,6 +341,18 @@ command format carries, ADR-001). Colour indices wrap at 64, so `c` and
 `palt()` with no arguments restore the defaults. `fade` sets a level and
 does not accumulate: `fade(0.5)` every frame holds half brightness, and
 `fade(0)` restores the picture. Shapes may cross the screen edge freely.
+
+**Shade.** `shade(c, lights, edge)` paints colour `c` (default 0) on every
+pixel of the clip rectangle that no light reaches. `lights` is a flat list
+`{x1, y1, r1, x2, y2, r2, ...}` in drawing coordinates, each number taken
+like any coordinate; a light covers exactly the pixels `circfill(x, y, r)`
+would. Only the first 64 lights count, and anything but a table means no
+lights. On each row the lights' spans are joined where they overlap or
+touch; on the first and last `edge` pixels of each joined span (0 to 32,
+default 0, and no more than half the span's width, rounded down), `c` goes
+on the pixels whose `x + y` is even, in drawing coordinates, softening the
+edge. It does in one call what a night scene would otherwise draw with
+hundreds of `rectfill` and `pset` calls.
 
 ### Text
 
@@ -667,9 +680,12 @@ What the runtime does to make that true:
   `acos`, `atan`, `exp`, `log` and the `^` operator are computed by the
   runtime itself, in integer arithmetic, and not by the C library. They
   return the same bits on every machine, and each result is within one unit
-  in the last place of the true value. `math.sqrt`, `math.fmod`, `%`, `//`,
-  `math.floor` and `math.ceil` are left to the platform, because IEEE 754
-  defines their results exactly.
+  in the last place of the true value. `math.fmod` and `%` on floats are
+  computed by the runtime too, exactly: IEEE 754 defines the remainder
+  exactly, but the C library the Pico SDK links does not always find it.
+  `math.sqrt`, `//`, `math.floor` and `math.ceil` are left to the platform,
+  because IEEE 754 defines their results exactly and every library checked
+  gets them right; the runtime's self-check covers them.
 - **A float unit is optional.** Games always compute in 32-bit IEEE floats.
   A chip with a float unit uses it; a chip without one does the same
   arithmetic in software and gets the same bits, only more slowly. A port
@@ -717,6 +733,11 @@ pulli pack             produce <name>.pulli
 pulli check            static checks: API misuse, budget overruns, GC churn
 pulli flash            push to device over USB
 ```
+
+`pack` takes every file in the game's folder except hidden ones (a name
+starting with `.`), Tiled tilesets (`.tsx`, read through the maps that use
+them) and Markdown (`.md`), which is left for people to read, such as a
+game's README.
 
 Today the CLI is `python3 tools/pulli.py`. `new`, `pack`, `list`, `unpack`
 and `run` work, as do `palette` (write the palette for a paint program) and
@@ -837,3 +858,10 @@ covered by `tests/`; none is frozen.
    Font License); a line holding Tamil is 22 pixels tall with its English on
    the Tamil baseline; unknown characters are `?`; `print` returns where the
    text ended, and `text_size` is new.
+20. **The remainder is the runtime's** (§4): `math.fmod` and `%` on floats
+   no longer come from the C library. On a Pico 2 the SDK's `fmodf` gave
+   other bits than the desktop's, and the runtime's self-check failed.
+21. **Shade** (§3): `shade(c, lights, edge)`, darkness over the clip
+   rectangle with round lights cut out of it and dotted edges.
+22. **Notes beside a game** (§6): `pack` leaves out Markdown files, so a
+   game's folder can hold a README that does not go into the package.

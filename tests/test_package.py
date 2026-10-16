@@ -40,9 +40,13 @@ def main():
             with open(os.path.join(tmp, name), "wb") as f:
                 f.write(blob)
         open(os.path.join(tmp, ".hidden"), "wb").close()
+        for notes in ("README.md", "notes.MD"):
+            open(os.path.join(tmp, notes), "w").write("# For people, not the console\n")
         data = pulli.build(tmp)
         t.check("round trip returns every file unchanged", dict(pulli.parse(data)) == files)
         t.check("hidden files are left out", ".hidden" not in dict(pulli.parse(data)))
+        t.check("Markdown files, such as a README, are left out",
+                not {"README.md", "notes.MD"} & set(dict(pulli.parse(data))))
 
         os.remove(os.path.join(tmp, "main.lua"))
         t.check("packer refuses a game with no main.lua", rejects(pulli.build, tmp))

@@ -492,6 +492,36 @@ int32_t pulli_fix_atan2(int32_t y, int32_t x) {
 
 /* ---- self-check -------------------------------------------------------- */
 
+/* ---- fmod -------------------------------------------------------------
+ * The remainder of x / y, with the sign of x. It is always exact, so there
+ * is one right answer, but C libraries do not all find it: the one the
+ * Pico SDK links gave other bits than the desktop's. This works on the
+ * bits alone, by long division of the two significands, and so cannot
+ * differ. NaN, an infinite x or a zero y give NaN. */
+float pulli_fmodf(float x, float y) {
+    uint32_t ux = bits(x), uy = bits(y), sx = ux & SIGN, i;
+    int ex = (int)(ux >> 23 & 0xFF), ey = (int)(uy >> 23 & 0xFF);
+    if ((uy & ~SIGN) == 0 || ex == 0xFF || (uy & ~SIGN) > INF) return nan_();
+    if ((ux << 1) <= (uy << 1))                     /* |x| <= |y| */
+        return (ux << 1) == (uy << 1) ? from_bits(sx) : x;
+    /* both significands as integers with the leading 1 at bit 23 */
+    if (!ex) { for (i = ux << 9; !(i >> 31); ex--, i <<= 1) {} ux <<= -ex + 1; }
+    else     { ux &= 0x007FFFFFu; ux |= 0x00800000u; }
+    if (!ey) { for (i = uy << 9; !(i >> 31); ey--, i <<= 1) {} uy <<= -ey + 1; }
+    else     { uy &= 0x007FFFFFu; uy |= 0x00800000u; }
+    for (; ex > ey; ex--) {                         /* long division, a bit at a time */
+        i = ux - uy;
+        if (!(i >> 31)) { if (!i) return from_bits(sx); ux = i; }
+        ux <<= 1;
+    }
+    i = ux - uy;
+    if (!(i >> 31)) { if (!i) return from_bits(sx); ux = i; }
+    for (; !(ux >> 23); ux <<= 1, ex--) {}
+    if (ex > 0) ux = (ux - 0x00800000u) | (uint32_t)ex << 23;
+    else ux >>= -ex + 1;                            /* a subnormal result */
+    return from_bits(ux | sx);
+}
+
 static uint32_t check_seed, check_sum;
 
 static uint32_t next(void) { return check_seed = check_seed * 1664525u + 1013904223u; }
@@ -529,7 +559,7 @@ uint32_t pulli_math_check(void) {
         add(pulli_powf(any, any2));     add(pulli_powf(fabsf(mid), mid2));
         add(pulli_powf(mid, whole));    add(pulli_powf(fabsf(unit) + 0.5f, any2));
         add(sqrtf(any));        add(sqrtf(fabsf(mid)));
-        add(fmodf(any, mid));   add(fmodf(mid, mid2));
+        add(pulli_fmodf(any, mid));   add(pulli_fmodf(mid, mid2));
         add(floorf(mid));       add(ceilf(mid));
         /* Plain arithmetic, which a float unit and software floats must
          * round the same way, down to the smallest numbers. */

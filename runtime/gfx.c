@@ -2,7 +2,15 @@
  * Compiles unchanged for the desktop host and the RP2350 firmware.
  * tools/refgfx.py mirrors every primitive here; tests/ compares the two. */
 #include "pulli.h"
+#include <math.h>
 #include <string.h>
+
+/* PULLI_HOT marks the functions that draw most of every frame. A port may
+ * define it to place them where its CPU runs code fastest: the Pico 2
+ * firmware puts them in RAM rather than flash. Here it means nothing. */
+#ifndef PULLI_HOT
+#define PULLI_HOT
+#endif
 
 static inline bool in_clip(const pulli_gfx *g, int x, int y) {
     return x >= g->clip_x && y >= g->clip_y &&
@@ -15,6 +23,56 @@ static inline void put(pulli_gfx *g, int x, int y, int c) {
     x -= g->cam_x; y -= g->cam_y;
     if (!in_clip(g, x, y)) return;
     g->fb[y * PULLI_SCREEN_W + x] = g->pal_map[c & PULLI_COLOR_MASK];
+}
+
+/* Clip a box of pixels, given in screen space (after the camera), to the
+ * clip rectangle: [*x0, *x1) by [*y0, *y1). False if nothing is left.
+ * The fast paths below use it to work out once per call which rows and
+ * columns can be drawn, instead of asking put() about every pixel; what
+ * they draw is exactly what put() would. */
+static inline bool clip_box(const pulli_gfx *g, int *x0, int *y0, int *x1, int *y1) {
+    if (*x0 < g->clip_x) *x0 = g->clip_x;
+    if (*y0 < g->clip_y) *y0 = g->clip_y;
+    if (*x1 > g->clip_x + g->clip_w) *x1 = g->clip_x + g->clip_w;
+    if (*y1 > g->clip_y + g->clip_h) *y1 = g->clip_y + g->clip_h;
+    return *x0 < *x1 && *y0 < *y1;
+}
+
+/* A rectangle of screen pixels, [x0, x1) by [y0, y1). */
+typedef struct { int x0, y0, x1, y1; } box;
+
+/* clip_box, against a given rectangle instead of the clip. */
+static inline bool clip_to(const box *c, int *x0, int *y0, int *x1, int *y1) {
+    if (*x0 < c->x0) *x0 = c->x0;
+    if (*y0 < c->y0) *y0 = c->y0;
+    if (*x1 > c->x1) *x1 = c->x1;
+    if (*y1 > c->y1) *y1 = c->y1;
+    return *x0 < *x1 && *y0 < *y1;
+}
+
+/* The clip rectangle; with half 0 or 1, only its top or bottom half. The
+ * calls that draw most of a frame are drawn a half at a time, through
+ * g->halves when the port gives one: on a chip with two cores, both halves
+ * are drawn at once. The halves share no pixels, so the picture is the
+ * same either way. */
+static inline box clip_half(const pulli_gfx *g, int half) {
+    box b = { g->clip_x, g->clip_y, g->clip_x + g->clip_w, g->clip_y + g->clip_h };
+    int mid = b.y0 + (b.y1 - b.y0) / 2;
+    if (half == 0) b.y1 = mid;
+    else if (half == 1) b.y0 = mid;
+    return b;
+}
+
+static void in_halves(const pulli_gfx *g, void (*fn)(void *arg, int half), void *arg) {
+    if (g->halves) g->halves(fn, arg);
+    else { fn(arg, 0); fn(arg, 1); }
+}
+
+/* A run of one colour from x0 to x1 inclusive on row y, in world space. */
+PULLI_HOT static void hline(pulli_gfx *g, int x0, int x1, int y, int c) {
+    int sx0 = x0 - g->cam_x, sx1 = x1 - g->cam_x + 1, sy0 = y - g->cam_y, sy1 = sy0 + 1;
+    if (!clip_box(g, &sx0, &sy0, &sx1, &sy1)) return;
+    memset(g->fb + sy0 * PULLI_SCREEN_W + sx0, g->pal_map[c & PULLI_COLOR_MASK], (size_t)(sx1 - sx0));
 }
 
 /* 32 base hues, then the same hues at 9/16 brightness 32 indices later, so
@@ -91,10 +149,12 @@ void pulli_rect(pulli_gfx *g, int x, int y, int w, int h, int c) {
     for (int j = 1; j < h-1; j++) { put(g, x, y+j, c); put(g, x+w-1, y+j, c); }
 }
 
-void pulli_rectfill(pulli_gfx *g, int x, int y, int w, int h, int c) {
-    for (int j = 0; j < h; j++)
-        for (int i = 0; i < w; i++)
-            put(g, x+i, y+j, c);
+PULLI_HOT void pulli_rectfill(pulli_gfx *g, int x, int y, int w, int h, int c) {
+    if (w <= 0 || h <= 0) return;
+    int x0 = x - g->cam_x, y0 = y - g->cam_y, x1 = x0 + w, y1 = y0 + h;
+    if (!clip_box(g, &x0, &y0, &x1, &y1)) return;
+    uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
+    for (int j = y0; j < y1; j++) memset(g->fb + j * PULLI_SCREEN_W + x0, v, (size_t)(x1 - x0));
 }
 
 void pulli_circ(pulli_gfx *g, int cx, int cy, int r, int c) {
@@ -110,16 +170,103 @@ void pulli_circ(pulli_gfx *g, int cx, int cy, int r, int c) {
     }
 }
 
-void pulli_circfill(pulli_gfx *g, int cx, int cy, int r, int c) {
-    for (int y = -r; y <= r; y++)
-        for (int x = -r; x <= r; x++)
-            if (x*x + y*y <= r*r) put(g, cx+x, cy+y, c);
+/* Every point with x*x + y*y <= r*r, drawn a row at a time: on row y the
+ * widest such x shrinks as y grows, so it is found by stepping down. */
+PULLI_HOT void pulli_circfill(pulli_gfx *g, int cx, int cy, int r, int c) {
+    if (r < 0) return;
+    int x = r;
+    for (int y = 0; y <= r; y++) {
+        while (x * x + y * y > r * r) x--;
+        hline(g, cx - x, cx + x, cy + y, c);
+        if (y) hline(g, cx - x, cx + x, cy - y, c);
+    }
+}
+
+/* The largest whole s with s * s <= v, for 0 <= v <= 32767 * 32767. The
+ * float square root only gives a first guess; the steps make it exact on
+ * every machine. */
+static inline int isqrt_floor(int v) {
+    int s = (int)sqrtf((float)v);
+    while (s * s > v) s--;
+    while ((s + 1) * (s + 1) <= v) s++;
+    return s;
+}
+
+/* Darkness with lights cut out of it: every pixel of the clip rectangle
+ * that no light reaches becomes colour c. lights holds n triples x, y, r in
+ * world space; a light covers exactly the pixels circfill(x, y, r) would.
+ * Row by row, the lights crossing the row give spans, sorted by where they
+ * start and joined where they overlap or touch. Between the joined spans
+ * goes c; on the first and last `edge` pixels of each (no more than half
+ * its width, rounded down), c goes on every pixel whose x + y is even,
+ * softening the edge. x and y there are world coordinates. */
+typedef struct { pulli_gfx *g; int c; const int *lights; int n, edge; } shade_job;
+
+PULLI_HOT static void shade_half(void *arg, int half) {
+    const shade_job *J = arg;
+    pulli_gfx *g = J->g;
+    const int c = J->c, *lights = J->lights, n = J->n, edge = J->edge;
+    const box cb = clip_half(g, half);
+    const int sx0 = cb.x0, sx1 = cb.x1, sy0 = cb.y0, sy1 = cb.y1;
+    if (sx0 >= sx1 || sy0 >= sy1) return;
+    const uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
+    const int wx0 = sx0 + g->cam_x, wx1 = sx1 + g->cam_x;     /* the clip in world x */
+    int from[PULLI_SHADE_LIGHTS], to[PULLI_SHADE_LIGHTS];
+    for (int sy = sy0; sy < sy1; sy++) {
+        const int y = sy + g->cam_y;
+        int k = 0;
+        for (int i = 0; i < n; i++) {
+            const int lx = lights[3*i], ly = lights[3*i + 1], r = lights[3*i + 2];
+            int dy = y - ly;
+            if (dy < 0) dy = -dy;
+            if (r < 0 || dy > r) continue;
+            const int hw = isqrt_floor(r * r - dy * dy);
+            const int a = lx - hw, b = lx + hw;
+            int j = k;
+            while (j > 0 && from[j-1] > a) { from[j] = from[j-1]; to[j] = to[j-1]; j--; }
+            from[j] = a; to[j] = b;
+            k++;
+        }
+        /* row points at world x 0 of this row, so row[x] is world pixel x */
+        uint8_t *row = g->fb + sy * PULLI_SCREEN_W - g->cam_x;
+        int x = wx0;                        /* the next world x not yet decided */
+        for (int i = 0; i < k; ) {
+            int a = from[i], b = to[i];
+            for (i++; i < k && from[i] <= b + 1; i++) if (to[i] > b) b = to[i];
+            if (a > x) {
+                int e = a < wx1 ? a : wx1;
+                if (e > x) memset(row + x, v, (size_t)(e - x));
+            }
+            const int most = (b - a + 1) / 2, w = edge < most ? edge : most;
+            for (int p = 0; p < 2; p++) {
+                int lo = p ? b - w + 1 : a, hi = p ? b : a + w - 1;      /* inclusive */
+                if (lo < wx0) lo = wx0;
+                if (hi >= wx1) hi = wx1 - 1;
+                if ((lo + y) & 1) lo++;
+                for (int px = lo; px <= hi; px += 2) row[px] = v;
+            }
+            if (b + 1 > x) x = b + 1;
+        }
+        if (x < wx1) memset(row + x, v, (size_t)(wx1 - x));
+    }
+}
+
+PULLI_HOT void pulli_shade(pulli_gfx *g, int c, const int *lights, int n, int edge) {
+    if (n > PULLI_SHADE_LIGHTS) n = PULLI_SHADE_LIGHTS;
+    if (n < 0) n = 0;
+    if (edge < 0) edge = 0;
+    if (edge > PULLI_SHADE_EDGE) edge = PULLI_SHADE_EDGE;
+    shade_job J = { g, c, lights, n, edge };
+    in_halves(g, shade_half, &J);
 }
 
 /* Sprite n indexes 8x8 cells in the atlas, left-to-right, top-to-bottom.
- * cw/ch are cell counts, so spr(n,x,y,2,2) draws a 16x16 sprite. */
-void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
-               bool flip_x, bool flip_y) {
+ * cw/ch are cell counts, so spr(n,x,y,2,2) draws a 16x16 sprite. Only the
+ * rows and columns inside the clip rectangle are visited; each pixel is
+ * read from the atlas, skipped if transparent, and written through the
+ * palette remap, as put() would. */
+PULLI_HOT static void spr_in(pulli_gfx *g, const box *cb, int n, int x, int y, int cw, int ch,
+                             bool flip_x, bool flip_y) {
     if (!g->atlas || g->atlas_w <= 0 || n < 0) return;
     if (cw <= 0) cw = 1;
     if (ch <= 0) ch = 1;
@@ -128,35 +275,84 @@ void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
     const int ax = (n % cells_per_row) * PULLI_SPRITE_CELL;
     const int ay = (n / cells_per_row) * PULLI_SPRITE_CELL;
     const int pw = cw * PULLI_SPRITE_CELL, ph = ch * PULLI_SPRITE_CELL;
+    const int dx = x - g->cam_x, dy = y - g->cam_y;
+    int x0 = dx, y0 = dy, x1 = dx + pw, y1 = dy + ph;
+    if (!clip_to(cb, &x0, &y0, &x1, &y1)) return;
 
-    for (int j = 0; j < ph; j++) {
+    /* Columns whose atlas pixel lies past the sheet's right edge are not
+     * drawn; cut them off once rather than test every pixel. */
+    if (flip_x) { int lo = dx + pw - (g->atlas_w - ax); if (x0 < lo) x0 = lo; }
+    else        { int hi = dx + g->atlas_w - ax;       if (x1 > hi) x1 = hi; }
+    if (x0 >= x1) return;
+    const uint8_t *lut = g->sprite_lut;
+    const int run = x1 - x0;
+    for (int sy0 = y0; sy0 < y1; sy0++) {
+        int j = sy0 - dy;
         int sy = ay + (flip_y ? ph - 1 - j : j);
         if (sy < 0 || sy >= g->atlas_h) continue;
-        for (int i = 0; i < pw; i++) {
-            int sx = ax + (flip_x ? pw - 1 - i : i);
-            if (sx < 0 || sx >= g->atlas_w) continue;
-            int c = g->atlas[sy * g->atlas_w + sx] & PULLI_COLOR_MASK;
-            if (g->transparent[c]) continue;
-            put(g, x + i, y + j, c);
+        uint8_t *dst = g->fb + sy0 * PULLI_SCREEN_W + x0;
+        if (flip_x) {
+            const uint8_t *src = g->atlas + sy * g->atlas_w + ax + pw - 1 - (x0 - dx);
+            for (int k = 0; k < run; k++) {
+                uint8_t v = lut[src[-k] & PULLI_COLOR_MASK];
+                if (v != 0xFF) dst[k] = v;
+            }
+        } else {
+            const uint8_t *src = g->atlas + sy * g->atlas_w + ax + (x0 - dx);
+            for (int k = 0; k < run; k++) {
+                uint8_t v = lut[src[k] & PULLI_COLOR_MASK];
+                if (v != 0xFF) dst[k] = v;
+            }
         }
     }
 }
 
-/* Nearest-neighbour stretched blit. Integer-only: identical on host and MCU. */
-void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
-                int dx, int dy, int dw, int dh) {
-    if (!g->atlas || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
-    for (int j = 0; j < dh; j++) {
-        int ty = sy + (j * sh) / dh;
+PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
+               bool flip_x, bool flip_y) {
+    const box cb = clip_half(g, -1);
+    spr_in(g, &cb, n, x, y, cw, ch, flip_x, flip_y);
+}
+
+/* Nearest-neighbour stretched blit. Integer-only: identical on host and MCU.
+ * Destination column i reads source column sx + floor(i * sw / dw); the
+ * quotient is carried from one column to the next instead of divided out
+ * for each pixel. */
+typedef struct { pulli_gfx *g; int sx, sy, sw, sh, dx, dy, dw, dh; } sspr_job;
+
+PULLI_HOT static void sspr_half(void *arg, int half) {
+    const sspr_job *J = arg;
+    pulli_gfx *g = J->g;
+    const int sx = J->sx, sy = J->sy, sw = J->sw, sh = J->sh, dx = J->dx, dy = J->dy, dw = J->dw, dh = J->dh;
+    const box cb = clip_half(g, half);
+    const int ox = dx - g->cam_x, oy = dy - g->cam_y;
+    int x0 = ox, y0 = oy, x1 = ox + dw, y1 = oy + dh;
+    if (!clip_to(&cb, &x0, &y0, &x1, &y1)) return;
+    const int step_q = sw / dw, step_r = sw % dw;
+    for (int sy0 = y0; sy0 < y1; sy0++) {
+        int j = sy0 - oy;
+        int ty = sy + (int)(((long long)j * sh) / dh);
         if (ty < 0 || ty >= g->atlas_h) continue;
-        for (int i = 0; i < dw; i++) {
-            int tx = sx + (i * sw) / dw;
-            if (tx < 0 || tx >= g->atlas_w) continue;
-            int c = g->atlas[ty * g->atlas_w + tx] & PULLI_COLOR_MASK;
-            if (g->transparent[c]) continue;
-            put(g, dx + i, dy + j, c);
+        const uint8_t *src = g->atlas + ty * g->atlas_w;
+        uint8_t *dst = g->fb + sy0 * PULLI_SCREEN_W;
+        long long first = (long long)(x0 - ox) * sw;
+        int q = (int)(first / dw), r = (int)(first % dw);
+        for (int sx0 = x0; sx0 < x1; sx0++) {
+            int tx = sx + q;
+            if (tx >= 0 && tx < g->atlas_w) {
+                uint8_t v = g->sprite_lut[src[tx] & PULLI_COLOR_MASK];
+                if (v != 0xFF) dst[sx0] = v;
+            }
+            q += step_q; r += step_r;
+            if (r >= dw) { q++; r -= dw; }
         }
     }
+}
+
+PULLI_HOT void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
+                int dx, int dy, int dw, int dh) {
+    if (!g->atlas || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
+    sspr_job J = { g, sx, sy, sw, sh, dx, dy, dw, dh };
+    in_halves(g, sspr_half, &J);
 }
 
 /* ---- text ------------------------------------------------------------ */
@@ -230,19 +426,39 @@ static size_t next_piece(const unsigned char *s, size_t len, size_t i, int *code
     return (size_t)bytes[0];
 }
 
+/* A 1-bit glyph, `w` pixels wide and `h` tall, rows `stride` bytes apart,
+ * drawn in colour c with its top-left at (x, y). A glyph wholly inside the
+ * clip rectangle, as nearly all are, is written straight into the
+ * framebuffer a byte of bits at a time; one cut off goes through put(). */
+PULLI_HOT static void draw_bits(pulli_gfx *g, const uint8_t *row, int stride, int w, int h,
+                                int x, int y, int c) {
+    const int sx = x - g->cam_x, sy = y - g->cam_y;
+    if (sx >= g->clip_x && sy >= g->clip_y &&
+        sx + w <= g->clip_x + g->clip_w && sy + h <= g->clip_y + g->clip_h) {
+        const uint8_t v = g->pal_map[c & PULLI_COLOR_MASK];
+        uint8_t *dst = g->fb + sy * PULLI_SCREEN_W + sx;
+        for (int j = 0; j < h; j++, row += stride, dst += PULLI_SCREEN_W)
+            for (int b = 0; b < stride; b++) {
+                unsigned bits = row[b];
+                if (!bits) continue;
+                uint8_t *d = dst + b * 8;
+                int n = w - b * 8 < 8 ? w - b * 8 : 8;
+                for (int i = 0; i < n; i++) if (bits & (0x80u >> i)) d[i] = v;
+            }
+        return;
+    }
+    for (int j = 0; j < h; j++, row += stride)
+        for (int i = 0; i < w; i++)
+            if (row[i >> 3] & (0x80u >> (i & 7))) put(g, x + i, y + j, c);
+}
+
 static void draw_english(pulli_gfx *g, int code, int x, int y, int c) {
-    const uint8_t *glyph = g->font + (code - 32) * PULLI_SPRITE_CELL;
-    for (int j = 0; j < PULLI_SPRITE_CELL; j++)
-        for (int i = 0; i < PULLI_SPRITE_CELL; i++)
-            if (glyph[j] & (0x80u >> i)) put(g, x + i, y + j, c);
+    draw_bits(g, g->font + (code - 32) * PULLI_SPRITE_CELL, 1, PULLI_SPRITE_CELL, PULLI_SPRITE_CELL, x, y, c);
 }
 
 static void draw_tamil(pulli_gfx *g, const pulli_ta_glyph *gl, int x, int y, int c) {
-    const uint8_t *row = pulli_font_ta_bits + gl->offset;
-    int stride = (gl->width + 7) / 8;
-    for (int j = 0; j < pulli_font_ta_rows; j++, row += stride)
-        for (int i = 0; i < gl->width; i++)
-            if (row[i >> 3] & (0x80u >> (i & 7))) put(g, x + i, y + j, c);
+    draw_bits(g, pulli_font_ta_bits + gl->offset, (gl->width + 7) / 8, gl->width,
+              pulli_font_ta_rows, x, y, c);
 }
 
 /* Lays out the text line by line, drawing it when g is not NULL. A line
@@ -260,7 +476,7 @@ static void lay_out(pulli_gfx *g, const char *str, size_t len, int ox, int oy, i
         size_t end = i;
         while (end < len && s[end] != '\n') end++;
         bool tamil = false;
-        for (size_t j = i; j < end; ) {
+        for (size_t j = i; j < end && !tamil; ) {    /* one Tamil syllable is enough to know */
             j += next_piece(s, end, j, &code, &gl);
             if (gl) tamil = true;
         }
@@ -314,21 +530,36 @@ void pulli_clip(pulli_gfx *g, int x, int y, int w, int h) {
     g->clip_h = h > 0 ? h : 0;
 }
 
+/* Sprites look up each pixel's colour on screen, or 0xFF for one not
+ * drawn, in one table; pal() and palt() keep it up to date, changing only
+ * the entry they touch unless they reset everything. */
+static void refresh_lut_entry(pulli_gfx *g, int i) {
+    g->sprite_lut[i] = g->transparent[i] ? 0xFF : g->pal_map[i];
+}
+
+static void refresh_lut(pulli_gfx *g) {
+    for (int i = 0; i < PULLI_PALETTE_LEN; i++) refresh_lut_entry(g, i);
+}
+
 void pulli_pal(pulli_gfx *g, int a, int b) {
     if (a < 0) {
         for (int i = 0; i < PULLI_PALETTE_LEN; i++) g->pal_map[i] = (uint8_t)i;
+        refresh_lut(g);
         return;
     }
     g->pal_map[a & PULLI_COLOR_MASK] = (uint8_t)(b & PULLI_COLOR_MASK);
+    refresh_lut_entry(g, a & PULLI_COLOR_MASK);
 }
 
 void pulli_palt(pulli_gfx *g, int c, bool t) {
     if (c < 0) {
         for (int i = 0; i < PULLI_PALETTE_LEN; i++) g->transparent[i] = false;
         g->transparent[0] = true;          /* index 0 transparent by default */
+        refresh_lut(g);
         return;
     }
     g->transparent[c & PULLI_COLOR_MASK] = t;
+    refresh_lut_entry(g, c & PULLI_COLOR_MASK);
 }
 
 /* Palette-level fade: costs nothing per pixel, which is the whole point of
@@ -360,29 +591,69 @@ void pulli_load_palette(pulli_gfx *g, const uint16_t rgb565[PULLI_PALETTE_LEN]) 
     refresh_shown(g);
 }
 
-void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
-    if (layer < 0 || layer >= m->layers) return;
+/* One whole 8x8 tile, every pixel of it inside the clip rectangle and the
+ * atlas: what most of map.draw is made of. It draws what pulli_spr would,
+ * without the checks for rows and columns that might be cut off, and with
+ * loops of a known length the compiler can unroll. */
+PULLI_HOT static void tile8(const uint8_t *lut, const uint8_t *src, int stride,
+                            uint8_t *dst, bool flip_x, bool flip_y) {
+    if (flip_y) { src += 7 * stride; stride = -stride; }
+    for (int j = 0; j < 8; j++, src += stride, dst += PULLI_SCREEN_W) {
+        uint8_t p[8];
+        if (flip_x) for (int k = 0; k < 8; k++) p[k] = lut[src[7 - k] & PULLI_COLOR_MASK];
+        else        for (int k = 0; k < 8; k++) p[k] = lut[src[k] & PULLI_COLOR_MASK];
+        for (int k = 0; k < 8; k++) if (p[k] != 0xFF) dst[k] = p[k];
+    }
+}
+
+typedef struct { pulli_gfx *g; const pulli_map *m; int layer, sx, sy; } map_job;
+
+PULLI_HOT static void map_half(void *arg, int half) {
+    const map_job *J = arg;
+    pulli_gfx *g = J->g;
+    const pulli_map *m = J->m;
+    const int sx = J->sx, sy = J->sy;
     const int cell = PULLI_SPRITE_CELL;
-    const uint16_t *cells = m->cells + (size_t)layer * m->w * m->h;
+    const uint16_t *cells = m->cells + (size_t)J->layer * m->w * m->h;
+    const int per_row = g->atlas_w / cell;
+    const box cb = clip_half(g, half);
+    if (cb.y0 >= cb.y1) return;
+    const int cx1 = cb.x1 - cell, cy1 = cb.y1 - cell;      /* last whole-tile spots */
     /* The first tile on screen. Division rounds toward zero, which is only
      * wrong left of and above the map, where there are no tiles to miss. */
     int first_x = (g->cam_x + sx) / cell, first_y = (g->cam_y + sy) / cell;
     for (int my = first_y; my <= first_y + PULLI_SCREEN_H / cell; my++) {
         if (my < 0 || my >= m->h) continue;
+        const int wy = my * cell - sy, ty = wy - g->cam_y;
+        if (ty + cell <= cb.y0 || ty >= cb.y1) continue;       /* not in this half */
+        const bool row_whole = ty >= cb.y0 && ty <= cy1;
         for (int mx = first_x; mx <= first_x + PULLI_SCREEN_W / cell; mx++) {
             if (mx < 0 || mx >= m->w) continue;
             uint16_t c = cells[my * m->w + mx];
-            if (!(c & PULLI_TILE_MASK)) continue;         /* tile 0 is empty */
-            pulli_spr(g, c & PULLI_TILE_MASK, mx * cell - sx, my * cell - sy, 1, 1,
-                      c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
+            int n = c & PULLI_TILE_MASK;
+            if (!n) continue;                              /* tile 0 is empty */
+            const int wx = mx * cell - sx, tx = wx - g->cam_x;
+            const int ax = (n % per_row) * cell, ay = (n / per_row) * cell;
+            if (row_whole && tx >= cb.x0 && tx <= cx1 && ax + cell <= g->atlas_w && ay + cell <= g->atlas_h)
+                tile8(g->sprite_lut, g->atlas + ay * g->atlas_w + ax, g->atlas_w,
+                      g->fb + ty * PULLI_SCREEN_W + tx, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
+            else
+                spr_in(g, &cb, n, wx, wy, 1, 1, c & PULLI_TILE_FLIP_X, c & PULLI_TILE_FLIP_Y);
         }
     }
+}
+
+PULLI_HOT void pulli_map_draw(pulli_gfx *g, const pulli_map *m, int layer, int sx, int sy) {
+    if (layer < 0 || layer >= m->layers) return;
+    if (!g->atlas || g->atlas_w / PULLI_SPRITE_CELL <= 0) return;   /* spr would draw nothing either */
+    map_job J = { g, m, layer, sx, sy };
+    in_halves(g, map_half, &J);
 }
 
 /* Strip-wise index -> RGB565. On the RP2350 this runs into a small buffer
  * that is DMA'd to the panel while the next strip converts. The cost of
  * this loop is the number that decides whether 320x240 survives (SPEC §9). */
-void pulli_scanout(const pulli_gfx *g, int y0, int rows, uint16_t *out) {
+PULLI_HOT void pulli_scanout(const pulli_gfx *g, int y0, int rows, uint16_t *out) {
     const uint8_t *src = g->fb + (size_t)y0 * PULLI_SCREEN_W;
     size_t n = (size_t)rows * PULLI_SCREEN_W;
     for (size_t i = 0; i < n; i++) out[i] = g->shown[src[i] & PULLI_COLOR_MASK];

@@ -220,6 +220,7 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
     memset(e, 0, sizeof(*e));
     e->backend = backend;
     pulli_gfx_init(&e->ctx.g);
+    e->ctx.g.halves = backend ? backend->halves : NULL;
 
     const char *why = pulli_pkg_open(&e->pkg, data, len);
     if (why) return fail(e, "%s", why);

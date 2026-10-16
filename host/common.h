@@ -21,6 +21,11 @@ bool host_save_write(const char *game_id, const void *blob, size_t len);
 
 void host_log(const char *msg);     /* game dbg() output, to stdout */
 
+/* The halves hook. The desktop draws both halves on one core, the bottom
+ * one first: a half that wrongly relied on the other being drawn already
+ * would show up in the tests, which all run through here. */
+void host_halves(void (*fn)(void *arg, int half), void *arg);
+
 /* The link, emulated between two host processes given the same port on this
  * computer. `step` makes linked runs repeatable; see link.c. */
 bool host_link_open(int port, bool step);

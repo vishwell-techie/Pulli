@@ -25,6 +25,7 @@ float pulli_logf  (float x);
 float pulli_log2f (float x);
 float pulli_log10f(float x);
 float pulli_powf  (float x, float y);
+float pulli_fmodf (float x, float y);   /* exact; Lua's % and math.fmod use it */
 
 /* 16.16 fixed point: a 32-bit integer counting 65536ths (SPEC §3). All of
  * it wraps around at 32 bits. div needs b != 0 and sqrt needs a >= 0. */

@@ -146,9 +146,11 @@ def main():
         pset(10.9, 20.9, 7)  pset(1, 1, 64 + 9)  pset(-5, 500, 3)
         dbg(pget(10, 20), pget(11, 21), pget(1, 1), pget(-5, 500), pget(0, 0))
         dbg(pcall(circfill, 'not a number', nil, {}, false))
+        cls(5) shade(0, "no lights") dbg(pget(160, 120))
+        cls(5) shade(1, {160, 120, 4, 'x', {}, 3, 10}, 99) dbg(pget(160, 120), pget(0, 3), pget(0, 4))
     """)
     expect("coordinates round down, colours wrap, off-screen is ignored, junk does not crash", r,
-           ["7\t0\t9\t0\t0", "true"])
+           ["7\t0\t9\t0\t0", "true", "0", "5\t5\t1"])
 
     # ---- text: English and Tamil (SPEC §3, "Text") --------------------------
     import refgfx

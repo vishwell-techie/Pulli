@@ -67,6 +67,7 @@ typedef struct {
     uint16_t shown[PULLI_PALETTE_LEN];     /* palette with fade applied       */
     uint8_t  pal_map[PULLI_PALETTE_LEN];   /* draw-time index remap (pal())   */
     bool     transparent[PULLI_PALETTE_LEN];
+    uint8_t  sprite_lut[PULLI_PALETTE_LEN]; /* a sprite pixel's colour on screen, or 0xFF if not drawn: pal_map and transparent together, kept by pal() and palt() */
     int      fade_k;                       /* 32 = full brightness, 0 = black */
     int      cam_x, cam_y;
     int      clip_x, clip_y, clip_w, clip_h;
@@ -74,6 +75,8 @@ typedef struct {
     const uint8_t *atlas;
     int      atlas_w, atlas_h;
     const uint8_t *font;                   /* 8x8 1bpp, 96 glyphs from ' '   */
+    /* The backend's halves hook (below), or NULL. */
+    void (*halves)(void (*fn)(void *arg, int half), void *arg);
 } pulli_gfx;
 
 /* ---- the loaded map (SPEC §3 "Map") --------------------------------- */
@@ -121,6 +124,11 @@ void    pulli_rect     (pulli_gfx *g, int x, int y, int w, int h, int c);
 void    pulli_rectfill (pulli_gfx *g, int x, int y, int w, int h, int c);
 void    pulli_circ     (pulli_gfx *g, int cx, int cy, int r, int c);
 void    pulli_circfill (pulli_gfx *g, int cx, int cy, int r, int c);
+/* Colour c over the clip rectangle except inside n lights, each x, y, r;
+ * the last `edge` pixels inside each lit span are dotted (SPEC §3). */
+#define PULLI_SHADE_LIGHTS 64
+#define PULLI_SHADE_EDGE   32
+void    pulli_shade    (pulli_gfx *g, int c, const int *lights, int n, int edge);
 void    pulli_spr      (pulli_gfx *g, int n, int x, int y, int cw, int ch,
                         bool flip_x, bool flip_y);
 void    pulli_sspr     (pulli_gfx *g, int sx, int sy, int sw, int sh,
@@ -239,6 +247,11 @@ typedef struct {
     pulli_link_state (*link_poll)(int *side);
     bool (*link_send)(const void *msg, size_t len);
     int  (*link_recv)(void *msg, size_t max);         /* length, or <0: none */
+    /* The biggest drawing calls are drawn as two halves of the screen,
+     * fn(arg, 0) and fn(arg, 1), that touch different pixels. A port with
+     * a second core runs one half there while this core runs the other,
+     * and returns when both are done. NULL: one after the other. */
+    void (*halves)(void (*fn)(void *arg, int half), void *arg);
 } pulli_backend;
 
 /* ---- engine --------------------------------------------------------- */

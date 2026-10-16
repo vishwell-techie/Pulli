@@ -76,6 +76,10 @@ endif()
 
 include(../cmake/lua.cmake)
 add_subdirectory(../runtime runtime)
+# The functions that draw most of a frame run from RAM: code in flash is
+# read through a small cache shared with the game's sprites, and drawing
+# from there was measured at half the speed.
+target_compile_definitions(pulli_runtime PRIVATE "PULLI_HOT=__attribute__((section(\".time_critical.pulli\")))")
 
 # --- the built-in game: packed, then linked in as a byte array -----------
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -102,18 +106,21 @@ target_compile_definitions(pulli PRIVATE
     # instead of silent corruption.
     PICO_STACK_SIZE=0x4000
     PICO_USE_STACK_GUARDS=1
+    # The second core only draws halves of the screen; its stack is the
+    # 4 KB SCRATCH_X region.
+    PICO_CORE1_STACK_SIZE=0x1000
     PULLI_AUTO_A_SECONDS=${PULLI_AUTO_A_SECONDS}
 )
 # The SDK keeps the stack in a 4 KB region at the very top of RAM, which a
 # 16 KB stack does not fit. Move the boundaries down so that region is 16 KB:
 #   0x20000000  RAM         500 KB   (was 512 KB)
-#   0x2007D000  SCRATCH_X     4 KB
+#   0x2007D000  SCRATCH_X     4 KB   the second core's stack
 #   0x2007E000  SCRATCH_Y    16 KB   the stack; ends at 0x20082000 as before
 pico_set_linker_script_var(pulli RAM_LENGTH 500k)
 pico_set_linker_script_var(pulli SCRATCH_X_ORIGIN 0x2007D000)
 pico_set_linker_script_var(pulli SCRATCH_Y_ORIGIN 0x2007E000)
 pico_set_linker_script_var(pulli SCRATCH_Y_LENGTH 16k)
-target_link_libraries(pulli PRIVATE pulli_runtime pico_stdlib)
+target_link_libraries(pulli PRIVATE pulli_runtime pico_stdlib pico_multicore)
 pico_enable_stdio_usb(pulli 1)
 pico_enable_stdio_uart(pulli 0)
 pico_add_extra_outputs(pulli)
