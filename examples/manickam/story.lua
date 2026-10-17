@@ -7,8 +7,8 @@
 --
 -- The words themselves are in lines_ta.lua and lines_en.lua, each one long
 -- string of "key=words" lines, searched when a line is wanted. Only the
--- language in use is loaded; the other is loaded the first time the player
--- switches to it. A key missing from Tamil falls back to English, then to
+-- language in use is kept; switching loads the new one and lets the other
+-- go. A key missing from Tamil falls back to English, then to
 -- the key itself, so a missing line shows up as its name.
 --
 -- Tamil takes three bytes a letter in UTF-8, and Lua memory is short, so
@@ -39,6 +39,11 @@ local function lines(lang)
     t = "\n" .. (lang == "ta" and pack(file[1]) or file[1])
     file[1] = nil                       -- the module's own copy can go
     loaded[lang] = t
+  end
+  if lang == story.lang then            -- not a fallback: the other language can go
+    for other in pairs(loaded) do
+      if other ~= lang then loaded[other] = nil unrequire("lines_" .. other) kept, nkept = {}, 0 end
+    end
   end
   return t
 end

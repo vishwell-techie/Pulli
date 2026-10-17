@@ -10,7 +10,7 @@ runtime is deterministic (SPEC §4), so a changed hash means the engine, the
 Lua build or the example itself changed behaviour. If that was intended,
 rerun with --update. The same hashes must come out on every machine.
 """
-import hashlib, os, struct, sys, tempfile
+import hashlib, os, shutil, struct, sys, tempfile
 
 from harness import Suite, ROOT, TESTS, pulli
 
@@ -246,6 +246,41 @@ def main():
             kb = [float(l.split("\t")[1]) for l in r.lines if l.startswith("festival")]
             t.check("manickam: played through in one sitting, the festival and its fireworks fit in memory",
                     r.code == 0 and kb and kb[0] < 215, f"{kb} {r.err[-300:]}")
+            # Switching language lets the other language's lines go, and
+            # a benchmark run from the title is let go when a game starts:
+            # either way chapter 0 has the room it has in a plain game.
+            settle = ('local up = update\nlocal n = 0\nfunction update(dt) up(dt)\n'
+                      '  local w = require("world")\n'
+                      '  if w.chapter == 0 and w.control then n = n + 1 end\n'
+                      '  if n == 60 then collectgarbage() dbg("settled", stat("mem")) end\n'
+                      'end\n')
+            def settled(game, frames, tap):
+                r = t.run_package(game, frames=frames, tap=tap)
+                kb = [float(l.split("\t")[1]) for l in r.lines if l.startswith("settled")]
+                return (kb[0] if kb else None), r
+            new = "a@5,start@100," + ",".join(f"a@{f}" for f in range(300, 600, 30))
+            plain_kb, _ = settled(manickam_variant(os.path.join(tmp, "plainlang"), 0, extra=settle), 600,
+                                  "a@100,a@160,a@220,a@280")
+            swap = settle.replace("function update(dt) up(dt)\n",
+                                  'function update(dt) up(dt)\n  if stat("frame") == 2 then local s = require("story") '
+                                  's.lang = "en" s.t("story") s.lang = "ta" s.t("story") end\n')
+            swap_kb, r = settled(manickam_variant(os.path.join(tmp, "swap"), 0, extra=swap), 600,
+                                 "a@100,a@160,a@220,a@280")
+            t.check("manickam: switching language lets the other language's lines go",
+                    plain_kb and swap_kb and abs(swap_kb - plain_kb) < 1, f"{plain_kb} {swap_kb} {r.err[-200:]}")
+            folder = os.path.join(tmp, "benchfirst")
+            shutil.copytree(MANICKAM, folder, ignore=shutil.ignore_patterns("music", "sfx"))
+            with open(os.path.join(folder, "main.lua"), "a") as f:
+                f.write(settle)
+            # Up to 4 KB may stay: the tables of lights and orbs the benchmark
+            # filled, which the later chapters fill to the same size anyway.
+            B = 4800                              # the benchmark's seven stages are over by then
+            game_taps = f"a@{B + 180},start@{B + 280}," + ",".join(f"a@{f}" for f in range(B + 480, B + 900, 30))
+            built = pulli.build(folder)
+            title_kb, _ = settled(built, B + 900, game_taps)
+            bench_kb, r = settled(built, B + 900, f"select@60,a@90,start@{B},select@{B + 120}," + game_taps)
+            t.check("manickam: a benchmark run before a game is let go when the game starts",
+                    title_kb and bench_kb and abs(bench_kb - title_kb) < 4, f"{title_kb} {bench_kb} {r.err[-200:]}")
 
         # Talk uses nine SDK helpers and keeps none of them in its own
         # folder: packing it supplies them.
