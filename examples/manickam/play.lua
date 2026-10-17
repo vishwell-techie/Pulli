@@ -44,6 +44,8 @@ local function ring(x, y)
   for i = 0, 6 do spr(progress.data.pieces >> i & 1 == 1 and 944 or 953, x + i * 10, y) end
 end
 
+local CHAPTERS = { "opening", "ch0", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6" }
+
 core.add("play", {
   -- Loading a chapter (its module and a scan of its whole map) takes a
   -- moment, all in one frame. So entering only asks for it: the loading
@@ -64,8 +66,14 @@ core.add("play", {
       if not play.shown or play.wait > 0 or core.busy() then return end
       play.loading = nil
       dbg("chapter " .. tostring(which))
+      -- Only one chapter's code is kept: played through in one sitting,
+      -- the earlier ones would leave too little room for the festival.
+      local name = which == "opening" and "opening" or "ch" .. which
+      for _, m in ipairs(CHAPTERS) do
+        if m ~= name then unrequire(m) end
+      end
       collectgarbage()                    -- room to load the region in
-      w.start(which == "opening" and 0 or which, require(which == "opening" and "opening" or "ch" .. which))
+      w.start(which == "opening" and 0 or which, require(name))
       return
     end
     if core.pressed("select") and w.control then play.debug = not play.debug end

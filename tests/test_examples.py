@@ -39,19 +39,13 @@ TALK_NO_TAPS = "right@1-296,a@330,a@340,a@350,down@440,a@450,a@460,a@470"
 MANICKAM = os.path.join(ROOT, "examples", "manickam")
 
 
-def manickam_variant(tmp, chapter, every=False, extra=""):
-    """Manickam, changed to start straight in a chapter, and, with `every`,
-    to load all of its modules first: the most Lua memory the game can need,
-    as a player who goes through it all in one sitting ends up with every
-    chapter loaded."""
+def manickam_variant(tmp, chapter, extra=""):
+    """Manickam, changed to start straight in a chapter."""
     import shutil
     folder = os.path.join(tmp, "manickam")
     shutil.copytree(MANICKAM, folder, ignore=shutil.ignore_patterns("music", "sfx"))
     main = open(os.path.join(folder, "main.lua")).read()
     main = main.replace('core.go("title")', f'core.go("play", {chapter})')
-    if every:
-        main = main.replace('require("title")', 'require("title")\nfor _, m in ipairs({ "opening", "ch0", "ch1", "ch2", '
-                            '"ch3", "ch4", "ch5", "ch6" }) do require(m) end')
     open(os.path.join(folder, "main.lua"), "w").write(main + extra)
     return pulli.build(folder)
 
@@ -229,10 +223,29 @@ def main():
                     "held\t3\ttrue" in r.out, r.out[-300:] + r.err[-300:])
             t.check("manickam: after the piece, the slime is scared off and she still has every heart",
                     "after\t3" in r.out, r.out[-300:] + r.err[-300:])
-            reads = ",".join(f"a@{f}" for f in range(200, 1000, 60))
-            r = t.run_package(manickam_variant(os.path.join(tmp, "all"), 6, every=True), frames=2400, tap=reads)
-            t.check("manickam: with every chapter loaded, the festival and its fireworks fit in memory",
-                    r.code == 0, r.err[-300:])
+            # The whole game in one sitting, chapter 0 to the festival, each
+            # chapter ended as soon as Kayal can move (chapter 5 by its boss,
+            # its lamps lit for her). The chapters left behind are forgotten,
+            # so the festival has the room it had when started on its own.
+            through = ('local up = update\nlocal done, since = {}, 0\nfunction update(dt) up(dt)\n'
+                       '  local w = require("world")\n'
+                       '  if w.control then since = since + 1 else since = 0 end\n'
+                       '  local c = w.chapter\n'
+                       '  if c and since == 120 and not done[c] then\n'
+                       '    if c == 5 and not done.top then done.top = true w.start(5, require("ch5").top)\n'
+                       '    elseif c ~= 5 then done[c] = true w.finish() end\n'
+                       '  end\n'
+                       '  if c == 5 and done.top and stat("frame") % 60 == 0 then\n'
+                       '    for _, l in ipairs(w.lamps) do l.lit = true end w.p.hearts = 3\n'
+                       '  end\n'
+                       '  if c == 6 then in6 = (in6 or 0) + 1 end\n'
+                       '  if in6 == 900 then collectgarbage() dbg("festival", stat("mem")) end\n'
+                       'end\n')
+            reads = ",".join(f"a@{f}" for f in range(100, 9000, 30))
+            r = t.run_package(manickam_variant(os.path.join(tmp, "all"), 0, extra=through), frames=9000, tap=reads)
+            kb = [float(l.split("\t")[1]) for l in r.lines if l.startswith("festival")]
+            t.check("manickam: played through in one sitting, the festival and its fireworks fit in memory",
+                    r.code == 0 and kb and kb[0] < 215, f"{kb} {r.err[-300:]}")
 
         # Talk uses nine SDK helpers and keeps none of them in its own
         # folder: packing it supplies them.

@@ -685,6 +685,11 @@ local enemies = require("enemies")   -- runs enemies.lua from the package
 - A missing module, a mistake in one, and two modules that require each
   other are errors that name the file.
 - The file is passed its own name, as `...`.
+- `unrequire(name)` forgets a module and returns `true` if it was loaded.
+  Its memory is collected once nothing else holds what it returned, and
+  the next `require(name)` runs the file again. A game split into levels or
+  chapters can drop the ones it has left. A module cannot be forgotten
+  while it is still loading.
 
 ### Batteries (Lua-level, shipped as SDK source, not engine)
 
@@ -976,3 +981,5 @@ covered by `tests/`; none is frozen.
 25. **Files the operating system makes** (§6): `pack` leaves out names with
    a `:` (Windows' Zone.Identifier files), `Thumbs.db` and `desktop.ini`,
    and an over-full package is refused with the list of what was packed.
+26. **Forgetting a module** (§3): `unrequire(name)`, so a game can free the
+   memory of a part it has finished with, such as an earlier chapter.

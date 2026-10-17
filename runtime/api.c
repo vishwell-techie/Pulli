@@ -432,6 +432,22 @@ static int l_require(lua_State *L) {
     return 1;
 }
 
+/* unrequire(name) forgets a module, so the memory it holds can be collected
+ * once nothing else uses it; the next require runs the file again. Gives
+ * true if the module was loaded. */
+static int l_unrequire(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
+    luaL_getsubtable(L, LUA_REGISTRYINDEX, MODULES);
+    int t = lua_getfield(L, -1, name);
+    if (t == LUA_TLIGHTUSERDATA)
+        return luaL_error(L, "unrequire: '%s' is still loading", name);
+    lua_pop(L, 1);
+    lua_pushnil(L);
+    lua_setfield(L, -2, name);
+    lua_pushboolean(L, t != LUA_TNIL);
+    return 1;
+}
+
 /* Sandbox by construction: the io, os, package and debug libraries are
  * never opened, rather than opened and then hidden. */
 static const luaL_Reg LIBS[] = {
@@ -471,6 +487,7 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
     luaL_setfuncs(L, CORE, 0);
     lua_pop(L, 1);
     lua_register(L, "require", l_require);
+    lua_register(L, "unrequire", l_unrequire);
 
     luaL_newlib(L, MAP);
     lua_setglobal(L, "map");

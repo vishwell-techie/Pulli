@@ -138,6 +138,11 @@ def main():
     for bad in ("../main", "notes.txt", "greet.lua", "", "main", "manifest"):
         r = t.run_game(f"require({bad!r})", extra=mods)
         t.check(f"require refuses {bad!r}", r.code == 1 and "require" in r.err, r.err)
+    r = t.run_game("local a = require('count') dbg(unrequire('count'), unrequire('count'), unrequire('nowhere')) "
+                   "local b = require('count') dbg(runs, a ~= b)", extra=mods)
+    expect("unrequire forgets a module, and the next require runs it again", r, ["true\tfalse\tfalse", "2\ttrue"])
+    expect_error("a module cannot be forgotten while it is still loading",
+                 t.run_game("require('self')", extra={"self.lua": "unrequire('self')"}), "still loading")
     r = t.run_game("require('bytes')", extra={"bytes.lua": b"\x1bLua\x54\x00" + bytes(40)})
     expect_error("a module of precompiled bytecode is refused", r, "binary")
 

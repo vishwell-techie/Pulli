@@ -214,6 +214,11 @@ returned, or true if nothing. Asking again returns the same value. If the
 game has no `name.lua`, packing supplies the helper of that name; see
 [Helpers](helpers.md).
 
+### `unrequire(name)`
+Forget a module, so its memory can be freed once nothing else uses what it
+returned. The next `require(name)` runs the file again. Returns true if it
+was loaded. Useful for levels or chapters the player has finished.
+
 ## Link
 
 Two consoles joined by a cable exchange short messages. In the window, run
