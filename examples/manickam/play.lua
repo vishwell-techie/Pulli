@@ -111,15 +111,17 @@ core.add("play", {
     if w.flash > 0.6 then rectfill(0, 0, 320, 240, 7)
     elseif w.flash > 0 then for y = f % 2, 239, 2 do rectfill(0, y, 320, 1, 7) end end
     talk.draw()
-    -- the chapter's name, for a few seconds as it begins
-    if w.card_t > 0 and (w.card_t > 0.6 or f % 4 < 2) then
+    -- the chapter's name, for a few seconds as it begins; in its last
+    -- 0.6 s the banner slides up off the screen
+    if w.card_t > 0 then
       local name, num = story.t("chapter" .. w.chapter), story.t("chapter", w.chapter)
       local nh = core.height(num)
       local h = core.height(name) + nh + 14
-      rectfill(0, 60, 320, h, 32)
-      rect(-1, 60, 322, h, 9)
-      core.center(num, 65, 9)
-      core.center(name, 68 + nh, 10, 41)
+      local y = 60 - math.max(0, 0.6 - w.card_t) / 0.6 * (60 + h) // 1
+      rectfill(0, y, 320, h, 32)
+      rect(-1, y, 322, h, 9)
+      core.center(num, y + 5, 9)
+      core.center(name, y + 8 + nh, 10, 41)
     end
     -- SELECT while playing: how hard the machine is working
     if play.debug then
@@ -196,8 +198,11 @@ core.add("pause", {
     if f // 10 % 2 == 0 then rectfill(mx + w.p.x // 8 * ms - 1, my + w.p.y // 8 * ms - 1, ms + 2, ms + 2, 8) end
     local y = 44
     for i, key in ipairs({ "pieces", "hearts", "side" }) do
-      print(story.t(key), 188, y, 10)
-      y = y + core.height(story.t(key)) + 3
+      -- 16 columns from x 188 reach the screen's edge; a longer label
+      -- (Tamil's "ruby pieces") goes on two lines
+      local label = table.concat(core.wrap(story.t(key), 16), "\n")
+      print(label, 188, y, 10)
+      y = y + core.height(label) + 3
       if i == 1 then ring(188, y)
       elseif i == 2 then for k = 1, d.hearts do spr(938, 179 + k * 9, y) end
       else
