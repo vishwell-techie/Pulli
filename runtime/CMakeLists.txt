@@ -6,6 +6,7 @@ add_library(pulli_runtime STATIC
     engine.c
     font.c
     font_ta.c
+    font_ta_small.c
     gfx.c
     map.c
     pkg.c

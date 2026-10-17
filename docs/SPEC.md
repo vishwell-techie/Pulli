@@ -386,6 +386,8 @@ spr(n, x, y, w, h, flip_x, flip_y) -- n = sprite index; w,h in 8px cells
 sspr(sx,sy,sw,sh, dx,dy, dw,dh)    -- stretched blit
 print(text, x, y, c)               -- UTF-8, English and Tamil; returns the x after it
 text_size(text)                    -- width of the widest line and height of all, in pixels
+font(size)                         -- "normal" or "small": the size Tamil is drawn at
+buttons.a                          -- each button's icon, as a character to put in text
 camera(x, y)                       -- world -> screen offset
 clip(x, y, w, h)                   -- nil = reset
 pal(a, b)                          -- remap palette index a -> b
@@ -427,9 +429,22 @@ the `y` given.
   and the sign after it are drawn as one glyph, already shaped: ெ, ே and ை
   before the letter, ொ, ோ and ௌ around it, ு and ூ joined to it. Each glyph
   has its own width and advance.
-- A line holding any Tamil is as tall as the Tamil font (22 pixels, in the
-  font's `! rows=` line), and English on it is lowered to share the Tamil
-  baseline. Any other line is 8 pixels tall. `\n` starts the next line
+- **Two Tamil sizes.** `font("small")` switches `print` and `text_size` to
+  the small Tamil font, and `font()` or `font("normal")` back; the size
+  stays until changed, like `camera`. English and the icons do not change
+  size. Any other size is an error.
+- **Button icons.** Each button has an icon, a character in Unicode's
+  private use area, U+E000 to U+E00B in the order `left right up down a b
+  x y l r start select`. The table `buttons` holds them as strings,
+  `buttons.a` and so on, so a game can write `print("Press " .. buttons.a)`
+  in any language. An icon is 8 pixels tall and sits on the line like an
+  English letter; `start` and `select` are 12 pixels wide, the others 8.
+  The same icons are built into every Pulli, so every game shows the same
+  buttons.
+- A line holding any Tamil is as tall as the Tamil font in use (22 pixels
+  at the normal size, 16 at the small, in each font's `! rows=` line), and
+  English and icons on it are lowered to share the Tamil baseline. Any
+  other line is 8 pixels tall. `\n` starts the next line
   below the last one, at the `x` given.
 - A character neither font has, and a byte that does not begin a
   well-formed UTF-8 character, are drawn as `?`.
@@ -437,9 +452,10 @@ the `y` given.
   line. `text_size(text)` returns, without drawing, the width of the widest
   line and the height of all the lines.
 
-The fonts are `runtime/font.txt` and `runtime/font_ta.txt`, plain text.
-The Tamil font is made from Noto Sans Tamil Medium at 17 pixels to the em
-by `tools/fontgen/ta_from_font.py`, and is under the SIL Open Font License
+The fonts are `runtime/font.txt` (English and the icons),
+`runtime/font_ta.txt` and `runtime/font_ta_small.txt`, plain text. The Tamil
+fonts are made from Noto Sans Tamil Medium, at 17 and 14 pixels to the em,
+by `tools/fontgen/ta_from_font.py`, and are under the SIL Open Font License
 1.1 (`third_party/noto-sans-tamil/`). `tools/refgfx.py` lays text out the
 same way, and the conformance tests hold the runtime to it.
 
@@ -976,3 +992,8 @@ covered by `tests/`; none is frozen.
 25. **Files the operating system makes** (§6): `pack` leaves out names with
    a `:` (Windows' Zone.Identifier files), `Thumbs.db` and `desktop.ini`,
    and an over-full package is refused with the list of what was packed.
+26. **Small Tamil and button icons** (§3): `font("small")` draws Tamil from
+   a second font made at 14 pixels to the em (16 rows instead of 22), for
+   labels and HUDs; the twelve button icons are characters U+E000 to
+   U+E00B, named by the `buttons` table, so text in any language can show a
+   button.

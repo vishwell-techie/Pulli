@@ -8,7 +8,7 @@ prints to stdout, and the test compares that with what SPEC.md promises.
 """
 import os, sys, tempfile
 
-from harness import Suite
+from harness import Suite, ROOT
 
 
 def manifest(**fields):
@@ -171,6 +171,21 @@ def main():
     end""", frames=1)
     expect("print returns where the next letter would go; text_size gives the widest line and the height", r,
            ["26\t0\t8", "32\t16", "16\t16\t8", f"{5 + size('கொ')[0]}\t{size('கொ')[0]}\t{ta.rows + 8}"])
+    small = refgfx.TamilFont(os.path.join(ROOT, "runtime", "font_ta_small.txt"))
+    widths = [w for w, _ in refgfx.icons()]
+    r = t.run_game("""function draw()
+        dbg(buttons.a == "\\u{E004}", buttons.left == "\\u{E000}", buttons.select == "\\u{E00B}", #buttons.start)
+        dbg(text_size(buttons.a .. buttons.start .. "x"))
+        dbg(text_size("கொ" .. buttons.b))
+        font("small") dbg(text_size("கொ\\nA"))
+        font() dbg(text_size("கொ"))
+        font("small") font("normal") dbg(text_size("கொ"))
+    end""", frames=1)
+    expect("buttons holds each button's icon; icons are as wide as drawn, and font() picks the Tamil size", r,
+           ["true\ttrue\ttrue\t3", f"{widths[4] + widths[10] + 8}\t8",
+            f"{size('கொ')[0] + widths[5]}\t{ta.rows}",
+            f"{small.glyphs['கொ'][2]}\t{small.rows + 8}", f"{size('கொ')[0]}\t{ta.rows}", f"{size('கொ')[0]}\t{ta.rows}"])
+    expect_error("font() refuses a size it does not have", t.run_game("font('huge')"), "invalid option")
     r = t.run_game("""function draw()
         cls() print("கொ", 0, 0, 7)
         local left, right = 99, -1
