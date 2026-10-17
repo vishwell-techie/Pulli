@@ -3,19 +3,24 @@
 -- The temple is one map of six floors stacked, the first at the bottom; the
 -- camera shows one floor at a time. Each floor's way up is a door that
 -- opens when the floor's lamps all burn. Some lamps sit behind rails where
--- only a beam of light can reach them, turned there by mirrors (A turns a
--- mirror). The last piece is on the top floor.
+-- only a beam of light can reach them: Kayal lights a beam lamp by hand, and
+-- turns mirrors (A turns a mirror) to carry its light. A lamp lit by a beam
+-- stays lit only while the beam reaches it. The last piece is on the top
+-- floor.
 --
 -- At the top Irul is coiled round the great lamp. Kayal does not fight it:
 -- in three phases she dodges its dark orbs while lighting lamps: by hand,
--- then by turning mirrors, then by hand again after Irul has put them out.
--- Between phases they talk, and each phase leaves Irul smaller. An orb that
--- reaches lamplight is gone.
+-- then by beams and mirrors, then by hand again after Irul has put them out.
+-- Every lotus she found takes the blow of one orb. Between phases they
+-- talk, and each phase leaves Irul smaller; at the end Kayal sets the seven
+-- pieces of the ruby in the great lamp, and its light sends Irul home. An
+-- orb that reaches lamplight is gone.
 
 local progress = require("progress")
 local script   = require("script")
 local irul     = require("irul")
 local fx       = require("fx")
+local core     = require("core")
 
 local temple = { map = "temple.ooru", music = 6, pieces = { 7 }, floor_h = 240,   -- temple music
   lines = { hint = "c5_start", done = "c5_stairs", exit = "c5_stairs" } }
@@ -25,7 +30,7 @@ temple.top = top
 -- ---- the temple floors -------------------------------------------------------------
 
 function temple.start(w)
-  for _, l in ipairs(w.lamps) do l.beam = l.cy % 30 == 4 end    -- the lamps behind rails
+  for _, l in ipairs(w.lamps) do l.beam = not l.src and l.cy % 30 == 4 end    -- the lamps behind rails
   w.card()
   w.tip("c5_start")
 end
@@ -75,6 +80,7 @@ end
 local MAX = 100
 local ox, oy, vx, vy = {}, {}, {}, {}  -- the dark orbs
 local n, phase, clock, angle, snake, lamp
+local ruby_t                             -- the ruby flying in; top.shields: orbs the lotuses will still stop
 local CX, CY = 160, 116                  -- the great lamp
 
 local function orb(x, y, a, speed)
@@ -84,17 +90,19 @@ local function orb(x, y, a, speed)
   end
 end
 
--- All the lamps lit by hand (beam false), or all those lit by beams.
+-- All the lamps lit by hand (beam false), or all those lit by beams. The
+-- beam lamps themselves are neither.
 local function lamps_lit(w, beam)
   for _, l in ipairs(w.lamps) do
-    if l.beam == beam and not l.lit then return false end
+    if l.beam == beam and not l.src and not l.lit then return false end
   end
   return true
 end
 
 function top.start(w)
-  n, phase, clock, angle = 0, 0, 0, 0
-  for _, l in ipairs(w.lamps) do l.beam = l.cx == 3 or l.cx == 36 end   -- the four out of reach
+  n, phase, clock, angle, ruby_t = 0, 0, 0, 0, nil
+  top.shields = progress.data.lotuses
+  for _, l in ipairs(w.lamps) do l.beam = not l.src and (l.cx == 3 or l.cx == 36) end   -- the four out of reach
   lamp = { x = CX, y = CY + 16, draw = function(a) spr(a.lit and 296 or 298, CX - 8, CY - 16, 2, 4) end }
   snake = irul.new(16, 4, CX, CY - 40)
   w.actors[1], w.actors[2] = lamp, { x = 0, y = 999, draw = function() snake:draw() end }
@@ -102,6 +110,7 @@ function top.start(w)
     s.say("irul", "b_1")
     s.say("kayal", "b_2")
     s.say("minmini", "b_tip1")
+    if top.shields > 0 then s.say("minmini", "b_lotus", top.shields) end
     phase = 1
   end)
 end
@@ -126,6 +135,34 @@ function top.update(w, dt)
   angle = angle + dt * (0.8 + phase * 0.25)
   local r = 70 - snake.scale * 20
   snake:go(CX + math.cos(angle) * r, CY - 10 + math.sin(angle) * r * 0.6)
+  if phase == 4 then                                  -- the ruby, set in the great lamp
+    if not ruby_t and not script.active() and core.pressed("a")
+        and math.abs(p.x + 4 - CX) < 28 and math.abs(p.y + 3 - (CY + 16)) < 24 then
+      ruby_t = 0
+      w.control = false
+      script.run(function(s)
+        progress.sfx(2)   -- piece
+        s.during(2.1, function(dt) ruby_t = ruby_t + dt end)   -- seven pieces, one after another
+        lamp.lit = true
+        w.flash = 1
+        progress.sfx(19)   -- shatter: the dark breaks
+        fx.burst(CX, CY - 14, 60, fx.RUBY)
+        s.say("minmini", "c5_whole")
+        -- the great lamp's light: Irul slides away under the hills
+        s.during(2.5, function(dt, k) snake.scale = math.max(0.15, snake.scale - dt * 0.2) end)
+        snake.show = false
+        fx.burst(CX, CY - 14, 60, fx.GLOW)
+        s.wait(1.5)
+        ruby_t, phase = nil, 5
+      end)
+    end
+    return
+  end
+  if phase == 5 then                                  -- the cut-scene is over: on to the festival
+    if not script.active() then phase = 6; w.finish() end
+    return
+  end
+  if phase == 6 then return end
   if phase == 0 or w.still then return end           -- orbs wait while anyone talks
   -- orbs, in a pattern for each phase
   clock = clock + dt
@@ -148,7 +185,13 @@ function top.update(w, dt)
     ox[i], oy[i] = ox[i] + vx[i] * dt, oy[i] + vy[i] * dt
     local gone = ox[i] < -8 or ox[i] > 328 or oy[i] < -8 or oy[i] > 248 or w.lamp_over(ox[i], oy[i])
     if not gone and math.abs(ox[i] - p.x - 4) < 6 and math.abs(oy[i] - p.y - 2) < 6 then
-      w.hurt(ox[i], oy[i])
+      if top.shields > 0 and p.hurt <= 0 then      -- a lotus takes the blow
+        top.shields = top.shields - 1
+        fx.burst(ox[i], oy[i], 12, fx.SPARK)
+        progress.sfx(26)   -- chime
+      else
+        w.hurt(ox[i], oy[i])
+      end
       gone = true
     end
     if gone then
@@ -166,31 +209,39 @@ function top.update(w, dt)
       w.flash = 1
       progress.sfx(21)   -- hiss
       for _, l in ipairs(w.lamps) do
-        if not l.beam then l.lit = false; map.set(0, l.cx, l.cy, w.T.lamp_off) end
+        if not l.beam and not l.src then l.lit = false; map.set(0, l.cx, l.cy, w.T.lamp_off) end
       end
     end)
     phase = -3
   elseif phase == 3 and lamps_lit(w, false) then
-    between(w, "b_7", "b_8", nil, function(s)
-      -- calmed, Irul slides away under the hills, and the great lamp is lit
-      s.during(2.5, function(dt, k) snake.scale = math.max(0.15, snake.scale - dt * 0.2) end)
-      snake.show = false
-      lamp.lit = true
-      progress.sfx(2)   -- piece
-      fx.burst(CX, CY - 14, 60, fx.GLOW)
-      s.wait(2)
-    end)
+    -- calmed, Irul waits; the ruby goes in the great lamp
+    between(w, "b_7", "b_8", "c5_ruby")
     phase = -4
   end
   if phase < 0 and not script.active() then
-    if phase == -4 then w.finish() else phase = -phase end
+    phase = -phase
   end
 end
 
 function top.draw_top(w)
   local f = stat("frame")
   for i = 1, n do spr(946, ox[i] - 4, oy[i] - 4) end
+  if ruby_t then                         -- the seven pieces, from Kayal into the great lamp
+    local p = w.p
+    for i = 0, 6 do
+      local k = math.max(0, math.min(1, (ruby_t - i * 0.2) / 0.7))
+      if k < 1 then
+        local x = p.x + 4 + (CX - p.x - 4) * k
+        local y = p.y - 6 + (CY - 14 - p.y + 6) * k - math.sin(k * 3.1416) * 24
+        spr(944, x - 4, y - 4)
+      end
+    end
+  end
   if lamp.lit then circ(CX, CY - 14, 6 + f // 4 % 3, 10) end
+end
+
+function top.hud(w)
+  if top.shields > 0 then spr(942, 222, 2) print(top.shields, 232, 3, 7) end   -- the lotuses' shields
 end
 
 return temple

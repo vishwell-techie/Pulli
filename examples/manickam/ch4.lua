@@ -1,5 +1,6 @@
 -- ch4.lua — chapter 4, Mullu Malai: the thorny hills. Thorns hurt; in the
--- canyon, rocks fall where their shadows grow; the two pieces lie in dark
+-- canyon, rocks fall where their shadows grow, most of them aimed at her:
+-- where she stands, or where she is heading; the two pieces lie in dark
 -- caves. Taking the second, Irul brings the cave down, and Kayal has a
 -- minute to get out by the cave's far mouth, with rocks falling all round.
 
@@ -13,11 +14,13 @@ local region = { map = "hills.ooru", music = 5, pieces = { 5, 6 },   -- hills mu
   lines = { villager = "c4_hermit", hint = "c4_exit", exit = "c4_exit" } }
 local ESCAPE = 60
 local rx, ry, rt = {}, {}, {}           -- falling rocks: where, and how long until they land
-local n, clock
+local n, clock, aim
+local FALL = 1.1                         -- seconds from the shadow to the crash
+local AHEAD = { down = { 0, 1 }, up = { 0, -1 }, left = { -1, 0 }, right = { 1, 0 } }
 
 function region.start(w)
   w.npcs[1].say = "hermit"
-  n, clock, region.escape = 0, 0, nil
+  n, clock, aim, region.escape = 0, 0, 0, nil
   w.card()
   w.tip("c4_start")
 end
@@ -33,8 +36,19 @@ function region.update(w, dt)
   end
   clock = clock + dt
   if due and clock > due and n < 24 and w.control then
-    clock, n = 0, n + 1
-    rx[n], ry[n], rt[n] = px + math.random(-48, 48), py + math.random(-36, 36), 1.1
+    clock, n, aim = 0, n + 1, aim % 3 + 1
+    -- in turn: on her, on her way (where she will be when it lands, if she
+    -- keeps walking), and anywhere near; so standing still is no shelter
+    local x, y
+    if aim == 1 then
+      x, y = px + math.random(-4, 4), py + math.random(-3, 3)
+    elseif aim == 2 then
+      local d = p.moving and AHEAD[p.face] or { 0, 0 }
+      x, y = px + d[1] * 60 * FALL + math.random(-6, 6), py + d[2] * 60 * FALL + math.random(-6, 6)
+    else
+      x, y = px + math.random(-48, 48), py + math.random(-36, 36)
+    end
+    rx[n], ry[n], rt[n] = x, y, FALL
   end
   local i = 1
   while i <= n do
@@ -86,7 +100,7 @@ end
 
 function region.draw(w)
   for i = 1, n do                        -- shadows grow as the rocks come down
-    local r = (1.1 - rt[i]) * 6
+    local r = (FALL - rt[i]) * 6
     rectfill(rx[i] - r, ry[i] - r / 3, r * 2, r / 1.5, 32)
   end
 end

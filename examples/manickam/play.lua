@@ -39,9 +39,11 @@ function w.finish()
   end
 end
 
--- The ruby's seven pieces, found or not, in a row from x.
+-- The ruby's seven pieces in a row from x: as many filled, from the left,
+-- as have been found, whichever they were.
 local function ring(x, y)
-  for i = 0, 6 do spr(progress.data.pieces >> i & 1 == 1 and 944 or 953, x + i * 10, y) end
+  local n = progress.piece_count()
+  for i = 0, 6 do spr(i < n and 944 or 953, x + i * 10, y) end
 end
 
 local CHAPTERS = { "opening", "ch0", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6" }

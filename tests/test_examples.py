@@ -50,6 +50,36 @@ def manickam_variant(tmp, chapter, extra=""):
     return pulli.build(folder)
 
 
+def walkable_without_keys(name):
+    """From a Manickam map's start, which markers can be reached without
+    opening a shrine gate. Reads the .tmx and the tileset's flags."""
+    import xml.etree.ElementTree as ET
+    flags = {}
+    for tile in ET.parse(os.path.join(MANICKAM, "sprites.tsx")).getroot().iter("tile"):
+        for prop in tile.iter("property"):
+            if prop.get("name") == "flags":
+                flags[int(tile.get("id"))] = int(prop.get("value"))
+    root = ET.parse(os.path.join(MANICKAM, name + ".tmx")).getroot()
+    w, h = int(root.get("width")), int(root.get("height"))
+    ground, front = [[(int(v) & 0x0FFFFFFF) - 1 for v in layer.find("data").text.replace("\n", "").split(",")
+                      if v.strip()] for layer in root.iter("layer")]
+    names = "start slime swimmer paati potter villager villager2 piece key pot lotus heart".split() + \
+        "switch_a switch_b switch_c stone_a stone_b stone_c exit".split()
+    marks = {}
+    for i, t in enumerate(front):
+        if 1000 <= t < 1000 + len(names):
+            marks.setdefault(names[t - 1000], []).append(i)
+    start = marks["start"][0]
+    seen, todo = {start}, [start]
+    while todo:
+        i = todo.pop()
+        for j in (i - 1, i + 1, i - w, i + w):
+            if 0 <= j < w * h and abs(j % w - i % w) <= 1 and j not in seen and not flags.get(ground[j], 0) & (1 | 8):
+                seen.add(j)
+                todo.append(j)
+    return {k: (sum(i in seen for i in v), len(v)) for k, v in marks.items()}
+
+
 # Pong seeds its random numbers from the frame on which A is pressed. Pressed
 # on frame 6, the first serve goes to the console, which returns it: that
 # puts the console's paddle to work and gives a paddle hit to test against.
@@ -87,6 +117,12 @@ def main():
         packed = {n for n, _ in pulli.parse(pulli.build(folder))}
         t.check(f"{name} uses SDK helpers and keeps no copies of them",
                 packed & helpers and not helpers & set(os.listdir(folder)), sorted(packed & helpers))
+
+    # The forest: shrine gates close the piece, the heart lotus and the way
+    # out, and all three keys can be found without opening one.
+    forest = walkable_without_keys("forest")
+    t.check("manickam: in the forest the piece, the heart and the exit are behind gates, and every key is not",
+            forest["key"] == (3, 3) and forest["piece"][0] == forest["heart"][0] == forest["exit"][0] == 0, forest)
 
     if t.need_runtime("running the examples"):
         seen = {}
@@ -225,7 +261,7 @@ def main():
                     "after\t3" in r.out, r.out[-300:] + r.err[-300:])
             # The whole game in one sitting, chapter 0 to the festival, each
             # chapter ended as soon as Kayal can move (chapter 5 by its boss,
-            # its lamps lit for her). The chapters left behind are forgotten,
+            # its lamps lit for her, and A by the great lamp sets the ruby). The chapters left behind are forgotten,
             # so the festival has the room it had when started on its own.
             through = ('local up = update\nlocal done, since = {}, 0\nfunction update(dt) up(dt)\n'
                        '  local w = require("world")\n'
@@ -237,6 +273,7 @@ def main():
                        '  end\n'
                        '  if c == 5 and done.top and stat("frame") % 60 == 0 then\n'
                        '    for _, l in ipairs(w.lamps) do l.lit = true end w.p.hearts = 3\n'
+                       '    w.p.x, w.p.y = 152, 126\n'                    # by the great lamp, for the ruby
                        '  end\n'
                        '  if c == 6 then in6 = (in6 or 0) + 1 end\n'
                        '  if in6 == 900 then collectgarbage() dbg("festival", stat("mem")) end\n'
@@ -281,6 +318,104 @@ def main():
             bench_kb, r = settled(built, B + 900, f"select@60,a@90,start@{B},select@{B + 120}," + game_taps)
             t.check("manickam: a benchmark run before a game is let go when the game starts",
                     title_kb and bench_kb and abs(bench_kb - title_kb) < 4, f"{title_kb} {bench_kb} {r.err[-200:]}")
+
+            # The ring of pieces fills from the left, whichever was found:
+            # the lake's second piece alone shows as the first of seven.
+            ring = ('local dr = draw\nfunction draw() dr()\n'
+                    '  if stat("frame") == 150 then local t = {}\n'
+                    '    for i = 0, 6 do for x = 0, 7 do t[#t + 1] = pget(116 + i * 10 + x, 6) end end\n'
+                    '    dbg("ring", table.concat(t, ",")) end\nend\n'
+                    'local up = update\nfunction update(dt) up(dt) require("progress").data.pieces = BITS end\n')
+            def ring_of(bits):
+                r = t.run_package(manickam_variant(os.path.join(tmp, f"ring{bits}"), 3,
+                                                   extra=ring.replace("BITS", str(bits))), frames=150)
+                return [l for l in r.lines if l.startswith("ring")]
+            fourth, first, none = ring_of(1 << 3), ring_of(1), ring_of(0)
+            t.check("manickam: the ring fills from the left, whichever piece was found",
+                    fourth and fourth == first != none)
+
+            # The hills: standing still in the canyon is no shelter, as most
+            # rocks are aimed at Kayal.
+            still = ('local up = update\nfunction update(dt) up(dt)\n'
+                     '  local w = require("world")\n'
+                     '  local f = stat("frame")\n'
+                     '  if f == 150 then local m = w.marks.rocks[1] w.p.x, w.p.y = m.x - 4, m.y - 3 w.p.hearts = 9 end\n'
+                     '  if f > 150 and f < 750 then w.p.x, w.p.y = require("world").marks.rocks[1].x - 4, w.marks.rocks[1].y - 3 end\n'
+                     '  if f == 750 then dbg("hits", 9 - w.p.hearts) end\n'
+                     'end\n')
+            r = t.run_package(manickam_variant(os.path.join(tmp, "rocks"), 4, extra=still), frames=760,
+                              tap=",".join(f"a@{f}" for f in range(100, 760, 40)))
+            hits = [int(l.split("\t")[1]) for l in r.lines if l.startswith("hits")]
+            t.check("manickam: standing still under the falling rocks, Kayal is hit again and again",
+                    hits and hits[0] >= 3, f"{hits} {r.err[-200:]}")
+
+            # A cave cannot be seen into from outside: a slime inside it is
+            # not drawn while Kayal stands in the light.
+            cave = ('local up, dr = update, draw\nlocal spot\nfunction update(dt) up(dt)\n'
+                    '  local w = require("world")\n'
+                    '  if stat("frame") == 150 then\n'
+                    '    local cv = w.caves\n'
+                    '    for i = 1, #cv, 3 do\n'
+                    '      local cx, cy = cv:byte(i, i + 1)\n'
+                    '      for d = 1, 6 do for _, o in ipairs({ { 0, -d }, { 0, d }, { -d, 0 } }) do\n'
+                    '        local x, y = cx * 8 + 4 + o[1] * 8, cy * 8 + 4 + o[2] * 8\n'
+                    '        if not spot and w.flags_at(x, y) & (w.SOLID | w.DARK | w.DEEP | w.HURT) == 0 then\n'
+                    '          spot = { cx * 8 + 4, cy * 8 + 4 } w.p.x, w.p.y = x - 4, y - 3\n'
+                    '          w.add_slime(spot[1], spot[2]) end end end\n'
+                    '    end\n'
+                    '  end\n'
+                    '  if spot then local w = require("world") w.slimes[#w.slimes].x, w.slimes[#w.slimes].y = spot[1] - 4, spot[2] - 3 end\n'
+                    'end\nfunction draw() dr()\n'
+                    '  local w = require("world")\n'
+                    '  if spot and stat("frame") == 200 then\n'
+                    '    local t = {}\n'
+                    '    for y = -2, 1 do for x = -2, 1 do t[#t + 1] = pget(spot[1] - w.cam.x + x, spot[2] - w.cam.y + y) end end\n'
+                    '    dbg("cave", table.concat(t, ","))\n'
+                    '  end\nend\n')
+            r = t.run_package(manickam_variant(os.path.join(tmp, "cave"), 4, extra=cave), frames=200,
+                              tap="a@100,a@130,a@160,a@190")
+            seen_cave = [l.split("\t")[1] for l in r.lines if l.startswith("cave")]
+            t.check("manickam: from outside a cave, nothing inside it shows, slimes included",
+                    seen_cave and set(seen_cave[0].split(",")) == {"32"}, f"{seen_cave} {r.err[-200:]}")
+
+            # The temple: a beam lamp has to be lit before it shines, and a
+            # lamp lit by a beam goes out when the mirror is turned away.
+            beam = ('local up = update\nfunction update(dt) up(dt)\n'
+                    '  local w = require("world")\n'
+                    '  if stat("frame") ~= 150 then return end\n'
+                    '  local src, recv\n'
+                    '  for _, l in ipairs(w.lamps) do\n'
+                    '    if l.cy >= 120 and l.cy < 150 then if l.src then src = l elseif l.beam then recv = l end end\n'
+                    '  end\n'
+                    '  local function turn() local t, f = map.get(0, 6, 140) map.set(0, 6, 140, t, not f) w.trace() end\n'
+                    '  turn() local a = recv.lit\n'
+                    '  w.light_lamp(src) local b = recv.lit\n'
+                    '  turn() local c = recv.lit\n'
+                    '  dbg("beam", a, b, c)\n'
+                    'end\n')
+            r = t.run_package(manickam_variant(os.path.join(tmp, "beam"), 5, extra=beam), frames=152,
+                              tap="a@100,a@130")
+            t.check("manickam: a beam shines once its lamp is lit, and a lamp it lit goes out when the beam leaves",
+                    "beam\tfalse\ttrue\tfalse" in r.out, r.out[-300:] + r.err[-300:])
+
+            # The Irul fight: each lotus found stops one dark orb.
+            fight = ('local up = update\nfunction update(dt) up(dt)\n'
+                     '  local w = require("world")\n'
+                     '  local f = stat("frame")\n'
+                     '  if f == 150 then require("progress").data.lotuses = LOTUSES w.start(5, require("ch5").top) end\n'
+                     '  if f == 1950 then dbg("fight", require("ch5").top.shields, w.p.hearts) end\n'
+                     'end\n')
+            def fight_with(lotuses):
+                r = t.run_package(manickam_variant(os.path.join(tmp, f"fight{lotuses}"), 5,
+                                                   extra=fight.replace("LOTUSES", str(lotuses))),
+                                  frames=1950, tap=",".join(f"a@{f}" for f in range(100, 700, 30)))
+                got = [l.split("\t")[1:] for l in r.lines if l.startswith("fight")]
+                return (tuple(int(v) for v in got[0]) if got else None), r
+            (shield7, hearts7), r7 = fight_with(7)
+            (shield0, hearts0), r0 = fight_with(0)
+            t.check("manickam: in the Irul fight each lotus stops an orb, and without lotuses the orbs hurt",
+                    shield7 < 7 and (hearts7 == 3 or shield7 == 0) and shield0 == 0 and hearts0 < 3,
+                    f"{shield7} {hearts7} {shield0} {hearts0} {r7.err[-200:]}")
 
         # Talk uses nine SDK helpers and keeps none of them in its own
         # folder: packing it supplies them.

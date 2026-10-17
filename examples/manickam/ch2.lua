@@ -1,8 +1,9 @@
 -- ch2.lua — chapter 2, Aalamaram Kaadu: the banyan forest at night, a maze
 -- of corridors under the trees. Only Minmini's light and the lamps Kayal
--- lights show the way; three shrine gates stand between her and the great
--- banyan, each opened by a key found down a side path. When she has the
--- piece, two red eyes watch from the dark.
+-- lights show the way. Shrine gates close the great banyan's clearing, the
+-- heart lotus's dead end and the way out; the woodcutter's three keys lie
+-- far apart in the maze, so it has to be searched. When she has the piece,
+-- two red eyes watch from the dark.
 
 local progress = require("progress")
 local script   = require("script")
