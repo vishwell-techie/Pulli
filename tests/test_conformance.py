@@ -115,6 +115,13 @@ def build_scene():
     op("print", "கு பூ டூ", 64, 210, 12)
     op("print", "பு €\nA", 4, 150, 7)
     op("print", "Hi தமிழ்\nok", 2, 96, 9)
+    # the button icons, on an English line and on a Tamil one, and Tamil at
+    # its small size, which lowers its English less
+    op("print", "Go " + "".join(chr(0xE000 + i) for i in range(12)), 150, 2, 7)
+    op("print", "அ" + chr(0xE004) + "x\n" + chr(0xE00B), 260, 120, 8)
+    op("font", "small")
+    op("print", "சிறிய " + chr(0xE005) + " ok\nகொ", 110, 150, 11)
+    op("font")
 
     # fractions round down, on both sides of zero
     op("rectfill", 100.9, 140.2, 10.5, 6.99, 9)
@@ -225,9 +232,12 @@ def random_scene(seed, count=600):
         elif k == 12:
             op("shade", r(70), random_lights(rng), r(-2, 40))
         elif k in (13, 14):
+            if r(3) == 0:
+                op("font", rng.choice(("normal", "small")))
             op("print", rng.choice(TEXTS), r(-60, 330), r(-30, 250), r(70))
         else:
             continue
+    op("font")
     op("camera", 0, 0)
     op("clip")
     op("pal")
@@ -237,7 +247,7 @@ def random_scene(seed, count=600):
 # Text for the random scenes: English, Tamil, both on one line, lines
 # broken, and bytes that are not UTF-8.
 TEXTS = ["Hello, Pulli!", "தாமரைக் குளம்", "Score 120 மதிப்பெண்", "ஸ்ரீ\nஒளி 3",
-         "a\x80b\xffc", "கொ கௌ க்ஷ ஃ"]
+         "a\x80b\xffc", "கொ கௌ க்ஷ ஃ", "Press \ue004 or \ue00a", "அழுத்து \ue000\ue001\n\ue00b\ue00c"]
 
 
 def random_lights(rng):

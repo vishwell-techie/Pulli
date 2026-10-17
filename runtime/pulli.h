@@ -75,6 +75,7 @@ typedef struct {
     const uint8_t *atlas;
     int      atlas_w, atlas_h;
     const uint8_t *font;                   /* 8x8 1bpp, 96 glyphs from ' '   */
+    const struct pulli_ta_font *ta;        /* the Tamil size in use: font()  */
     /* The backend's halves hook (below), or NULL. */
     void (*halves)(void (*fn)(void *arg, int half), void *arg);
 } pulli_gfx;
@@ -99,20 +100,31 @@ typedef struct {
 /* ---- gfx primitives (pure, no platform deps) ----------------------- */
 extern const uint8_t pulli_font8x8[96 * 8];
 
-/* Tamil: whole syllables as pixels (font_ta.c, generated from font_ta.txt;
- * SPEC §3 "Text"), sorted by their letters. Every glyph is
- * pulli_font_ta_rows rows tall; its row pulli_font_ta_above lines up with
+/* The button icons, U+E000 onwards in button order (font.c, from
+ * font.txt): 8 rows each, (width + 7) / 8 bytes a row, bit 7 leftmost. */
+#define PULLI_ICON_FIRST 0xE000
+#define PULLI_ICON_COUNT 12
+extern const uint8_t  pulli_font_icon_width[PULLI_ICON_COUNT];
+extern const uint16_t pulli_font_icon_offset[PULLI_ICON_COUNT];
+extern const uint8_t  pulli_font_icon_bits[];
+
+/* Tamil: whole syllables as pixels (font_ta.c and font_ta_small.c,
+ * generated from their .txt; SPEC §3 "Text"), sorted by their letters.
+ * Every glyph of a font is `rows` rows tall; its row `above` lines up with
  * row 0 of an English letter. */
 typedef struct {
     uint32_t letters[4];        /* what it draws: 1 to 4 characters, the rest 0 */
     uint8_t  width;             /* columns of pixels */
     int8_t   kern;              /* where its first column is, from the pen */
     uint8_t  adv;               /* how far the pen moves after it */
-    uint32_t offset;            /* its rows in pulli_font_ta_bits, (width + 7) / 8 bytes each, bit 7 leftmost */
+    uint32_t offset;            /* its rows in the font's bits, (width + 7) / 8 bytes each, bit 7 leftmost */
 } pulli_ta_glyph;
-extern const pulli_ta_glyph pulli_font_ta[];
-extern const uint8_t pulli_font_ta_bits[];
-extern const int pulli_font_ta_count, pulli_font_ta_rows, pulli_font_ta_above;
+typedef struct pulli_ta_font {
+    const pulli_ta_glyph *glyphs;
+    const uint8_t *bits;
+    int count, rows, above;
+} pulli_ta_font;
+extern const pulli_ta_font pulli_font_ta, pulli_font_ta_small;
 void pulli_default_palette(uint16_t out[PULLI_PALETTE_LEN]);
 
 void    pulli_gfx_init (pulli_gfx *g);    /* default palette and font, cleared screen */
@@ -136,7 +148,8 @@ void    pulli_sspr     (pulli_gfx *g, int sx, int sy, int sw, int sh,
 /* Text is UTF-8: English from the 8x8 font, Tamil laid out as SPEC §3
  * "Text" says. Returns where the next letter would go on the last line. */
 int     pulli_print    (pulli_gfx *g, const char *s, size_t len, int x, int y, int c);
-void    pulli_text_size(const char *s, size_t len, int *w, int *h);  /* widest line; all lines */
+void    pulli_text_size(const pulli_gfx *g, const char *s, size_t len, int *w, int *h);  /* widest line; all lines */
+void    pulli_font     (pulli_gfx *g, bool small);   /* Tamil at its normal or small size */
 void    pulli_camera   (pulli_gfx *g, int x, int y);
 void    pulli_clip     (pulli_gfx *g, int x, int y, int w, int h);
 void    pulli_pal      (pulli_gfx *g, int a, int b);      /* a < 0 resets */

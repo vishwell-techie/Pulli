@@ -67,8 +67,8 @@ shade(0, {player_x, player_y, 40, lamp_x, lamp_y, 24}, 4)
 ### `print(text, [x = 0], [y = 0], [c = 7])`
 Write text on the screen, in English, Tamil or both, with its top at `y`.
 English letters are 8 × 8 pixels. Tamil is drawn a syllable at a time, each
-as wide as it needs, and a line holding Tamil is 22 pixels tall, with any
-English on it lowered to sit on the same line. A character Pulli has no
+as wide as it needs, and a line holding Tamil is 22 pixels tall (16 after
+`font("small")`), with any English on it lowered to sit on the same line. A character Pulli has no
 letter for shows as `?`. Numbers and other values are turned into text.
 Returns the `x` where the next letter would go. This draws on the screen;
 to print to the terminal, use `dbg`.
@@ -78,6 +78,19 @@ The width and height of `text` in pixels, without drawing it: the width of
 its widest line and the height of all its lines. Use it to centre text or
 size a box; the `text` helper does.
 
+
+### `font([size = "normal"])`
+The size Tamil is drawn and measured at: `"normal"` or `"small"`. The small
+size is 16 pixels a line instead of 22, for labels and HUDs. It stays until
+you change it, like `camera`. English letters and button icons keep their
+size.
+
+### `buttons`
+A table of button icons, one for each button: `buttons.left`, `.right`,
+`.up`, `.down`, `.a`, `.b`, `.x`, `.y`, `.l`, `.r`, `.start` and `.select`.
+Each is a character, so it goes inside text in any language:
+`print("Press " .. buttons.a .. " to jump", 8, 8, 7)`. Icons are 8 pixels
+tall; `start` and `select` are 12 wide, the rest 8.
 ### `camera([x = 0], [y = 0])`
 Move everything drawn afterwards up and left by `(x, y)`. Set it to the
 corner of the world you want on screen, draw the world, then call
