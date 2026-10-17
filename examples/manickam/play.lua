@@ -196,6 +196,8 @@ core.add("pause", {
       if l.lit then rectfill(mx + l.cx * ms, my + l.cy * ms, ms, ms, 10) end
     end
     if f // 10 % 2 == 0 then rectfill(mx + w.p.x // 8 * ms - 1, my + w.p.y // 8 * ms - 1, ms + 2, ms + 2, 8) end
+    -- the labels and the buttons' hint in the small Tamil size
+    font("small")
     local y = 44
     for i, key in ipairs({ "pieces", "hearts", "side" }) do
       -- 16 columns from x 188 reach the screen's edge; a longer label
@@ -212,8 +214,10 @@ core.add("pause", {
       end
       y = y + 16
     end
+    local hint = story.t("resume", buttons.start, buttons.select)
+    core.center(hint, 230 - core.height(hint), 6)
+    font()
     core.center(story.t("paused"), 186, 7)
-    core.center(story.t("resume"), 230 - core.height(story.t("resume")), 6)
   end,
   leave = function() mini = nil end,
 })
