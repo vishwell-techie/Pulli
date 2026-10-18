@@ -13,7 +13,8 @@ hand to touch up a glyph, or rerun this to start again from the font.
 
 Every Tamil syllable is shaped and drawn whole, the way a Tamil reader
 expects it: each consonant alone, with the pulli and with every vowel sign,
-each vowel, and ஸ்ரீ. The runtime then only has to look syllables up
+each vowel, and ஸ்ரீ; and the digits 0 to 9, which a line holding Tamil
+draws at the Tamil size. The runtime then only has to look syllables up
 (SPEC §3, "Text"). The source font is Noto Sans Tamil Medium, under the
 SIL Open Font License 1.1 (third_party/noto-sans-tamil/), and so is the
 pixel font made from it.
@@ -45,12 +46,13 @@ VOWELS = "அஆஇஈஉஊஎஏஐஒஓஔ"
 CONSONANTS = "கஙசஜஞடணதநனபமயரறலளழவஶஷஸஹ"
 SIGNS = "்ாிீுூெேைொோௌ"
 OTHER = "ஃௗ௦௧௨௩௪௫௬௭௮௯ௐ"
+DIGITS = "0123456789"        # numbers on a Tamil line, drawn at the Tamil size
 
 
 def glyph_set():
     names = list(VOWELS) + list(CONSONANTS)
     names += [c + s for c in CONSONANTS for s in SIGNS]
-    names += ["ஸ்ரீ"] + list(SIGNS) + list(OTHER)
+    names += ["ஸ்ரீ"] + list(SIGNS) + list(OTHER) + list(DIGITS)
     return names
 
 

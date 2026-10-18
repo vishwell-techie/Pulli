@@ -49,7 +49,7 @@ local w = {}
 local SOLID, WATER, HURT, DEEP, DARK, LAMP, MIRROR, BEAM = 1, 2, 4, 8, 16, 32, 64, 128
 w.SOLID, w.WATER, w.HURT, w.DEEP, w.DARK, w.LAMP = SOLID, WATER, HURT, DEEP, DARK, LAMP
 local T = { path = 42, door = 51, door_open = 52, lamp_off = 53, lamp_on = 54, stone = 62, mirror = 63,
-  switch_off = 104, switch_on = 105, shrine_gate = 124 }
+  switch_off = 104, switch_on = 105, cave_mouth = 123, shrine_gate = 124 }
 w.T = T
 local MARK = { "start", "slime", "swimmer", "paati", "potter", "villager", "villager2", "piece", "key",
   "pot", "lotus", "heart", "switch_a", "switch_b", "switch_c", "stone_a", "stone_b", "stone_c", "exit",
@@ -71,6 +71,7 @@ w.mm = { x = 0, y = 0, t = 0 }
 w.cam = { x = 0, y = 0 }
 w.npcs, w.slimes, w.things, w.actors, w.lamps, w.marks = {}, {}, {}, {}, {}, {}
 w.beams, w.sources = {}, {}             -- segments of light (x0, y0, x1, y1, ...), and where they start
+w.caves = ""                            -- the insides of caves (see w.start)
 local exits, groups, stones, said = {}, {}, {}, {}
 local drawn, slots = {}, {}
 local shake_t, shake_px, locked_wait = 0, 0, 0
@@ -114,13 +115,14 @@ end
 function w.light_lamp(l, quiet)
   if l.lit then return end
   l.lit = true
-  map.set(0, l.cx, l.cy, T.lamp_on)
+  if not l.src then map.set(0, l.cx, l.cy, T.lamp_on) end
   fx.burst(l.x, l.y - 4, 16, fx.SPARK)
   if not quiet then
     progress.sfx(7)   -- lamp
     w.checkpoint.x, w.checkpoint.y = w.p.x, w.p.y
   end
   if w.region.event then w.region.event(w, "lit", l) end
+  if l.src then w.trace() end                 -- a beam lamp, lit: its beam starts
 end
 
 -- ---- loading a region ------------------------------------------------------------
@@ -139,6 +141,11 @@ function w.start(chapter, region)
   local tw, th = map.size()
   w.map_w, w.map_h = tw * 8, th * 8
   -- markers and lamps
+  -- the insides of caves, as runs of cells along each row: drawn black
+  -- while Kayal is out in the light, so what is in a cave cannot be seen
+  -- from outside it. The mouths stay visible. Kept as a string, three bytes
+  -- a run (cell x, cell y, length), as a table of them would cost kilobytes.
+  local caves, run, x0 = {}, 0, 0
   for cy = 0, th - 1 do
     for cx = 0, tw - 1 do
       local m = map.get(1, cx, cy) - 999
@@ -172,13 +179,26 @@ function w.start(chapter, region)
       end
       local tile, flip_x, flip_y = map.get(0, cx, cy)
       if map.flags(tile) & BEAM ~= 0 then
-        w.sources[#w.sources + 1] = { cx, cy, flip_x and (flip_y and 3 or 1) or (flip_y and 4 or 2) }
+        -- a beam lamp: lit by hand like any lamp, and only then does it shine
+        local l = { cx = cx, cy = cy, x = cx * 8 + 4, y = cy * 8 + 4, lit = false, src = true }
+        w.lamps[#w.lamps + 1] = l
+        w.sources[#w.sources + 1] = { cx, cy, flip_x and (flip_y and 3 or 1) or (flip_y and 4 or 2), l }
       end
       if map.flags(tile) & LAMP ~= 0 then
         w.lamps[#w.lamps + 1] = { cx = cx, cy = cy, x = cx * 8 + 4, y = cy * 8 + 4, lit = tile == T.lamp_on }
       end
+      if not region.dark and map.flags(tile) & DARK ~= 0 and tile ~= T.cave_mouth and run < 255 then
+        if run == 0 then x0 = cx end
+        run = run + 1
+      else
+        if run > 0 then caves[#caves + 1] = string.char(x0, cy, run) end
+        run = 0
+      end
     end
+    if run > 0 then caves[#caves + 1] = string.char(x0, cy, run) end
+    run = 0
   end
+  w.caves = table.concat(caves)
   local s = w.marks.start and w.marks.start[1] or { x = 32, y = 32 }
   local p = w.p
   p.x, p.y, p.face, p.moving, p.pose, p.hide, p.dying = s.x - 4, s.y - 3, "down", false, nil, false, nil
@@ -242,14 +262,18 @@ function w.die()
 end
 
 -- ---- beams of light -----------------------------------------------------------------
--- A beam starts at each beam tile (flags 128) and goes down, or the way its
--- flips say: right for flip x, up for flip y, left for both. A mirror turns
--- it: "/" as drawn, "\" when flipped. It lights the first unlit lamp it
--- reaches and stops at anything solid.
+-- A beam starts at each lit beam lamp (flags 128) and goes down, or the way
+-- its flips say: right for flip x, up for flip y, left for both. A mirror
+-- turns it: "/" as drawn, "\" when flipped. It lights the lamp it reaches
+-- and stops at anything solid. A lamp only a beam can light (l.beam) stays
+-- lit while a beam reaches it, and goes out when none does.
+local reached = {}
 function w.trace()
   local b = w.beams
   for i = #b, 1, -1 do b[i] = nil end
+  for k in pairs(reached) do reached[k] = nil end
   for _, src in ipairs(w.sources) do
+    if not src[4].lit then goto next end
     local cx, cy = src[1], src[2]
     local d = src[3]
     local x0, y0 = cx * 8 + 4, cy * 8 + 4
@@ -264,13 +288,24 @@ function w.trace()
         if flip then d = ({ 2, 1, 4, 3 })[d] else d = ({ 4, 3, 2, 1 })[d] end
       elseif f & SOLID ~= 0 or tile == 0 then
         local l = f & LAMP ~= 0 and w.lamp_at(cx, cy)
-        if l and not l.lit then
-          w.light_lamp(l, true)
-          progress.sfx(26)   -- chime
+        if l then
+          reached[l] = true
+          if not l.lit then
+            w.light_lamp(l, true)
+            progress.sfx(26)   -- chime
+          end
         end
         b[#b + 1], b[#b + 2], b[#b + 3], b[#b + 4] = x0, y0, cx * 8 + 4 - DIRS[d][1] * 4, cy * 8 + 4 - DIRS[d][2] * 4
         break
       end
+    end
+    ::next::
+  end
+  for _, l in ipairs(w.lamps) do
+    if l.beam and l.lit and not reached[l] then
+      l.lit = false
+      map.set(0, l.cx, l.cy, T.lamp_off)
+      progress.sfx(16)   -- blip: the light has left it
     end
   end
 end
@@ -366,7 +401,7 @@ local function control(dt)
     local tcx, tcy = tx // 8, ty // 8
     local tile, flip = map.get(0, tcx, tcy)
     local f = map.flags(tile)
-    if f & LAMP ~= 0 and not r.no_hand_lamps then
+    if f & (LAMP | BEAM) ~= 0 and not r.no_hand_lamps then
       local l = w.lamp_at(tcx, tcy)
       if l and not l.beam then w.light_lamp(l) end
     elseif f & MIRROR ~= 0 then
@@ -549,8 +584,11 @@ function w.draw_world()
   for i = #drawn, 1, -1 do drawn[i] = nil end
   add(1, p, p.y + p.h)
   for _, n in ipairs(w.npcs) do add(2, n, n.y + n.h) end
+  -- outside, in the light: what is in a cave is not seen, slimes included
+  local outside = #w.caves > 0 and w.flags_at(p.x + 4, p.y + 3) & DARK == 0
   for _, s in ipairs(w.slimes) do
-    if s.x > c.x - 24 and s.x < c.x + 336 and s.y > c.y - 8 and s.y < c.y + 256 then add(3, s, s.y + s.h) end
+    if s.x > c.x - 24 and s.x < c.x + 336 and s.y > c.y - 8 and s.y < c.y + 256
+        and not (outside and w.flags_at(s.x + 4, s.y + 3) & DARK ~= 0) then add(3, s, s.y + s.h) end
   end
   for _, t in ipairs(w.things) do add(4, t, t.y + 3) end
   for _, a in ipairs(w.actors) do add(5, a, a.y) end
@@ -613,6 +651,13 @@ function w.draw_world()
     line(b[i] + 1, b[i + 1], b[i + 2] + 1, b[i + 3], 23)
   end
   if w.region.draw_top then w.region.draw_top(w) end
+  if outside then
+    local cv = w.caves
+    for i = 1, #cv, 3 do
+      local x, y, len = cv:byte(i, i + 2)
+      if y * 8 > c.y - 8 and y * 8 < c.y + 240 then rectfill(x * 8, y * 8, len * 8, 8, 32) end
+    end
+  end
   fx.draw()
   local mm = w.mm
   if not mm.hide then

@@ -28,6 +28,9 @@ local function start(which)
     core.go("bench")
     return
   end
+  -- the benchmark, if it was run, is let go: the festival needs the room
+  core.remove("bench")
+  unrequire("bench")
   if which == "new" then progress.reset() end
   -- The runtime starts every game with the same random numbers. How long
   -- the player took to choose makes each game differ.

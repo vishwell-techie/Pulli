@@ -8,7 +8,7 @@ prints to stdout, and the test compares that with what SPEC.md promises.
 """
 import os, sys, tempfile
 
-from harness import Suite
+from harness import Suite, ROOT
 
 
 def manifest(**fields):
@@ -138,6 +138,11 @@ def main():
     for bad in ("../main", "notes.txt", "greet.lua", "", "main", "manifest"):
         r = t.run_game(f"require({bad!r})", extra=mods)
         t.check(f"require refuses {bad!r}", r.code == 1 and "require" in r.err, r.err)
+    r = t.run_game("local a = require('count') dbg(unrequire('count'), unrequire('count'), unrequire('nowhere')) "
+                   "local b = require('count') dbg(runs, a ~= b)", extra=mods)
+    expect("unrequire forgets a module, and the next require runs it again", r, ["true\tfalse\tfalse", "2\ttrue"])
+    expect_error("a module cannot be forgotten while it is still loading",
+                 t.run_game("require('self')", extra={"self.lua": "unrequire('self')"}), "still loading")
     r = t.run_game("require('bytes')", extra={"bytes.lua": b"\x1bLua\x54\x00" + bytes(40)})
     expect_error("a module of precompiled bytecode is refused", r, "binary")
 
@@ -171,6 +176,32 @@ def main():
     end""", frames=1)
     expect("print returns where the next letter would go; text_size gives the widest line and the height", r,
            ["26\t0\t8", "32\t16", "16\t16\t8", f"{5 + size('கொ')[0]}\t{size('கொ')[0]}\t{ta.rows + 8}"])
+    small = refgfx.TamilFont(os.path.join(ROOT, "runtime", "font_ta_small.txt"))
+    widths = [w for w, _ in refgfx.icons()]
+    r = t.run_game("""function draw()
+        dbg(buttons.a == "\\u{E004}", buttons.left == "\\u{E000}", buttons.select == "\\u{E00B}", #buttons.start)
+        dbg(text_size(buttons.a .. buttons.start .. "x"))
+        dbg(text_size("கொ" .. buttons.b))
+        font("small") dbg(text_size("கொ\\nA"))
+        font() dbg(text_size("கொ"))
+        font("small") font("normal") dbg(text_size("கொ"))
+    end""", frames=1)
+    expect("buttons holds each button's icon; icons are as wide as drawn, and font() picks the Tamil size", r,
+           ["true\ttrue\ttrue\t3", f"{widths[4] + widths[10] + 8}\t8",
+            f"{size('கொ')[0] + widths[5]}\t{ta.rows}",
+            f"{small.glyphs['கொ'][2]}\t{small.rows + 8}", f"{size('கொ')[0]}\t{ta.rows}", f"{size('கொ')[0]}\t{ta.rows}"])
+    expect_error("font() refuses a size it does not have", t.run_game("font('huge')"), "invalid option")
+    r = t.run_game("""function draw()
+        dbg(text_size("Floor 42"))
+        dbg(text_size("தளம் 42"))
+        font("small") dbg(text_size("தளம் 42")) font()
+        dbg(text_size("42\\nதளம்"))
+    end""", frames=1)
+    digits = lambda f, s: sum(f.glyphs[d][2] for d in s)
+    expect("a number on a Tamil line is drawn at the Tamil size, and at 8x8 on an English line", r,
+           [f"64\t8", f"{size('தளம் ')[0] + digits(ta, '42')}\t{ta.rows}",
+            f"{refgfx.text_size(small, 'தளம் '.encode())[0] + digits(small, '42')}\t{small.rows}",
+            f"{size('தளம்')[0]}\t{8 + ta.rows}"])
     r = t.run_game("""function draw()
         cls() print("கொ", 0, 0, 7)
         local left, right = 99, -1

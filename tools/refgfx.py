@@ -21,27 +21,63 @@ _FONT_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          "..", "runtime", "font.txt")
 
 
-def load_font(path=_FONT_TXT):
-    """Parse runtime/font.txt into 96 glyphs of 8 row bytes (bit 7 = left)."""
-    glyphs, code, rows = {}, None, []
+ICON_FIRST, ICON_NAMES = 0xE000, ("left", "right", "up", "down", "a", "b", "x", "y", "l", "r",
+                                   "start", "select")
+
+
+def _parse_font(path):
+    """runtime/font.txt: {code: [rows]} for ASCII, each row 8 '.'/'#'
+    cells, and {code point: [rows]} for the button icons."""
+    glyphs, icons, rows = {}, {}, None
     for n, line in enumerate(open(path, encoding="ascii"), 1):
         line = line.rstrip("\n")
         if not line or line.startswith(";"):
             continue
-        if line.startswith("="):
-            code, rows = int(line.split()[1]), []
-            glyphs[code] = rows
-        elif len(line) == 8 and set(line) <= set(".#") and code is not None:
-            rows.append(sum(0x80 >> i for i, ch in enumerate(line) if ch == "#"))
+        if line.startswith("= U+"):
+            rows = []
+            icons[int(line.split()[1][2:], 16)] = rows
+        elif line.startswith("="):
+            rows = []
+            glyphs[int(line.split()[1])] = rows
+        elif rows is not None and line and set(line) <= set(".#") and (not rows or len(line) == len(rows[0])):
+            rows.append(line)
         else:
             raise ValueError(f"{path}:{n}: not a glyph row: {line!r}")
-    if sorted(glyphs) != list(range(32, 128)) or any(len(r) != 8 for r in glyphs.values()):
-        raise ValueError(f"{path}: need exactly 8 rows for each of codes 32..127")
-    return [glyphs[c] for c in range(32, 128)]
+    return glyphs, icons
+
+
+def load_font(path=_FONT_TXT):
+    """Parse runtime/font.txt into 96 glyphs of 8 row bytes (bit 7 = left)."""
+    glyphs, _ = _parse_font(path)
+    if sorted(glyphs) != list(range(32, 128)) or any(len(r) != 8 or len(r[0]) != 8 for r in glyphs.values()):
+        raise ValueError(f"{path}: need exactly 8 rows of 8 for each of codes 32..127")
+    return [[sum(0x80 >> i for i, ch in enumerate(row) if ch == "#") for row in glyphs[c]] for c in range(32, 128)]
+
+
+def load_icons(path=_FONT_TXT):
+    """The button icons in runtime/font.txt, in button order: (width, rows)
+    for U+E000 onwards, each 8 rows of '.' and '#'."""
+    _, icons = _parse_font(path)
+    want = list(range(ICON_FIRST, ICON_FIRST + len(ICON_NAMES)))
+    if sorted(icons) != want or any(len(r) != 8 or len(r[0]) > 32 for r in icons.values()):
+        raise ValueError(f"{path}: need 8 rows, at most 32 wide, for each of U+E000..U+E00B")
+    return [(len(icons[c][0]), icons[c]) for c in want]
+
+
+_ICONS = None
+
+
+def icons():
+    global _ICONS
+    if _ICONS is None:
+        _ICONS = load_icons()
+    return _ICONS
 
 
 _FONT_TA_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "..", "runtime", "font_ta.txt")
+_FONT_TA_SMALL_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "..", "runtime", "font_ta_small.txt")
 
 
 class TamilFont:
@@ -107,14 +143,19 @@ def utf8_next(data, i):
 
 
 def _pieces(ta, cps):
-    """One line of characters as ("en", code) and ("ta", letters) pieces.
-    Tamil is matched longest first, so a syllable comes out whole."""
+    """One line of characters as ("en", code), ("icon", n) and ("ta",
+    letters) pieces. Tamil is matched longest first, so a syllable comes out
+    whole."""
     out, i = [], 0
     while i < len(cps):
         cp = cps[i]
         if 0 <= cp < 128:
             if cp >= 32:
                 out.append(("en", cp))
+            i += 1
+            continue
+        if ICON_FIRST <= cp < ICON_FIRST + len(ICON_NAMES):
+            out.append(("icon", cp - ICON_FIRST))
             i += 1
             continue
         for n in range(min(4, len(cps) - i), 0, -1):
@@ -131,10 +172,12 @@ def _pieces(ta, cps):
 
 def layout(ta, data):
     """Lay out `data` (bytes) as the engine does. Yields, line by line,
-    ("en", code, x, y) and ("ta", letters, x, y) for each glyph, giving where
+    ("en", code, x, y), ("icon", n, x, y) and ("ta", letters, x, y) for each
+    glyph, giving where
     its top-left goes, then ("end", x, height) where the line ends. x and y
     are offsets from where the text starts. A line holding Tamil is ta.rows
-    tall and its English is lowered to share the baseline; any other is 8."""
+    tall, its digits come from the Tamil font, and its other English is
+    lowered to share the baseline; any other is 8."""
     cps, i = [], 0
     while i < len(data):
         cp, n = utf8_next(data, i)
@@ -152,12 +195,18 @@ def layout(ta, data):
     for line in lines:
         pieces = _pieces(ta, line)
         tamil = any(kind == "ta" for kind, _ in pieces)
+        if tamil:                       # a number on a Tamil line is drawn at the Tamil size
+            pieces = [("ta", chr(what)) if kind == "en" and 48 <= what <= 57 and chr(what) in ta.glyphs
+                      else (kind, what) for kind, what in pieces]
         height, lower = (ta.rows, ta.above) if tamil else (CELL, 0)
         x = 0
         for kind, what in pieces:
             if kind == "en":
                 yield ("en", what, x, y + lower)
                 x += CELL
+            elif kind == "icon":
+                yield ("icon", what, x, y + lower)
+                x += icons()[what][0]
             else:
                 width, kern, adv, _ = ta.glyphs[what]
                 yield ("ta", what, x + kern, y)
@@ -186,8 +235,9 @@ class RefGfx:
         self.atlas = None
         self.atlas_w = 0
         self.atlas_h = 0
-        self.font = load_font()
-        self.font_ta = TamilFont()
+        self.font_en = load_font()
+        self.fonts_ta = {"normal": TamilFont(), "small": TamilFont(_FONT_TA_SMALL_TXT)}
+        self.font_ta = self.fonts_ta["normal"]
         default_palette(self)
 
     # -- single choke point, mirrors put() in gfx.c --
@@ -358,10 +408,15 @@ class RefGfx:
         end = x
         for item in layout(self.font_ta, data):
             if item[0] == "en":
-                glyph = self.font[item[1] - 32]
+                glyph = self.font_en[item[1] - 32]
                 for j in range(CELL):
                     for i in range(CELL):
                         if glyph[j] & (0x80 >> i):
+                            self._put(x + item[2] + i, y + item[3] + j, c)
+            elif item[0] == "icon":
+                for j, row in enumerate(icons()[item[1]][1]):
+                    for i, ch in enumerate(row):
+                        if ch == "#":
                             self._put(x + item[2] + i, y + item[3] + j, c)
             elif item[0] == "ta":
                 rows = self.font_ta.glyphs[item[1]][3]
@@ -372,6 +427,10 @@ class RefGfx:
             else:
                 end = x + item[1]
         return end
+
+    def font(self, size="normal"):
+        """The size Tamil is drawn and measured at: "normal" or "small"."""
+        self.font_ta = self.fonts_ta[size]
 
     def camera(self, x=0, y=0):
         self.cam = (x, y)

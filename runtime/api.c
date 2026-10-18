@@ -8,6 +8,8 @@
 
 static pulli_engine *E;     /* the one running game */
 
+_Static_assert(PULLI_ICON_COUNT == PULLI_BTN_COUNT, "one icon for each button");
+
 static const char *BTN_NAMES[PULLI_BTN_COUNT] = {
     "left","right","up","down","a","b","x","y","l","r","start","select"
 };
@@ -85,10 +87,17 @@ static int l_text_size(lua_State *L) {
     size_t len;
     int w, h;
     const char *s = luaL_tolstring(L, 1, &len);
-    pulli_text_size(s, len, &w, &h);
+    pulli_text_size(&E->ctx.g, s, len, &w, &h);
     lua_pushinteger(L, w);
     lua_pushinteger(L, h);
     return 2;
+}
+/* font(size) picks the size Tamil is drawn and measured at: "normal", the
+ * default, or "small". English letters and the button icons stay 8x8. */
+static int l_font(lua_State *L) {
+    static const char *const SIZES[] = { "normal", "small", NULL };
+    pulli_font(&E->ctx.g, luaL_checkoption(L, 1, "normal", SIZES) == 1);
+    return 0;
 }
 static int l_camera(lua_State *L) { pulli_camera(&E->ctx.g, arg_i(L,1,0), arg_i(L,2,0)); return 0; }
 static int l_clip(lua_State *L)   { pulli_clip(&E->ctx.g, arg_i(L,1,0),arg_i(L,2,0),arg_i(L,3,0),arg_i(L,4,0)); return 0; }
@@ -318,7 +327,7 @@ static int l_map_size(lua_State *L) {
 static const luaL_Reg CORE[] = {
     {"cls",l_cls},{"pset",l_pset},{"pget",l_pget},{"line",l_line},
     {"rect",l_rect},{"rectfill",l_rectfill},{"circ",l_circ},{"circfill",l_circfill},{"shade",l_shade},
-    {"spr",l_spr},{"sspr",l_sspr},{"print",l_print},{"text_size",l_text_size},{"camera",l_camera},
+    {"spr",l_spr},{"sspr",l_sspr},{"print",l_print},{"text_size",l_text_size},{"font",l_font},{"camera",l_camera},
     {"clip",l_clip},{"pal",l_pal},{"palt",l_palt},{"fade",l_fade},
     {"btn",l_btn},{"btnp",l_btnp},
     {"sfx",l_sfx},{"music",l_music},{"music_stop",l_music_stop},{"music_pause",l_music_pause},{"palette",l_palette},
@@ -432,6 +441,22 @@ static int l_require(lua_State *L) {
     return 1;
 }
 
+/* unrequire(name) forgets a module, so the memory it holds can be collected
+ * once nothing else uses it; the next require runs the file again. Gives
+ * true if the module was loaded. */
+static int l_unrequire(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
+    luaL_getsubtable(L, LUA_REGISTRYINDEX, MODULES);
+    int t = lua_getfield(L, -1, name);
+    if (t == LUA_TLIGHTUSERDATA)
+        return luaL_error(L, "unrequire: '%s' is still loading", name);
+    lua_pop(L, 1);
+    lua_pushnil(L);
+    lua_setfield(L, -2, name);
+    lua_pushboolean(L, t != LUA_TNIL);
+    return 1;
+}
+
 /* Sandbox by construction: the io, os, package and debug libraries are
  * never opened, rather than opened and then hidden. */
 static const luaL_Reg LIBS[] = {
@@ -471,6 +496,7 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
     luaL_setfuncs(L, CORE, 0);
     lua_pop(L, 1);
     lua_register(L, "require", l_require);
+    lua_register(L, "unrequire", l_unrequire);
 
     luaL_newlib(L, MAP);
     lua_setglobal(L, "map");
@@ -484,6 +510,16 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
     lua_pushinteger(L, PULLI_FIX_PI);
     lua_setfield(L, -2, "pi");
     lua_setglobal(L, "fix");
+
+    /* buttons.a and the rest: each button's icon as a character to put in
+     * text, U+E000 onwards in button order. */
+    lua_createtable(L, 0, PULLI_BTN_COUNT);
+    for (int i = 0; i < PULLI_BTN_COUNT; i++) {
+        const char utf8[3] = { (char)0xEE, (char)0x80, (char)(0x80 + i) };
+        lua_pushlstring(L, utf8, 3);
+        lua_setfield(L, -2, BTN_NAMES[i]);
+    }
+    lua_setglobal(L, "buttons");
 
     /* Deliberately NOT exposing button names as bare globals: "x", "y", "a"
      * and "b" are the most common variable names in game code. Buttons are

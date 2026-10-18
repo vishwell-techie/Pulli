@@ -111,6 +111,7 @@ void pulli_gfx_init(pulli_gfx *g) {
     pulli_palt(g, -1, true);
     g->clip_w = PULLI_SCREEN_W; g->clip_h = PULLI_SCREEN_H;
     g->font = pulli_font8x8;
+    g->ta = &pulli_font_ta;
     g->fade_k = 32;
     pulli_default_palette(g->palette);
     refresh_shown(g);
@@ -379,15 +380,15 @@ static int32_t utf8_next(const unsigned char *s, size_t len, size_t i, int *n) {
 
 /* The glyph that draws exactly these `count` characters, or NULL. The table
  * is sorted by letters, zero-padded to four, so a binary search finds it. */
-static const pulli_ta_glyph *ta_find(const int32_t *cp, int count) {
+static const pulli_ta_glyph *ta_find(const pulli_ta_font *ta, const int32_t *cp, int count) {
     uint32_t key[4] = { 0, 0, 0, 0 };
     for (int k = 0; k < count; k++) key[k] = (uint32_t)cp[k];
-    int lo = 0, hi = pulli_font_ta_count - 1;
+    int lo = 0, hi = ta->count - 1;
     while (lo <= hi) {
         int mid = (lo + hi) / 2, d = 0;
-        const uint32_t *l = pulli_font_ta[mid].letters;
+        const uint32_t *l = ta->glyphs[mid].letters;
         for (int k = 0; k < 4 && d == 0; k++) d = l[k] < key[k] ? -1 : l[k] > key[k] ? 1 : 0;
-        if (d == 0) return &pulli_font_ta[mid];
+        if (d == 0) return &ta->glyphs[mid];
         if (d < 0) lo = mid + 1; else hi = mid - 1;
     }
     return NULL;
@@ -395,9 +396,11 @@ static const pulli_ta_glyph *ta_find(const int32_t *cp, int count) {
 
 /* The next piece of a line that ends at byte `len`: Tamil matched longest
  * first, so a syllable comes out whole (*gl), else an English code (*code,
- * -1 for a control character to skip, '?' for a character the fonts lack).
- * Returns the bytes it takes. */
-static size_t next_piece(const unsigned char *s, size_t len, size_t i, int *code, const pulli_ta_glyph **gl) {
+ * -1 for a control character to skip, '?' for a character the fonts lack,
+ * ICON + n for button icon n). Returns the bytes it takes. */
+#define ICON 256
+static size_t next_piece(const pulli_ta_font *ta, const unsigned char *s, size_t len, size_t i,
+                         int *code, const pulli_ta_glyph **gl) {
     int32_t cp[4];
     int bytes[4], count = 0;
     size_t j = i;
@@ -415,8 +418,12 @@ static size_t next_piece(const unsigned char *s, size_t len, size_t i, int *code
         *code = cp[0] >= 32 ? (int)cp[0] : -1;
         return 1;
     }
+    if (cp[0] >= PULLI_ICON_FIRST && cp[0] < PULLI_ICON_FIRST + PULLI_ICON_COUNT) {
+        *code = ICON + (int)(cp[0] - PULLI_ICON_FIRST);
+        return (size_t)bytes[0];
+    }
     for (int n = count; n > 0; n--) {
-        if ((*gl = ta_find(cp, n)) != NULL) {
+        if ((*gl = ta_find(ta, cp, n)) != NULL) {
             size_t used = 0;
             for (int k = 0; k < n; k++) used += (size_t)bytes[k];
             return used;
@@ -452,20 +459,31 @@ PULLI_HOT static void draw_bits(pulli_gfx *g, const uint8_t *row, int stride, in
             if (row[i >> 3] & (0x80u >> (i & 7))) put(g, x + i, y + j, c);
 }
 
+/* How far the pen moves for an English letter or an icon. */
+static int english_adv(int code) {
+    return code >= ICON ? pulli_font_icon_width[code - ICON] : PULLI_SPRITE_CELL;
+}
+
 static void draw_english(pulli_gfx *g, int code, int x, int y, int c) {
+    if (code >= ICON) {
+        int w = pulli_font_icon_width[code - ICON];
+        draw_bits(g, pulli_font_icon_bits + pulli_font_icon_offset[code - ICON], (w + 7) / 8, w,
+                  PULLI_SPRITE_CELL, x, y, c);
+        return;
+    }
     draw_bits(g, g->font + (code - 32) * PULLI_SPRITE_CELL, 1, PULLI_SPRITE_CELL, PULLI_SPRITE_CELL, x, y, c);
 }
 
-static void draw_tamil(pulli_gfx *g, const pulli_ta_glyph *gl, int x, int y, int c) {
-    draw_bits(g, pulli_font_ta_bits + gl->offset, (gl->width + 7) / 8, gl->width,
-              pulli_font_ta_rows, x, y, c);
+static void draw_tamil(pulli_gfx *g, const pulli_ta_font *ta, const pulli_ta_glyph *gl, int x, int y, int c) {
+    draw_bits(g, ta->bits + gl->offset, (gl->width + 7) / 8, gl->width, ta->rows, x, y, c);
 }
 
-/* Lays out the text line by line, drawing it when g is not NULL. A line
- * holding Tamil is pulli_font_ta_rows tall, with its English lowered to
- * share the Tamil baseline; any other line is 8. Fills where the last line
- * ended, the widest line and the height of them all. */
-static void lay_out(pulli_gfx *g, const char *str, size_t len, int ox, int oy, int c,
+/* Lays out the text line by line in Tamil font `ta`, drawing it when g is
+ * not NULL. A line holding Tamil is ta->rows tall, its digits drawn from the
+ * Tamil font and its other English and icons lowered to share the Tamil
+ * baseline; any other line is 8. Fills
+ * where the last line ended, the widest line and the height of them all. */
+static void lay_out(pulli_gfx *g, const pulli_ta_font *ta, const char *str, size_t len, int ox, int oy, int c,
                     int *end_x, int *widest, int *height) {
     const unsigned char *s = (const unsigned char *)str;
     const pulli_ta_glyph *gl;
@@ -477,23 +495,27 @@ static void lay_out(pulli_gfx *g, const char *str, size_t len, int ox, int oy, i
         while (end < len && s[end] != '\n') end++;
         bool tamil = false;
         for (size_t j = i; j < end && !tamil; ) {    /* one Tamil syllable is enough to know */
-            j += next_piece(s, end, j, &code, &gl);
+            j += next_piece(ta, s, end, j, &code, &gl);
             if (gl) tamil = true;
         }
-        int lower = tamil ? pulli_font_ta_above : 0;
+        int lower = tamil ? ta->above : 0;
         x = 0;
         for (size_t j = i; j < end; ) {
-            j += next_piece(s, end, j, &code, &gl);
+            j += next_piece(ta, s, end, j, &code, &gl);
+            if (!gl && tamil && code >= '0' && code <= '9') {   /* a number on a Tamil line: at the Tamil size */
+                int32_t digit = code;
+                gl = ta_find(ta, &digit, 1);
+            }
             if (gl) {
-                if (g) draw_tamil(g, gl, ox + x + gl->kern, oy + y, c);
+                if (g) draw_tamil(g, ta, gl, ox + x + gl->kern, oy + y, c);
                 x += gl->adv;
             } else if (code >= 0) {
                 if (g) draw_english(g, code, ox + x, oy + y + lower, c);
-                x += PULLI_SPRITE_CELL;
+                x += english_adv(code);
             }
         }
         if (x > *widest) *widest = x;
-        y += tamil ? pulli_font_ta_rows : PULLI_SPRITE_CELL;
+        y += tamil ? ta->rows : PULLI_SPRITE_CELL;
         if (end >= len) break;
         i = end + 1;
     }
@@ -504,14 +526,16 @@ static void lay_out(pulli_gfx *g, const char *str, size_t len, int ox, int oy, i
 int pulli_print(pulli_gfx *g, const char *s, size_t len, int x, int y, int c) {
     int end_x, w, h;
     if (!g->font || !s) return x;
-    lay_out(g, s, len, x, y, c, &end_x, &w, &h);
+    lay_out(g, g->ta, s, len, x, y, c, &end_x, &w, &h);
     return x + end_x;
 }
 
-void pulli_text_size(const char *s, size_t len, int *w, int *h) {
+void pulli_text_size(const pulli_gfx *g, const char *s, size_t len, int *w, int *h) {
     int end_x;
-    lay_out(NULL, s ? s : "", s ? len : 0, 0, 0, 0, &end_x, w, h);
+    lay_out(NULL, g->ta, s ? s : "", s ? len : 0, 0, 0, 0, &end_x, w, h);
 }
+
+void pulli_font(pulli_gfx *g, bool small) { g->ta = small ? &pulli_font_ta_small : &pulli_font_ta; }
 
 void pulli_camera(pulli_gfx *g, int x, int y) { g->cam_x = x; g->cam_y = y; }
 

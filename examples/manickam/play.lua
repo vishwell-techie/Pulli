@@ -39,10 +39,14 @@ function w.finish()
   end
 end
 
--- The ruby's seven pieces, found or not, in a row from x.
+-- The ruby's seven pieces in a row from x: as many filled, from the left,
+-- as have been found, whichever they were.
 local function ring(x, y)
-  for i = 0, 6 do spr(progress.data.pieces >> i & 1 == 1 and 944 or 953, x + i * 10, y) end
+  local n = progress.piece_count()
+  for i = 0, 6 do spr(i < n and 944 or 953, x + i * 10, y) end
 end
+
+local CHAPTERS = { "opening", "ch0", "ch1", "ch2", "ch3", "ch4", "ch5", "ch6" }
 
 core.add("play", {
   -- Loading a chapter (its module and a scan of its whole map) takes a
@@ -64,8 +68,14 @@ core.add("play", {
       if not play.shown or play.wait > 0 or core.busy() then return end
       play.loading = nil
       dbg("chapter " .. tostring(which))
+      -- Only one chapter's code is kept: played through in one sitting,
+      -- the earlier ones would leave too little room for the festival.
+      local name = which == "opening" and "opening" or "ch" .. which
+      for _, m in ipairs(CHAPTERS) do
+        if m ~= name then unrequire(m) end
+      end
       collectgarbage()                    -- room to load the region in
-      w.start(which == "opening" and 0 or which, require(which == "opening" and "opening" or "ch" .. which))
+      w.start(which == "opening" and 0 or which, require(name))
       return
     end
     if core.pressed("select") and w.control then play.debug = not play.debug end
@@ -103,15 +113,17 @@ core.add("play", {
     if w.flash > 0.6 then rectfill(0, 0, 320, 240, 7)
     elseif w.flash > 0 then for y = f % 2, 239, 2 do rectfill(0, y, 320, 1, 7) end end
     talk.draw()
-    -- the chapter's name, for a few seconds as it begins
-    if w.card_t > 0 and (w.card_t > 0.6 or f % 4 < 2) then
+    -- the chapter's name, for a few seconds as it begins; in its last
+    -- 0.6 s the banner slides up off the screen
+    if w.card_t > 0 then
       local name, num = story.t("chapter" .. w.chapter), story.t("chapter", w.chapter)
       local nh = core.height(num)
       local h = core.height(name) + nh + 14
-      rectfill(0, 60, 320, h, 32)
-      rect(-1, 60, 322, h, 9)
-      core.center(num, 65, 9)
-      core.center(name, 68 + nh, 10, 41)
+      local y = 60 - math.max(0, 0.6 - w.card_t) / 0.6 * (60 + h) // 1
+      rectfill(0, y, 320, h, 32)
+      rect(-1, y, 322, h, 9)
+      core.center(num, y + 5, 9)
+      core.center(name, y + 8 + nh, 10, 41)
     end
     -- SELECT while playing: how hard the machine is working
     if play.debug then
@@ -186,10 +198,15 @@ core.add("pause", {
       if l.lit then rectfill(mx + l.cx * ms, my + l.cy * ms, ms, ms, 10) end
     end
     if f // 10 % 2 == 0 then rectfill(mx + w.p.x // 8 * ms - 1, my + w.p.y // 8 * ms - 1, ms + 2, ms + 2, 8) end
+    -- the labels and the buttons' hint in the small Tamil size
+    font("small")
     local y = 44
     for i, key in ipairs({ "pieces", "hearts", "side" }) do
-      print(story.t(key), 188, y, 10)
-      y = y + core.height(story.t(key)) + 3
+      -- 16 columns from x 188 reach the screen's edge; a longer label
+      -- (Tamil's "ruby pieces") goes on two lines
+      local label = table.concat(core.wrap(story.t(key), 16), "\n")
+      print(label, 188, y, 10)
+      y = y + core.height(label) + 3
       if i == 1 then ring(188, y)
       elseif i == 2 then for k = 1, d.hearts do spr(938, 179 + k * 9, y) end
       else
@@ -199,8 +216,10 @@ core.add("pause", {
       end
       y = y + 16
     end
+    local hint = story.t("resume", buttons.start, buttons.select)
+    core.center(hint, 230 - core.height(hint), 6)
+    font()
     core.center(story.t("paused"), 186, 7)
-    core.center(story.t("resume"), 230 - core.height(story.t("resume")), 6)
   end,
   leave = function() mini = nil end,
 })

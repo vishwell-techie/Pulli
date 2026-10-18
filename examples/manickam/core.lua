@@ -3,13 +3,14 @@
 --
 --   local core = require("core")
 --   core.add("title", { enter = fn, update = fn, draw = fn, leave = fn })
+--   core.remove("bench")                         -- so its module can be let go
 --   core.go("play", 3)      core.push("pause")      core.pop()
 --   if core.pressed("a") then ... end              -- once per press
 --   core.through(1, function() core.go("play", 1) end)   -- fade out, swap, in
 --   core.center("PAUSED", 100, 7)   core.wrap(s, 36)   core.width(s)
 --
 -- Why not the SDK's? On the console every Lua function costs memory for as
--- long as the game runs, and a module, once loaded, is never let go. The
+-- long as it is loaded, and the shared modules stay loaded all game. The
 -- SDK helpers are written to be read and to cover every case; this game
 -- needs a few cases of each and all the memory it can get, so it keeps
 -- these four together in fewer, larger functions. A game with memory to
@@ -21,6 +22,7 @@ local core = {}
 local scenes, stack, change = {}, {}, nil
 
 function core.add(name, s) scenes[name] = s end
+function core.remove(name) scenes[name] = nil end
 
 local function apply()
   local how, name, a, b = change[1], change[2], change[3], change[4]
