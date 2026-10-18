@@ -244,6 +244,32 @@ def main():
             t.check("manickam: caught once, she dies once; Continue starts the chapter afresh, its pieces to find again",
                     r.code == 0 and r.out.count("die") == 1 and r.out.count("scene\tover") == 1
                     and "scene\ttitle\nscene\tplay" in r.out and "left\t2\t2" in r.out, r.out[-400:] + r.err[-300:])
+            # Every chapter: everything found in it, picked up, then the
+            # chapter begun again. Not yet finished, it is all back to find,
+            # with the hearts as they were; finished, it stays found.
+            again = ('local up = update\nlocal w, core, progress = require("world"), require("core"), require("progress")\n'
+                     'local function state(tag) local d, n = progress.data, 0\n'
+                     '  for _, t in ipairs(w.things) do if t.kind ~= "key" then n = n + 1 end end\n'
+                     '  dbg(tag, n, d.pieces, d.hearts, d.lotuses, d.pots) end\n'
+                     'function update(dt) up(dt) local f = stat("frame")\n'
+                     '  if f == 300 then state("start")\n'
+                     '    for i = #w.things, 1, -1 do local t = w.things[i]\n'
+                     '      if t.kind ~= "key" then table.remove(w.things, i) w.pick(t) end end\n'
+                     '    state("found") FINISH end\n'
+                     '  if f == 330 then core.go("play", w.chapter) end\n'
+                     '  if f == 700 then state("again") end\n'
+                     'end\n')
+            for ch in range(1, 6):
+                for finished in (False, True):
+                    extra = again.replace("FINISH", "progress.data.unlocked = w.chapter + 1" if finished else "")
+                    r = t.run_package(manickam_variant(os.path.join(tmp, f"again{ch}{finished}"), ch, extra=extra),
+                                      frames=700, tap="a@100,a@160,a@220,a@280")
+                    got = {k: v for k, *v in (l.split("\t", 1) for l in r.out.splitlines() if "\t" in l)}
+                    want = got.get("found") if finished else got.get("start")
+                    t.check(f"manickam: chapter {ch} begun again " + ("once finished keeps what was found" if finished
+                            else "before it is finished has its gems and hearts to find again"),
+                            r.code == 0 and got.get("start") != got.get("found") and got.get("again") == want,
+                            r.out[-300:] + r.err[-300:])
             # Hearts carry on into the next chapter, and Paati's story
             # between chapters gives one back; starting afresh gives them all.
             carry = ('local up = update\nfunction update(dt) up(dt)\n'
