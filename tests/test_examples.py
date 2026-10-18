@@ -270,6 +270,18 @@ def main():
                             else "before it is finished has its gems and hearts to find again"),
                             r.code == 0 and got.get("start") != got.get("found") and got.get("again") == want,
                             r.out[-300:] + r.err[-300:])
+            # What earlier chapters gave is hers: the lake begun again, with
+            # the fields' and forest's pieces and two heart lotuses already
+            # found, puts back only the lake's own.
+            before = again.replace('if f == 300 then state("start")',
+                                   'if f == 290 then local d = progress.data d.pieces, d.hearts = 3, 5 '
+                                   'd.got[1 * 65536 + 5] = true d.got[2 * 65536 + 5] = true end\n'
+                                   '  if f == 300 then state("start")').replace("FINISH", "")
+            r = t.run_package(manickam_variant(os.path.join(tmp, "before"), 3, extra=before),
+                              frames=700, tap="a@100,a@160,a@220,a@280")
+            t.check("manickam: a chapter begun again keeps the gems and hearts found in earlier chapters",
+                    r.code == 0 and "start\t10\t3\t5\t0\t0" in r.out and "found\t0\t15\t6\t7\t0" in r.out
+                    and "again\t10\t3\t5\t0\t0" in r.out, r.out[-300:] + r.err[-300:])
             # Hearts carry on into the next chapter, and Paati's story
             # between chapters gives one back; starting afresh gives them all.
             carry = ('local up = update\nfunction update(dt) up(dt)\n'
