@@ -192,6 +192,17 @@ def main():
             f"{small.glyphs['கொ'][2]}\t{small.rows + 8}", f"{size('கொ')[0]}\t{ta.rows}", f"{size('கொ')[0]}\t{ta.rows}"])
     expect_error("font() refuses a size it does not have", t.run_game("font('huge')"), "invalid option")
     r = t.run_game("""function draw()
+        dbg(text_size("Floor 42"))
+        dbg(text_size("தளம் 42"))
+        font("small") dbg(text_size("தளம் 42")) font()
+        dbg(text_size("42\\nதளம்"))
+    end""", frames=1)
+    digits = lambda f, s: sum(f.glyphs[d][2] for d in s)
+    expect("a number on a Tamil line is drawn at the Tamil size, and at 8x8 on an English line", r,
+           [f"64\t8", f"{size('தளம் ')[0] + digits(ta, '42')}\t{ta.rows}",
+            f"{refgfx.text_size(small, 'தளம் '.encode())[0] + digits(small, '42')}\t{small.rows}",
+            f"{size('தளம்')[0]}\t{8 + ta.rows}"])
+    r = t.run_game("""function draw()
         cls() print("கொ", 0, 0, 7)
         local left, right = 99, -1
         for y = 0, 40 do for x = 0, 60 do if pget(x, y) > 0 then left = math.min(left, x) right = math.max(right, x) end end end

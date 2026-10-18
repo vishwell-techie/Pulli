@@ -68,7 +68,9 @@ shade(0, {player_x, player_y, 40, lamp_x, lamp_y, 24}, 4)
 Write text on the screen, in English, Tamil or both, with its top at `y`.
 English letters are 8 × 8 pixels. Tamil is drawn a syllable at a time, each
 as wide as it needs, and a line holding Tamil is 22 pixels tall (16 after
-`font("small")`), with any English on it lowered to sit on the same line. A character Pulli has no
+`font("small")`), with any English on it lowered to sit on the same line.
+Numbers on a line with Tamil are drawn at the Tamil size; on an English
+line they are 8 × 8 like the letters. A character Pulli has no
 letter for shows as `?`. Numbers and other values are turned into text.
 Returns the `x` where the next letter would go. This draws on the screen;
 to print to the terminal, use `dbg`.

@@ -479,8 +479,9 @@ static void draw_tamil(pulli_gfx *g, const pulli_ta_font *ta, const pulli_ta_gly
 }
 
 /* Lays out the text line by line in Tamil font `ta`, drawing it when g is
- * not NULL. A line holding Tamil is ta->rows tall, with its English and
- * icons lowered to share the Tamil baseline; any other line is 8. Fills
+ * not NULL. A line holding Tamil is ta->rows tall, its digits drawn from the
+ * Tamil font and its other English and icons lowered to share the Tamil
+ * baseline; any other line is 8. Fills
  * where the last line ended, the widest line and the height of them all. */
 static void lay_out(pulli_gfx *g, const pulli_ta_font *ta, const char *str, size_t len, int ox, int oy, int c,
                     int *end_x, int *widest, int *height) {
@@ -501,6 +502,10 @@ static void lay_out(pulli_gfx *g, const pulli_ta_font *ta, const char *str, size
         x = 0;
         for (size_t j = i; j < end; ) {
             j += next_piece(ta, s, end, j, &code, &gl);
+            if (!gl && tamil && code >= '0' && code <= '9') {   /* a number on a Tamil line: at the Tamil size */
+                int32_t digit = code;
+                gl = ta_find(ta, &digit, 1);
+            }
             if (gl) {
                 if (g) draw_tamil(g, ta, gl, ox + x + gl->kern, oy + y, c);
                 x += gl->adv;

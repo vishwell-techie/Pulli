@@ -121,7 +121,11 @@ def build_scene():
     op("print", "அ" + chr(0xE004) + "x\n" + chr(0xE00B), 260, 120, 8)
     op("font", "small")
     op("print", "சிறிய " + chr(0xE005) + " ok\nகொ", 110, 150, 11)
+    # numbers: at the Tamil size on a Tamil line, at either size; 8x8 on an
+    # English line
+    op("print", "ஏழில் 3 / 7", 4, 46, 12)
     op("font")
+    op("print", "தளம் 0123456789\n42", 4, 224, 14)
 
     # fractions round down, on both sides of zero
     op("rectfill", 100.9, 140.2, 10.5, 6.99, 9)
@@ -302,8 +306,11 @@ def main():
     from refgfx import TamilFont
     ta = TamilFont().glyphs
     need = set(TA_VOWELS) | set(TA_CONSONANTS) | {c + v for c in TA_CONSONANTS for v in TA_SIGNS} | {"ஃ", "ஸ்ரீ"}
-    t.check("the Tamil font draws every vowel, consonant and syllable, and ஸ்ரீ", need <= set(ta),
+    need |= set("0123456789")
+    t.check("the Tamil font draws every vowel, consonant and syllable, ஸ்ரீ, and the digits", need <= set(ta),
             sorted(need - set(ta))[:20])
+    small = TamilFont(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "runtime", "font_ta_small.txt"))
+    t.check("the small Tamil font draws the same", set(small.glyphs) == set(ta), sorted(set(ta) ^ set(small.glyphs))[:20])
     build_scene()
     g = reference()
     fb = bytes(g.fb)

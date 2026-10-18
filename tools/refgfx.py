@@ -176,7 +176,8 @@ def layout(ta, data):
     glyph, giving where
     its top-left goes, then ("end", x, height) where the line ends. x and y
     are offsets from where the text starts. A line holding Tamil is ta.rows
-    tall and its English is lowered to share the baseline; any other is 8."""
+    tall, its digits come from the Tamil font, and its other English is
+    lowered to share the baseline; any other is 8."""
     cps, i = [], 0
     while i < len(data):
         cp, n = utf8_next(data, i)
@@ -194,6 +195,9 @@ def layout(ta, data):
     for line in lines:
         pieces = _pieces(ta, line)
         tamil = any(kind == "ta" for kind, _ in pieces)
+        if tamil:                       # a number on a Tamil line is drawn at the Tamil size
+            pieces = [("ta", chr(what)) if kind == "en" and 48 <= what <= 57 and chr(what) in ta.glyphs
+                      else (kind, what) for kind, what in pieces]
         height, lower = (ta.rows, ta.above) if tamil else (CELL, 0)
         x = 0
         for kind, what in pieces:

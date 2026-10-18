@@ -444,7 +444,13 @@ the `y` given.
 - A line holding any Tamil is as tall as the Tamil font in use (22 pixels
   at the normal size, 16 at the small, in each font's `! rows=` line), and
   English and icons on it are lowered to share the Tamil baseline. Any
-  other line is 8 pixels tall. `\n` starts the next line
+  other line is 8 pixels tall.
+- **Numbers follow the line.** Each Tamil font has its own digits 0 to 9,
+  made at its size. On a line holding Tamil the digits come from the Tamil
+  font in use, so a number is as large as the words around it; on any
+  other line they are the 8x8 English digits. Only the digits change:
+  other English characters on a Tamil line (`/`, `%`, `:` and so on) stay
+  8x8. `\n` starts the next line
   below the last one, at the `x` given.
 - A character neither font has, and a byte that does not begin a
   well-formed UTF-8 character, are drawn as `?`.
@@ -1004,3 +1010,6 @@ covered by `tests/`; none is frozen.
    labels and HUDs; the twelve button icons are characters U+E000 to
    U+E00B, named by the `buttons` table, so text in any language can show a
    button.
+28. **Numbers on a Tamil line** (§3): the Tamil fonts carry the digits 0 to
+   9 at their own size, and a line holding Tamil draws its numbers with
+   them; English lines keep the 8x8 digits.
