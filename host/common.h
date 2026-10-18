@@ -7,6 +7,20 @@
 /* Whole file into malloc'd memory; NULL if it cannot be read. */
 uint8_t *host_read_file(const char *path, size_t *len);
 
+/* A package read in parts as the game uses it, as a console reads its SD
+ * card (SPEC §2): opens the file and gives its length; host_pkg_read is
+ * the backend's pkg_read. */
+bool host_open_package(const char *path, size_t *len);
+bool host_pkg_read(uint32_t offset, void *dst, uint32_t len);
+
+/* A cartridge, emulated by an image of its flash (`pulli.py cart` makes
+ * one): the package is read from its start, and saves go in its last
+ * 512 KB as on a console. `cut`, if not negative, stops the first save
+ * after that many bytes are written, as pulling the cartridge would. */
+bool host_open_cart(const char *path, long cut, size_t *len);
+int  host_cart_save_read(const char *game_id, void *blob, size_t max);
+bool host_cart_save_write(const char *game_id, const void *blob, size_t len);
+
 /* "wifi,cart" -> PULLI_CAP_* bits. Returns false on an unknown name. */
 bool host_parse_caps(const char *list, uint32_t *caps);
 

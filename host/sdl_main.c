@@ -65,9 +65,10 @@ int main(int argc, char **argv) {
         return 2;
     }
 
+    /* The package is read in parts as the game uses them, as a console
+     * reads its SD card (SPEC §2). */
     size_t len;
-    uint8_t *data = host_read_file(game, &len);
-    if (!data) { fprintf(stderr, "pulli-host: cannot read %s\n", game); return 2; }
+    if (!host_open_package(game, &len)) { fprintf(stderr, "pulli-host: cannot read %s\n", game); return 2; }
 
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -85,6 +86,7 @@ int main(int argc, char **argv) {
     backend.log = host_log;
     backend.halves = host_halves;
     backend.micros = micros;
+    backend.pkg_read = host_pkg_read;
     /* No sound card is not an error: the game runs silently. */
     SDL_AudioSpec want = { 0 };
     want.freq = PULLI_AUDIO_RATE;
@@ -105,7 +107,7 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    if (!pulli_boot(&engine, data, len, &backend)) {
+    if (!pulli_boot(&engine, NULL, len, &backend)) {
         fprintf(stderr, "error: %s\n", engine.error);
         SDL_Quit();
         return 1;
@@ -169,6 +171,5 @@ int main(int argc, char **argv) {
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     SDL_Quit();
-    free(data);
     return status;
 }

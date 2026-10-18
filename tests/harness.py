@@ -63,12 +63,20 @@ class Suite:
         return False
 
     def _start(self, tmp, data, frames=1, hold=None, tap=None, caps=None, saves=None, link=None,
-               sound=False, clock=None):
+               sound=False, clock=None, mapped=False, cart=None, cart_cut=None):
+        """`mapped` holds the whole package in memory instead of reading it in
+        parts; `cart`, a path, runs that cartridge image (and `data` is
+        ignored), its first save cut off after `cart_cut` bytes if given."""
         os.makedirs(tmp)
         pkg, fb, rgb, wav = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb", "wav"))
         with open(pkg, "wb") as f:
             f.write(data)
-        cmd = [self.headless, pkg, "--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
+        game = ["--cart", cart] if cart else [pkg]
+        cmd = [self.headless] + game + ["--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
+        if mapped:
+            cmd.append("--mapped")
+        if cart_cut is not None:
+            cmd += ["--cart-cut", str(cart_cut)]
         for flag, value in (("--hold", hold), ("--tap", tap), ("--caps", caps), ("--saves", saves),
                             ("--link", link), ("--clock-step", clock)):
             if value:
@@ -94,7 +102,8 @@ class Suite:
 
     def run_package(self, data, **opts):
         """Run package bytes in the headless host and collect everything.
-        Options: frames, hold, tap, caps, saves, link, sound, clock."""
+        Options: frames, hold, tap, caps, saves, link, sound, clock, mapped,
+        cart, cart_cut."""
         with tempfile.TemporaryDirectory() as tmp:
             return self._finish(self._start(os.path.join(tmp, "a"), data, **opts))
 

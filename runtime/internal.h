@@ -16,10 +16,25 @@ typedef char pulli_needs_32bit_lua_number[sizeof(lua_Number) == 4 ? 1 : -1];
 /* sha256.c */
 void pulli_sha256(const uint8_t *data, size_t len, uint8_t out[32]);
 
+/* parts.c — the active set. A use returns the bytes, or NULL and the
+ * reason in e->part_error. */
+const uint8_t *pulli_part_use(pulli_engine *e, uint32_t offset, uint32_t len, const char *label,
+                              bool pin, bool sound);
+const uint8_t *pulli_entry_use(pulli_engine *e, const char *name, bool pin, uint32_t *len);
+void pulli_part_unpin(pulli_engine *e, const uint8_t *data);
+void pulli_parts_sound_pins(pulli_engine *e);
+void pulli_parts_free(pulli_engine *e);
+
+/* engine.c: the sprite sheet and map in use. NULL, or why not. */
+const char *pulli_sheet_load(pulli_engine *e, const char *name);
+const char *pulli_map_use(pulli_engine *e, const char *name);
+
 /* audio.c */
 const char *pulli_audio_boot(pulli_engine *e, const char **which);   /* NULL, or why a bank is bad */
-void pulli_audio_sfx(pulli_audio *a, int n, int channel);
-void pulli_audio_music(pulli_audio *a, int n, int fade_ms, bool looping);
+/* These two read the sound into the active set first: NULL, or why not. */
+const char *pulli_audio_sfx(pulli_engine *e, int n, int channel);
+const char *pulli_audio_music(pulli_engine *e, int n, int fade_ms, bool looping);
+const char *pulli_audio_preload(pulli_engine *e, bool music, int n);   /* NULL, or why not */
 void pulli_audio_music_stop(pulli_audio *a, int fade_ms);
 void pulli_audio_music_pause(pulli_audio *a, bool paused);
 

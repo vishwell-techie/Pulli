@@ -154,22 +154,52 @@ static bool load_manifest(pulli_engine *e, pulli_blob src) {
 }
 
 /* ---- assets --------------------------------------------------------- */
-/* sprites.kolam: "KLM1", u16 width, u16 height, then width*height indexed
- * pixels. The pixels are used where they lie, never copied. */
-static bool load_sprites(pulli_engine *e, pulli_blob b) {
-    if (b.len < KOLAM_HEADER || memcmp(b.data, "KLM1", 4) != 0)
-        return fail(e, "sprites.kolam: not a sprite sheet");
-    uint32_t w = b.data[4] | ((uint32_t)b.data[5] << 8);
-    uint32_t h = b.data[6] | ((uint32_t)b.data[7] << 8);
-    if (w == 0 || h == 0 || w % PULLI_SPRITE_CELL || h % PULLI_SPRITE_CELL)
-        return fail(e, "sprites.kolam: width and height must be multiples of %d", PULLI_SPRITE_CELL);
-    if (w * h > PULLI_ATLAS_MAX || w * h != b.len - KOLAM_HEADER)
-        return fail(e, "sprites.kolam: %ux%u does not match its %u bytes of pixels (max %d)",
-                    (unsigned)w, (unsigned)h, (unsigned)(b.len - KOLAM_HEADER), PULLI_ATLAS_MAX);
-    e->ctx.g.atlas = b.data + KOLAM_HEADER;
+/* A .kolam: "KLM1", u16 width, u16 height, then width*height indexed
+ * pixels. The sheet in use is pinned in the active set, and its pixels are
+ * drawn from where they lie there. */
+const char *pulli_sheet_load(pulli_engine *e, const char *name) {
+    static char why[160];
+    uint32_t len;
+    const uint8_t *b = pulli_entry_use(e, name, true, &len);
+    if (!b) return e->part_error;
+    uint32_t w = len < KOLAM_HEADER ? 0 : b[4] | ((uint32_t)b[5] << 8);
+    uint32_t h = len < KOLAM_HEADER ? 0 : b[6] | ((uint32_t)b[7] << 8);
+    why[0] = 0;
+    if (len < KOLAM_HEADER || memcmp(b, "KLM1", 4) != 0)
+        snprintf(why, sizeof(why), "%s: not a sprite sheet", name);
+    else if (w == 0 || h == 0 || w % PULLI_SPRITE_CELL || h % PULLI_SPRITE_CELL)
+        snprintf(why, sizeof(why), "%s: width and height must be multiples of %d", name, PULLI_SPRITE_CELL);
+    else if (w * h > PULLI_ATLAS_MAX || w * h != len - KOLAM_HEADER)
+        snprintf(why, sizeof(why), "%s: %ux%u does not match its %u bytes of pixels (max %d)",
+                 name, (unsigned)w, (unsigned)h, (unsigned)(len - KOLAM_HEADER), PULLI_ATLAS_MAX);
+    if (why[0]) { pulli_part_unpin(e, b); return why; }
+    pulli_part_unpin(e, e->sheet);                 /* the sheet before may now be let go */
+    e->sheet = b;
+    e->ctx.g.atlas = b + KOLAM_HEADER;
     e->ctx.g.atlas_w = (int)w;
     e->ctx.g.atlas_h = (int)h;
-    return true;
+    return NULL;
+}
+
+/* A map: its cells are copied into the engine (a game may change them);
+ * the part stays pinned while it is the map in use, as its tile flags are
+ * read where they lie. */
+const char *pulli_map_use(pulli_engine *e, const char *name) {
+    static char why[160];
+    uint32_t len;
+    const uint8_t *b = pulli_entry_use(e, name, true, &len);
+    if (!b) return e->part_error;
+    pulli_blob blob = { b, len };
+    const char *bad = pulli_map_check(blob);
+    if (bad) {
+        pulli_part_unpin(e, b);
+        snprintf(why, sizeof(why), "%s: %s", name, bad);
+        return why;
+    }
+    pulli_part_unpin(e, e->map_part);
+    e->map_part = b;
+    pulli_map_load(&e->ctx.map, blob);
+    return NULL;
 }
 
 /* ---- VM ------------------------------------------------------------- */
@@ -209,54 +239,67 @@ static bool run_callback(pulli_engine *e, const char *name, bool pass_dt) {
 static void teardown(pulli_engine *e) {
     if (e->L) lua_close(e->L);
     free(e->save);
+    pulli_parts_free(e);
+    pulli_pkg_close(&e->pkg);
     e->L = NULL;
     e->save = NULL;
+    e->sheet = e->map_part = NULL;
     e->running = false;
 }
 
+/* A failed boot frees what it took, so the engine can be booted again. */
+static bool boot_fail(pulli_engine *e, const char *fmt, const char *a, const char *b) {
+    fail(e, fmt, a, b);
+    teardown(e);
+    return false;
+}
+
 bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backend *backend) {
-    pulli_blob manifest, main_lua, sprites;
+    pulli_blob manifest, main_lua;
+    pulli_entry en;
+    const char *why;
 
     memset(e, 0, sizeof(*e));
     e->backend = backend;
     pulli_gfx_init(&e->ctx.g);
     e->ctx.g.halves = backend ? backend->halves : NULL;
 
-    const char *why = pulli_pkg_open(&e->pkg, data, len);
+    /* Only the front of the package is read and checked now; its parts
+     * come into the active set as the game uses them (SPEC §2). */
+    why = pulli_pkg_open(&e->pkg, data, len, data ? NULL : backend ? backend->pkg_read : NULL);
     if (why) return fail(e, "%s", why);
-    if (!pulli_pkg_find(&e->pkg, "manifest.lua", &manifest)) return fail(e, "package has no manifest.lua");
-    if (!pulli_pkg_find(&e->pkg, "main.lua", &main_lua))     return fail(e, "package has no main.lua");
-    if (!load_manifest(e, manifest)) return false;
-    if (pulli_pkg_find(&e->pkg, "sprites.kolam", &sprites) && !load_sprites(e, sprites)) return false;
-    const char *bank, *why_not = pulli_audio_boot(e, &bank);
-    if (why_not) return fail(e, "%s: %s", bank, why_not);
-    /* Every map is checked now, so map.load() cannot meet a bad one later.
-     * A game with a map.ooru starts with it loaded. */
-    pulli_blob pal;
+    if (!pulli_pkg_find(&e->pkg, "manifest.lua", NULL)) return boot_fail(e, "%s%s", "package has no manifest.lua", "");
+    if (!pulli_pkg_find(&e->pkg, "main.lua", NULL))     return boot_fail(e, "%s%s", "package has no main.lua", "");
+    manifest.data = pulli_entry_use(e, "manifest.lua", false, &manifest.len);
+    if (!manifest.data) return boot_fail(e, "%s%s", e->part_error, "");
+    if (!load_manifest(e, manifest)) { teardown(e); return false; }
+    if (pulli_pkg_find(&e->pkg, "sprites.kolam", NULL) && (why = pulli_sheet_load(e, "sprites.kolam")))
+        return boot_fail(e, "%s%s", why, "");
+    const char *bank;
+    if ((why = pulli_audio_boot(e, &bank))) return boot_fail(e, "%s: %s", bank, why);
     pulli_default_palette(e->base_palette);
-    if (pulli_pkg_find(&e->pkg, "palette.pal", &pal)) {
-        if (pal.len != 4 + 3 * PULLI_PALETTE_LEN || memcmp(pal.data, "PAL1", 4) != 0)
-            return fail(e, "palette.pal: not a palette of %d colours", PULLI_PALETTE_LEN);
+    if (pulli_pkg_find(&e->pkg, "palette.pal", &en)) {
+        uint32_t n;
+        const uint8_t *pal = pulli_entry_use(e, "palette.pal", false, &n);
+        if (!pal) return boot_fail(e, "%s%s", e->part_error, "");
+        if (n != 4 + 3 * PULLI_PALETTE_LEN || memcmp(pal, "PAL1", 4) != 0)
+            return boot_fail(e, "palette.pal: not a palette of %s colours%s", "64", "");
         for (int i = 0; i < PULLI_PALETTE_LEN; i++) {
-            const uint8_t *c = pal.data + 4 + 3 * i;
+            const uint8_t *c = pal + 4 + 3 * i;
             e->base_palette[i] = (uint16_t)(((c[0] >> 3) << 11) | ((c[1] >> 2) << 5) | (c[2] >> 3));
         }
         pulli_load_palette(&e->ctx.g, e->base_palette);
     }
-    for (unsigned i = 0; i < e->pkg.count; i++) {
-        char name[PULLI_PKG_NAME_MAX + 1] = { 0 };          /* a full-length name has no terminator */
-        memcpy(name, e->pkg.base + PULLI_PKG_HEADER + PULLI_PKG_ENTRY * i, PULLI_PKG_NAME_MAX);
-        size_t n = strlen(name);
-        pulli_blob map;
-        if (n < 5 || strcmp(name + n - 5, ".ooru") != 0) continue;
-        pulli_pkg_find(&e->pkg, name, &map);
-        if ((why_not = pulli_map_check(map)) != NULL) return fail(e, "%s: %s", name, why_not);
-        if (strcmp(name, "map.ooru") == 0) pulli_map_load(&e->ctx.map, map);
-    }
+    /* A game with a map.ooru starts with it loaded. Other maps are checked
+     * when map.load() reads them. */
+    if (pulli_pkg_find(&e->pkg, "map.ooru", NULL) && (why = pulli_map_use(e, "map.ooru")))
+        return boot_fail(e, "%s%s", why, "");
+    main_lua.data = pulli_entry_use(e, "main.lua", false, &main_lua.len);
+    if (!main_lua.data) return boot_fail(e, "%s%s", e->part_error, "");
 
     if (e->manifest.save_target != PULLI_SAVE_NONE) {
         e->save = malloc((size_t)e->manifest.save_size);
-        if (!e->save) return fail(e, "out of memory");
+        if (!e->save) return boot_fail(e, "%s%s", "out of memory", "");
         pulli_save_boot(e);
     }
 

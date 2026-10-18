@@ -106,12 +106,14 @@ static int usage(void) {
         "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME[-FRAME],...]\n"
         "                      [--caps CAPS] [--link PORT]\n"
         "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE] [--dump-wav FILE]\n"
-        "                      [--clock-step US]\n");
+        "                      [--clock-step US] [--mapped] [--cart IMAGE] [--cart-cut BYTES]\n");
     return 2;
 }
 
 int main(int argc, char **argv) {
-    const char *game = NULL, *dump_fb = NULL, *dump_rgb = NULL, *dump_wav = NULL;
+    const char *game = NULL, *dump_fb = NULL, *dump_rgb = NULL, *dump_wav = NULL, *cart = NULL;
+    bool mapped = false;
+    long cart_cut = -1;
     long frames = 60;
     uint32_t held = 0, caps = 0;
     pulli_backend backend = { 0 };
@@ -130,6 +132,7 @@ int main(int argc, char **argv) {
         const char *a = argv[i];
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;
         if (a[0] != '-') { if (game) return usage(); game = a; continue; }
+        if (!strcmp(a, "--mapped")) { mapped = true; continue; }   /* the whole package in memory */
         if (!v) return usage();
         i++;
         if      (!strcmp(a, "--frames"))   frames = atol(v);
@@ -142,14 +145,31 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--tap"))      { if (!parse_taps(v)) return usage(); }
         else if (!strcmp(a, "--caps"))     { if (!host_parse_caps(v, &caps)) return usage(); }
         else if (!strcmp(a, "--link"))     { if (!host_use_link(&backend, v, true)) return usage(); }
+        else if (!strcmp(a, "--cart"))     cart = v;
+        else if (!strcmp(a, "--cart-cut")) cart_cut = atol(v);
         else return usage();
     }
-    if (!game || frames < 0) return usage();
+    if ((!game) == (!cart) || frames < 0 || (cart && mapped)) return usage();
     backend.caps |= caps;
 
-    size_t len;
-    uint8_t *data = host_read_file(game, &len);
-    if (!data) { fprintf(stderr, "pulli-headless: cannot read %s\n", game); return 2; }
+    /* As a console does: the package read in parts as the game uses them,
+     * from its file or from a cartridge. --mapped holds all of it in memory
+     * instead, as flash read in place is; a game must behave the same. */
+    size_t len = 0;
+    uint8_t *data = NULL;
+    if (cart) {
+        if (!host_open_cart(cart, cart_cut, &len)) { fprintf(stderr, "pulli-headless: cannot use %s\n", cart); return 2; }
+        backend.pkg_read = host_pkg_read;
+        backend.save_read = host_cart_save_read;
+        backend.save_write = host_cart_save_write;
+        backend.caps |= PULLI_CAP_CART;
+        game = cart;
+    } else if (mapped) {
+        if (!(data = host_read_file(game, &len))) { fprintf(stderr, "pulli-headless: cannot read %s\n", game); return 2; }
+    } else {
+        if (!host_open_package(game, &len)) { fprintf(stderr, "pulli-headless: cannot read %s\n", game); return 2; }
+        backend.pkg_read = host_pkg_read;
+    }
 
     if (dump_wav) {
         wav = fopen(dump_wav, "wb");

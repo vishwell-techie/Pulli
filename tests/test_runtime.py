@@ -448,6 +448,99 @@ def main():
     """, manifest=manifest(lua_heap="64"), frames=600)
     expect_error("the Lua heap is capped at the manifest's lua_heap", r, "not enough memory")
 
+    # ---- the parts of the package in memory (SPEC §2, §3 "Loading") ---------
+    from harness import pulli
+    MB = 1024 * 1024
+    parts = {"a.bin": bytes([1]) * (5 * MB // 2), "b.bin": bytes([2]) * (5 * MB // 2),
+             "c.bin": bytes([3]) * (5 * MB // 2), "huge.bin": bytes(7 * MB)}
+    r = t.run_game("""
+        local function kb() return math.floor(stat("active")) end
+        local base = kb()
+        dbg(preload("a.bin", "b.bin"), kb() - base)
+        dbg(preload("c.bin"), kb() - base)
+        dbg(preload("a.bin"), kb() - base)
+        dbg(preload("nowhere.bin", "a.bin"), kb() <= 6144)
+        dbg(pcall(preload, "huge.bin"))
+    """, extra=parts)
+    out = r.out.split("\n")
+    t.check("preload reads parts into memory and stat('active') counts them; the oldest unused is let go",
+            out[:4] == ["true\t5120", "true\t5120", "true\t5120", "false\ttrue"], r.out + r.err)
+    t.check("a part too big for memory is an error naming it",
+            len(out) > 4 and out[4].startswith("false") and "huge.bin" in out[4] and "6144 KB" in out[4], r.out)
+
+    sheets = {"sprites.kolam": pulli.kolam(8, 8, bytes([8]) * 64), "blue.kolam": pulli.kolam(8, 8, bytes([12]) * 64)}
+    r = t.run_game("""
+        function draw()
+            cls() spr(0, 0, 0) local before = pget(3, 3)
+            sheet.load("blue.kolam") spr(0, 0, 0) local after = pget(3, 3)
+            preload("a.bin", "b.bin", "c.bin")          -- fills memory: the sheet in use stays
+            cls() spr(0, 0, 0)
+            dbg(before, after, pget(3, 3), (pcall(sheet.load, "nowhere.kolam")), (pcall(sheet.load, "main.lua")))
+            sheet.load("sprites.kolam") cls() spr(0, 0, 0) dbg(pget(3, 3))
+        end""", extra=dict(parts, **sheets))
+    t.check("sheet.load changes the sheet sprites are drawn from; the one in use is kept in memory",
+            r.out.split("\n")[:2] == ["8\t12\t12\tfalse\tfalse", "8"], r.out + r.err)
+    r = t.run_game("sheet.load('nowhere.kolam')", extra=sheets)
+    t.check("sheet.load of a sheet the package does not have names it", r.code == 1 and "nowhere.kolam" in r.err, r.err)
+
+    sound = {"sfx.oli": pulli.bank("sfx", [(22050, 1, [100] * 2205, None, pulli.PCM),
+                                           (22050, 1, [200] * 22050, None, pulli.PCM)])}
+    r = t.run_game("""
+        local a = stat("active")
+        sfx(1) local b = stat("active")
+        dbg(math.floor((b - a) * 1024 + 0.5), preload("sfx 0"), preload("sfx 2"), preload("music 0"))
+    """, extra=sound)
+    t.check("a sound is read when it is first played, and preload takes 'sfx N'",
+            r.out.split("\n")[0] == "44100\ttrue\tfalse\tfalse", r.out + r.err)
+
+    game = """
+        function update() if stat("frame") % 3 == 0 then preload(({"a.bin", "b.bin", "c.bin"})[stat("frame") % 9 // 3 + 1]) end end
+        function draw() cls(stat("frame") % 16) dbg(math.floor(stat("active"))) end"""
+    read, mapped = t.run_game(game, extra=parts, frames=20), t.run_game(game, extra=parts, frames=20, mapped=True)
+    t.check("a game behaves the same, memory counted alike, whether its package is read in parts or held",
+            read.code == 0 and read.out == mapped.out and read.fb == mapped.fb, read.err + mapped.err)
+
+    # ---- save data in a cartridge's flash (SPEC §2 "Cartridges") -----------
+    import tempfile as _tmp
+    counter = """
+        local n = load("runs", 0)
+        dbg("run", n)
+        save("runs", n + 1) save("pad", string.rep("x", PAD))
+        dbg("saved", save_commit())
+    """
+    def cart_game(pad, size):
+        manifest = f'return {{ id = "test.cart", title = "Cart", spec = 1, save_target = "cart", save_size = {size} }}\n'
+        return t.package(counter.replace("PAD", str(pad)), manifest)
+    with _tmp.TemporaryDirectory() as tmp:
+        img = os.path.join(tmp, "cart.img")
+        with open(img, "wb") as f:
+            f.write(pulli.cart_image(cart_game(60000, 65536)))
+        seen = []
+        for _ in range(10):                                  # seven slots of 68 KB: round them more than once
+            r = t.run_package(b"", cart=img)
+            seen.append([l for l in r.lines if l.startswith("run")])
+        t.check("a cartridge keeps its saves in its own flash, run after run, through every slot",
+                [x[0] if x else None for x in seen] == [f"run\t{i}" for i in range(10)],
+                str(seen) + r.err)
+        with open(img, "rb") as f:
+            image = f.read()
+        area = image[-512 * 1024:]
+        t.check("the saves are in the last 512 KB, written in turn: seven slots for the largest save",
+                pulli.cart_image(cart_game(60000, 65536))[:-512 * 1024] == image[:-512 * 1024]
+                and sum(area[i * 69632:i * 69632 + 4] == b"SAV1" for i in range(7)) == 7, "")
+        # Pulled out while saving: the save being written is lost, the one before is not.
+        r = t.run_package(b"", cart=img, cart_cut=1000)
+        cut = [l for l in r.lines if l.startswith(("run", "saved"))]
+        r = t.run_package(b"", cart=img)
+        after = [l for l in r.lines if l.startswith("run")]
+        t.check("a cartridge pulled out while saving keeps the save before",
+                cut == ["run\t10", "saved\tfalse"] and after == ["run\t10"], f"{cut} {after} {r.err}")
+        with open(img, "wb") as f:
+            f.write(pulli.cart_image(cart_game(10, 64)))
+        for _ in range(3):
+            r = t.run_package(b"", cart=img)
+        t.check("a small save on a cartridge works the same", [l for l in r.lines if l.startswith("run")] == ["run\t2"], r.err)
+
     # ---- errors -------------------------------------------------------
     r = t.run_game("function update()\n  local t = nil\n  return t.x\nend\n", frames=10)
     expect_error("a runtime error stops the game and says where", r, "main.lua:3:", "stack traceback", "0 of 10 frames")

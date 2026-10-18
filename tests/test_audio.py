@@ -213,6 +213,9 @@ def main():
                 and loudest(frame(96)) > 0 and loudest(frame(155)) == 0 and loudest(frame(185)) > 0)
         again = t.run_game(lua_script(), extra=extra, frames=FRAMES, sound=True)
         t.check("the same game makes the same sound every time", again.wav == r.wav)
+        mapped = t.run_game(lua_script(), extra=extra, frames=FRAMES, sound=True, mapped=True)
+        t.check("the same sound comes out whether the package is read in parts or held in memory",
+                mapped.wav == r.wav, mapped.err)
 
     # ---- behaviour ---------------------------------------------------------
     r = t.run_game("function update() sfx(0) music(0, 100) music_stop(50) sfx(-1) end", frames=30, sound=True)

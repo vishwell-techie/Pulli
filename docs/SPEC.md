@@ -95,34 +95,42 @@ to be measured.
 
 ## 2. Game package format (`.pulli`)
 
-A `.pulli` is a flat, uncompressed, memory-mappable archive. Deliberately *not*
-ZIP: no zlib on the MCU, and a package held in memory-mapped flash or PSRAM
-is read in place: its sounds and sprite sheet are used where they lie,
-not copied again into RAM.
+A `.pulli` is a flat, uncompressed archive. Deliberately *not* ZIP: no
+zlib on the MCU. A package can be read in parts, so a 64 MB cartridge
+starts at once: only its **front** (header, entry table and block hashes)
+is read and checked when it is opened, and each part of the payload when
+the game first uses it.
 
 ```
 offset  size  field
 0       4     magic "PULI"
-4       1     format version (u8)
+4       1     format version (u8), 2
 5       1     flags (u8): 0x01 encrypted, 0x02 signed, 0x04 dev build
-6       2     entry count (u16 LE)
+6       2     entry count N (u16 LE)
 8       4     total size (u32 LE)
-12      4     crc32 of payload (u32 LE)
-16      N*40  entry table
-...           payload (each entry 4-byte aligned)
+12      4     crc32 of the rest of the front, bytes 16 to P (u32 LE)
+16      4     payload start P (u32 LE), a multiple of 4
+20      N*40  entry table
+20+N*40 B*32  block hashes: the SHA-256 of each 64 KB block of the payload,
+              B = (total size - P) / 65536, rounded up; the last block may
+              be shorter
+P       ...   payload (each entry 4-byte aligned)
 total   ...   the seal: licence and signature (see below)
 
 entry (40 bytes):
 0       32    name, NUL-padded ASCII
-32      4     offset from file start (u32 LE)
+32      4     offset from file start (u32 LE), at P or after
 36      4     length (u32 LE)
 ```
 
-A package holds at most 64 entries. Entry names are 1 to 32 printable ASCII
-characters with no path separators; a 32-character name has no terminating
-NUL. `total size` and the checksum cover the header, table and payload: the
-checksum is over every byte from offset 16 to `total size`. The seal comes
-after and is covered by neither. A reader must check every offset and
+A package holds at most 1024 entries and is at most 64 MB. Entry names are
+1 to 32 printable ASCII characters with no path separators; a 32-character
+name has no terminating NUL. The checksum covers the front; every block of
+the payload has its hash in the front, and a reader checks a block against
+it before using any byte of it (once, for a package mapped in place;
+every time it is read, otherwise). A damaged block stops the game when it
+is used, with an error naming the part. The seal comes after `total size`
+and is covered by none of these. A reader must check every offset and
 length before using it, and must accept a file that is longer than the
 package and its seal (a cartridge holds them at the start of a larger flash
 region).
@@ -148,9 +156,10 @@ emulator included, so a game that fits on a desktop fits on a console.
 - `preload` (§3, "Loading") reads parts ahead of time, behind a loading
   screen, so nothing is read in the middle of play.
 - Some parts are used where they lie and stay in the active set while in
-  use: the sprite sheet in use and the sounds playing. Others are copied out
-  as they load and need not stay: a Lua file is compiled into the Lua heap,
-  a map is copied into the engine.
+  use: the sprite sheet in use, the map in use (its cells are copied into
+  the engine, its tile flags read where they lie), the sound banks' tables
+  and the sounds playing. Others need not stay: a Lua file, once compiled
+  into the Lua heap, and a part `preload` read ahead.
 - When the active set is full, the parts least recently used that are not
   in use are let go, and read again if wanted. A part that cannot fit even
   then stops the game with an error naming it, as running out of Lua memory
@@ -158,11 +167,10 @@ emulator included, so a game that fits on a desktop fits on a console.
 - Reading takes time, a fraction of a second for a large sound, but never
   changes what the game computes: the game stays deterministic (§4).
 
-*Not yet: the runtime holds the whole package in memory, and the format
-allows 64 entries and checks the whole package at once. A 64 MB package
-needs more entries and a hash for each entry, checked as the entry is read,
-since reading a whole cartridge to check it would take seconds; the entry
-table changes with that work.*
+The emulator reads its package from disk in parts, as a console reads its
+SD card, so the 6 MB is counted the same way there. A port may instead hold
+the whole package in memory (flash read in place); the active set is
+counted alike, and the game behaves the same.
 
 ### Cartridges
 
@@ -174,8 +182,9 @@ quad-SPI like the SD card, into the active set; nothing on the cartridge is
 run in place.
 
 - **The save area** is written in turn, a slot after the last one used:
-  each slot holds a whole save (at most `save_size`, so at least eight
-  slots), a number counting up and a checksum. The console reads the
+  each slot holds a whole save (at most `save_size`, so at least seven
+  slots of whole 4 KB sectors), a number counting up and a checksum, and
+  its header is written last. The console reads the
   newest slot whose checksum holds, so a cartridge pulled out or a battery
   going flat while a save is written loses only that save, never the one
   before. Writing in turn spreads the wear over the area: a 64 KB save
@@ -211,14 +220,15 @@ offset  size  field
 12+L    S     signature
 ```
 
-The signature is made over the package, bytes 0 to `total size`. Because
+The signature is made over the package's front, bytes 0 to `P`; as the
+front holds the hash of every block, it covers the whole package. Because
 the seal lies outside the package's size and checksum, a licence or a
 signature can be replaced without changing one byte of the package: the
 store keeps one build of a game and attaches a seal per purchase.
 
 | Kind | Licence | Signature |
 |---|---|---|
-| 0, developer | empty; the game runs on any device | the SHA-256 of the package, 32 bytes |
+| 0, developer | empty; the game runs on any device | the SHA-256 of the front, 32 bytes |
 | 1 and up | reserved for the store | reserved for the store |
 
 Every package a developer builds gets the developer seal automatically. A
@@ -523,8 +533,6 @@ stat("active")                     -- KB of the package in memory
   later if the active set fills up with others.
 - A game that never calls them works as it does today: everything it uses
   is read when first used.
-
-*Not yet: `sheet.load`, `preload` and `stat("active")` are not built.*
 
 ### Input
 
@@ -871,8 +879,10 @@ copied into WSL), `Thumbs.db` and `desktop.ini`. A package with more
 entries than it may hold is refused with the list of what was packed.
 
 Today the CLI is `python3 tools/pulli.py`. `new`, `pack`, `list`, `unpack`
-and `run` work, as do `palette` (write the palette for a paint program) and
-`add` (list the SDK helpers, or copy one into a game to change it); `check`
+and `run` work, as do `palette` (write the palette for a paint program),
+`add` (list the SDK helpers, or copy one into a game to change it) and
+`cart` (a cartridge's flash as a file, which `pulli-headless --cart` runs
+like a console runs the cartridge, saves included); `check`
 runs the game with no window and reports errors and peak memory, without the
 static checks yet; hot reload and `flash` do not exist yet.
 
@@ -929,11 +939,11 @@ static checks yet; hot reload and `flash` do not exist yet.
 
 ---
 
-## 10. Changes in this revision (October 2026, approved)
+## 10. Changes in this revision (October 2026)
 
-Made while building and testing the first runtime, and approved by 18
-October 2026. Each is implemented and covered by `tests/`, except what item
-23 says is still to come; none is frozen until spec 1.0.
+Made while building and testing the first runtime. Items 1 to 28 were
+approved by 18 October 2026; later items await approval. Each is
+implemented and covered by `tests/`; none is frozen until spec 1.0.
 
 1. **Names.** The platform is Pulli; the package is `.pulli` with magic
    `PULI`; asset entries are `.kolam`, `.ooru`, `.oli`, `.isai`.
@@ -944,7 +954,7 @@ October 2026. Each is implemented and covered by `tests/`, except what item
 4. **Argument conventions** (§3): fractions round down, coordinates are held
    to 16 bits, colour indices wrap at 64, `pal()`/`palt()` reset, `fade`
    sets a level instead of accumulating.
-5. **Package limits** (§2): 64 entries, name rules, what the checksum
+5. **Package limits** (§2): 64 entries (1024 since item 29), name rules, what the checksum
    covers, and the first asset format, `sprites.kolam`.
 6. **Manifest rules** (§2): required fields, defaults, id characters, and
    `lua_heap` up to 256 KB to match the memory budget in §1.
@@ -1011,9 +1021,7 @@ October 2026. Each is implemented and covered by `tests/`, except what item
    saves in the last 512 KB of its flash, written in turn
    (`save_target = "cart"`). §7 no longer says
    cartridges wait for a later generation, nor that cartridge flash is read
-   in place. Not built yet: `preload`, `sheet.load`, more than one sprite
-   sheet, `stat("active")`, cartridge saves, and the format changes the 64
-   MB package needs (more entries, a hash per entry).
+   in place. Built since, as item 29 describes.
 24. **Measured on a board** (§1, §4, §9): on a Pico 2 at 150 MHz,
    converting a frame to RGB565 takes about 5.1 ms, and the firmware passes
    the maths self-check.
@@ -1030,3 +1038,13 @@ October 2026. Each is implemented and covered by `tests/`, except what item
 28. **Numbers on a Tamil line** (§3): the Tamil fonts carry the digits 0 to
    9 at their own size, and a line holding Tamil draws its numbers with
    them; English lines keep the 8x8 digits.
+29. **The package read in parts** (§2, §3, §6), awaiting approval. Format
+   version 2: up to 1024 entries; a header field for where the payload
+   starts; the SHA-256 of every 64 KB block of the payload in the front,
+   each block checked when it is used, rather than one hash per entry, so
+   one sound can be read and checked without its whole bank; the checksum
+   and the developer signature over the front only. The active set of 6 MB
+   with the oldest unused parts let go; maps other than `map.ooru` checked
+   when loaded rather than at start; `sheet.load`, `preload` and
+   `stat("active")`. Cartridge saves in slots of whole 4 KB sectors, so the
+   largest save has seven, not eight. `pulli cart` writes a cartridge image.
