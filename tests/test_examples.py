@@ -221,6 +221,29 @@ def main():
             t.check("manickam: when the dark catches Kayal she fades away and the game is over; A goes to the title",
                     dying.code == 0 and over.code == 0 and back.code == 0 and dying.fb != over.fb
                     and back.fb[:320 * 120] == title[:320 * 120], back.err[-300:])   # the title art, above the menu
+            # Caught in the hills when the escape runs out, with both pieces
+            # found: she dies once, and Continue on the title begins the
+            # chapter afresh, the pieces back in their caves to find again.
+            late = ('local up = update\nlocal w, core = require("world"), require("core")\nlocal die, last = w.die\n'
+                    'function w.die() dbg("die") die() end\n'
+                    'function update(dt) up(dt)\n'
+                    '  if stat("frame") == 400 then\n'
+                    '    local d = require("progress").data\n'
+                    '    for _, t in ipairs(w.things) do if t.kind == "piece" then\n'
+                    '      d.got[t.id] = true d.pieces = d.pieces | (1 << (w.region.pieces[t.n] - 1)) end end\n'
+                    '    w.region.escape = 0.5\n'
+                    '  end\n'
+                    '  if core.current() ~= last then last = core.current() dbg("scene", last) end\n'
+                    '  if stat("frame") == 1400 then local n = 0\n'
+                    '    for _, t in ipairs(w.things) do if t.kind == "piece" then n = n + 1 end end\n'
+                    '    dbg("left", w.pieces_left(), n) end\n'
+                    'end\n')
+            r = t.run_package(manickam_variant(os.path.join(tmp, "late"), 4, extra=late), frames=1400,
+                              tap="a@100,a@130,a@160,a@190,a@220,a@250,a@420,a@440,a@460,a@700,a@900,"
+                                  "a@1000,a@1030,a@1060,a@1090,a@1120")
+            t.check("manickam: caught once, she dies once; Continue starts the chapter afresh, its pieces to find again",
+                    r.code == 0 and r.out.count("die") == 1 and r.out.count("scene\tover") == 1
+                    and "scene\ttitle\nscene\tplay" in r.out and "left\t2\t2" in r.out, r.out[-400:] + r.err[-300:])
             # Hearts carry on into the next chapter, and Paati's story
             # between chapters gives one back; starting afresh gives them all.
             carry = ('local up = update\nfunction update(dt) up(dt)\n'
