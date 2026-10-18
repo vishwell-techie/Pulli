@@ -4,7 +4,8 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 64-colour palette, named Pulli). Architecture revised per ADR-001 (GPU
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
-what was added or changed, all of it awaiting approval.
+what was added or changed. All of it was approved by 18 October 2026; a new
+change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
 are decision records kept outside this repository.
@@ -49,7 +50,7 @@ them does not ship.
 | CPU chip storage | 16 MB QSPI flash; 8 MB QSPI PSRAM on the same bus | Flash: firmware and the launcher. PSRAM: the game being played (§2, "Size, and the parts in memory") |
 | GPU chip storage | 4 MB QSPI flash | Its own firmware only; sprite sheets and maps arrive over the link |
 | Game package | **up to 64 MB, of which at most 6 MB is in memory at once** | Read from the SD card or a cartridge into PSRAM as the game uses it (§2) |
-| Cartridge slot | Quad-SPI flash read by PIO, save EEPROM on I2C | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
+| Cartridge slot | Quad-SPI flash read by PIO; saves in the last 512 KB of that flash | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
 | Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable (ADR-008) |
 | Tile layers | 2 scrolling + 1 sprite + 1 UI | |
 | Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core (ADR-002) |
@@ -165,18 +166,31 @@ table changes with that work.*
 
 ### Cartridges
 
-A cartridge holds one game: flash memory with the package and its seal at
-offset 0 (with its seal, below), sized to the game, up to 64 MB; and an EEPROM for
-the game's save data (§3, "Save data"). The console reads the flash over
+A cartridge holds one game in flash memory: the package and its seal at
+offset 0 (see the seal, below), and the game's save data (§3, "Save data")
+in the last 512 KB. The flash is sized to the game; a package may take all
+of it but the save area, up to 64 MB. The console reads the flash over
 quad-SPI like the SD card, into the active set; nothing on the cartridge is
 run in place.
+
+- **The save area** is written in turn, a slot after the last one used:
+  each slot holds a whole save (at most `save_size`, so at least eight
+  slots), a number counting up and a checksum. The console reads the
+  newest slot whose checksum holds, so a cartridge pulled out or a battery
+  going flat while a save is written loses only that save, never the one
+  before. Writing in turn spreads the wear over the area: a 64 KB save
+  written every 10 seconds, the most the rules allow, lasts hundreds of
+  thousands of saves, far beyond a lifetime of play.
+- Flash cannot be read while part of it is being erased, which takes up to
+  about half a second. The console does not read the package while it
+  writes a save, and holds a save until no part of the package is loading.
 
 - A cartridge pulled out while its game runs pauses the game until it is
   back; the parts already in memory are not lost, and no save is written
   while it is out.
 - The cartridge's contacts are 3.3 V, ground, the quad-SPI bus (clock,
-  select, four data lines), the I2C pair for its EEPROM, and a detect
-  contact that breaks first when it is pulled.
+  select, four data lines), an I2C pair kept for a chip on the cartridge,
+  and a detect contact that breaks first when it is pulled.
 
 ### The seal: licence and signature
 
@@ -567,8 +581,8 @@ Saves are a key-value blob capped at `save_size`. No filesystem access from
 games — ever. This is what makes cartridge/SD parity trivial.
 
 `save_target = "cart"` keeps a cartridge game's saves in the cartridge's
-own EEPROM, so they go wherever the cartridge goes; the EEPROM holds at
-least the game's `save_size`. The same game run from the SD card (a
+own flash, in its save area (§2, "Cartridges"), so they go wherever the
+cartridge goes. The same game run from the SD card (a
 developer's copy, say) keeps them on the SD card, as `"sd"` does. A game
 does not see the difference.
 
@@ -873,7 +887,7 @@ static checks yet; hot reload and `flash` do not exist yet.
 | RGB565 framebuffer | 8-bit indexed + palette | Halves RAM, enables free fades/flashes |
 | 44.1 kHz stereo on device | **44.1 kHz stereo retained** | Core 1 is free once the display moves off-CPU (ADR-002) |
 | `.pulli` = folder/zip | Flat XIP-friendly archive | No zlib on MCU; a package in memory is read in place |
-| Cartridges in v1 | **Cartridge slot in the first generation** | Read like the SD card, over quad-SPI, into memory; saves on the cartridge's EEPROM (§2) |
+| Cartridges in v1 | **Cartridge slot in the first generation** | Read like the SD card, over quad-SPI, into memory; saves in the cartridge's own flash (§2) |
 | Package size set by memory | **64 MB package, 6 MB in memory at once** | Parts are read as the game uses them, so a big game needs no more memory (§2) |
 
 ---
@@ -915,10 +929,11 @@ static checks yet; hot reload and `flash` do not exist yet.
 
 ---
 
-## 10. Changes in this revision (October 2026, awaiting approval)
+## 10. Changes in this revision (October 2026, approved)
 
-Made while building and testing the first runtime. Each is implemented and
-covered by `tests/`; none is frozen.
+Made while building and testing the first runtime, and approved by 18
+October 2026. Each is implemented and covered by `tests/`, except what item
+23 says is still to come; none is frozen until spec 1.0.
 
 1. **Names.** The platform is Pulli; the package is `.pulli` with magic
    `PULI`; asset entries are `.kolam`, `.ooru`, `.oli`, `.isai`.
@@ -993,10 +1008,12 @@ covered by `tests/`; none is frozen.
    once, its parts read as the game uses them; `preload`, `sheet.load` and
    more than one sprite sheet per game, and `stat("active")`; the cartridge
    slot in the first generation, read over quad-SPI like the SD card, with
-   saves on its EEPROM (`save_target = "cart"`). §7 no longer says
+   saves in the last 512 KB of its flash, written in turn
+   (`save_target = "cart"`). §7 no longer says
    cartridges wait for a later generation, nor that cartridge flash is read
-   in place. The format changes the 64 MB package needs (more entries, a
-   hash per entry) come with the runtime work.
+   in place. Not built yet: `preload`, `sheet.load`, more than one sprite
+   sheet, `stat("active")`, cartridge saves, and the format changes the 64
+   MB package needs (more entries, a hash per entry).
 24. **Measured on a board** (§1, §4, §9): on a Pico 2 at 150 MHz,
    converting a frame to RGB565 takes about 5.1 ms, and the firmware passes
    the maths self-check.
