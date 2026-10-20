@@ -278,11 +278,26 @@ def main():
                        '  if c == 6 then in6 = (in6 or 0) + 1 end\n'
                        '  if in6 == 900 then collectgarbage() dbg("festival", stat("mem")) end\n'
                        'end\n')
+            # Every sound, map and piece of music is read ahead, at the start
+            # or behind a chapter's loading screen, never first in mid-play.
+            ahead = ('local ready, pre, s, m, ml = {}, preload, sfx, music, map.load\n'
+                     'function preload(...) for _, n in ipairs({ ... }) do ready[n] = true\n'
+                     # the copy played here has no sounds; maps must be there
+                     '  if not pre(n) and n:find("%.") then dbg("late", "missing " .. n) end end return true end\n'
+                     'function sfx(n, ...) if not ready["sfx " .. n] then dbg("late", "sfx " .. n) end return s(n, ...) end\n'
+                     'function music(n, ...) if not ready["music " .. n] then dbg("late", "music " .. n) end return m(n, ...) end\n'
+                     'function map.load(n) if not ready[n] then dbg("late", n) end return ml(n) end\n')
             reads = ",".join(f"a@{f}" for f in range(100, 9000, 30))
-            r = t.run_package(manickam_variant(os.path.join(tmp, "all"), 0, extra=through), frames=9000, tap=reads)
+            r = t.run_package(manickam_variant(os.path.join(tmp, "all"), 0, extra=ahead + through), frames=9000, tap=reads)
             kb = [float(l.split("\t")[1]) for l in r.lines if l.startswith("festival")]
             t.check("manickam: played through in one sitting, the festival and its fireworks fit in memory",
                     r.code == 0 and kb and kb[0] < 215, f"{kb} {r.err[-300:]}")
+            late = sorted({l for l in r.lines if l.startswith("late")})
+            t.check("manickam: every sound, map and tune is read ahead, behind a loading screen, never in mid-play",
+                    r.code == 0 and kb and not late, late)
+            sounds = len([f for f in os.listdir(os.path.join(MANICKAM, "sfx")) if f.endswith(".wav")])
+            t.check("manickam: it reads ahead every sound it has, and no more",
+                    f"for i = 0, {sounds - 1} do" in open(os.path.join(MANICKAM, "main.lua")).read(), sounds)
             # Switching language lets the other language's lines go, and
             # a benchmark run from the title is let go when a game starts:
             # either way chapter 0 has the room it has in a plain game.

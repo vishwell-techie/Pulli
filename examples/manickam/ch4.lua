@@ -11,6 +11,7 @@ local story    = require("story")
 local fx       = require("fx")
 
 local region = { map = "hills.ooru", music = 5, pieces = { 5, 6 },   -- hills music
+  preload = { "music 7" },                                            -- irul music, for the escape
   lines = { villager = "c4_hermit", hint = "c4_exit", exit = "c4_exit" } }
 local ESCAPE = 60
 local rx, ry, rt = {}, {}, {}           -- falling rocks: where, and how long until they land

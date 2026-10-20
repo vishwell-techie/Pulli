@@ -12,7 +12,8 @@ local progress = require("progress")
 local core     = require("core")
 
 local RX, RY = 160, 34                  -- the ruby
-local region = { map = "hall.ooru", music = 6, no_hud = true }   -- temple music
+local region = { map = "hall.ooru", music = 6, no_hud = true,   -- temple music
+  preload = { "music 9" } }                                    -- shadow music
 local snake, whole, pieces
 
 -- The ruby, its seven pieces flying, and Irul: drawn over everyone.

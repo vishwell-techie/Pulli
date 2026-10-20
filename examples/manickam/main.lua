@@ -35,6 +35,12 @@ require("title")
 
 function init()
   progress.load()
+  -- The title music and every sound, read now, so none is read (and
+  -- checked) for the first time in the middle of play. Each chapter's map
+  -- and music are read behind its loading screen (play.lua).
+  local parts = { "music 0" }
+  for i = 0, 29 do parts[#parts + 1] = "sfx " .. i end
+  preload(table.unpack(parts))
   core.go("title")
 end
 

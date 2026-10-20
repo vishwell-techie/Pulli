@@ -18,6 +18,8 @@
 --                             lights, and which ruby pieces (1 to 7) its
 --                             piece markers are
 --   night                     the map drawn in the darker half of the palette
+--   preload                   other parts it uses ("top.ooru", "music 7"), read
+--                             with its map and music behind the loading screen
 --   lines                     what each person says: lines.paati = "key"
 --   start(w), update(w, dt), leave(w)
 --   talk(w, npc)              when Kayal speaks to someone, instead of lines
