@@ -30,6 +30,9 @@ function script.attach(world) w = world end
 
 function script.active() return co ~= nil end
 
+-- Drop the scene running, if any, without finishing it.
+function script.cancel() co, finish, script.skipping, progress.quiet = nil, nil, false, false end
+
 function script.run(fn, done)
   co, finish, script.skipping = coroutine.create(function() fn(script) end), done, false
   w.control = false

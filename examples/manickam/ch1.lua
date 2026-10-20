@@ -12,6 +12,7 @@ function region.start(w)
   for _, n in ipairs(w.npcs) do
     if n.who == "villager" then n.say = "farmer" end
   end
+  if progress.data.unlocked <= 1 then progress.data.lamp = false end   -- begun afresh (see w.start)
   w.card()
   w.tip("c1_start")
 end

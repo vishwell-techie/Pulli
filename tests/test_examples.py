@@ -221,6 +221,67 @@ def main():
             t.check("manickam: when the dark catches Kayal she fades away and the game is over; A goes to the title",
                     dying.code == 0 and over.code == 0 and back.code == 0 and dying.fb != over.fb
                     and back.fb[:320 * 120] == title[:320 * 120], back.err[-300:])   # the title art, above the menu
+            # Caught in the hills when the escape runs out, with both pieces
+            # found: she dies once, and Continue on the title begins the
+            # chapter afresh, the pieces back in their caves to find again.
+            late = ('local up = update\nlocal w, core = require("world"), require("core")\nlocal die, last = w.die\n'
+                    'function w.die() dbg("die") die() end\n'
+                    'function update(dt) up(dt)\n'
+                    '  if stat("frame") == 400 then\n'
+                    '    local d = require("progress").data\n'
+                    '    for _, t in ipairs(w.things) do if t.kind == "piece" then\n'
+                    '      d.got[t.id] = true d.pieces = d.pieces | (1 << (w.region.pieces[t.n] - 1)) end end\n'
+                    '    w.region.escape = 0.5\n'
+                    '  end\n'
+                    '  if core.current() ~= last then last = core.current() dbg("scene", last) end\n'
+                    '  if stat("frame") == 1400 then local n = 0\n'
+                    '    for _, t in ipairs(w.things) do if t.kind == "piece" then n = n + 1 end end\n'
+                    '    dbg("left", w.pieces_left(), n) end\n'
+                    'end\n')
+            r = t.run_package(manickam_variant(os.path.join(tmp, "late"), 4, extra=late), frames=1400,
+                              tap="a@100,a@130,a@160,a@190,a@220,a@250,a@420,a@440,a@460,a@700,a@900,"
+                                  "a@1000,a@1030,a@1060,a@1090,a@1120")
+            t.check("manickam: caught once, she dies once; Continue starts the chapter afresh, its pieces to find again",
+                    r.code == 0 and r.out.count("die") == 1 and r.out.count("scene\tover") == 1
+                    and "scene\ttitle\nscene\tplay" in r.out and "left\t2\t2" in r.out, r.out[-400:] + r.err[-300:])
+            # Every chapter: everything found in it, picked up, then the
+            # chapter begun again. Not yet finished, it is all back to find,
+            # with the hearts as they were; finished, it stays found.
+            again = ('local up = update\nlocal w, core, progress = require("world"), require("core"), require("progress")\n'
+                     'local function state(tag) local d, n = progress.data, 0\n'
+                     '  for _, t in ipairs(w.things) do if t.kind ~= "key" then n = n + 1 end end\n'
+                     '  dbg(tag, n, d.pieces, d.hearts, d.lotuses, d.pots) end\n'
+                     'function update(dt) up(dt) local f = stat("frame")\n'
+                     '  if f == 300 then state("start")\n'
+                     '    for i = #w.things, 1, -1 do local t = w.things[i]\n'
+                     '      if t.kind ~= "key" then table.remove(w.things, i) w.pick(t) end end\n'
+                     '    state("found") FINISH end\n'
+                     '  if f == 330 then core.go("play", w.chapter) end\n'
+                     '  if f == 700 then state("again") end\n'
+                     'end\n')
+            for ch in range(1, 6):
+                for finished in (False, True):
+                    extra = again.replace("FINISH", "progress.data.unlocked = w.chapter + 1" if finished else "")
+                    r = t.run_package(manickam_variant(os.path.join(tmp, f"again{ch}{finished}"), ch, extra=extra),
+                                      frames=700, tap="a@100,a@160,a@220,a@280")
+                    got = {k: v for k, *v in (l.split("\t", 1) for l in r.out.splitlines() if "\t" in l)}
+                    want = got.get("found") if finished else got.get("start")
+                    t.check(f"manickam: chapter {ch} begun again " + ("once finished keeps what was found" if finished
+                            else "before it is finished has its gems and hearts to find again"),
+                            r.code == 0 and got.get("start") != got.get("found") and got.get("again") == want,
+                            r.out[-300:] + r.err[-300:])
+            # What earlier chapters gave is hers: the lake begun again, with
+            # the fields' and forest's pieces and two heart lotuses already
+            # found, puts back only the lake's own.
+            before = again.replace('if f == 300 then state("start")',
+                                   'if f == 290 then local d = progress.data d.pieces, d.hearts = 3, 5 '
+                                   'd.got[1 * 65536 + 5] = true d.got[2 * 65536 + 5] = true end\n'
+                                   '  if f == 300 then state("start")').replace("FINISH", "")
+            r = t.run_package(manickam_variant(os.path.join(tmp, "before"), 3, extra=before),
+                              frames=700, tap="a@100,a@160,a@220,a@280")
+            t.check("manickam: a chapter begun again keeps the gems and hearts found in earlier chapters",
+                    r.code == 0 and "start\t10\t3\t5\t0\t0" in r.out and "found\t0\t15\t6\t7\t0" in r.out
+                    and "again\t10\t3\t5\t0\t0" in r.out, r.out[-300:] + r.err[-300:])
             # Hearts carry on into the next chapter, and Paati's story
             # between chapters gives one back; starting afresh gives them all.
             carry = ('local up = update\nfunction update(dt) up(dt)\n'

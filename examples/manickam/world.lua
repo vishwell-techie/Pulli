@@ -137,6 +137,8 @@ function w.start(chapter, region)
   end
   talk.clear()
   fx.clear()
+  script.cancel()                     -- nothing from a game that ended carries on
+  w.dead = false
   map.load(region.map)
   local tw, th = map.size()
   w.map_w, w.map_h = tw * 8, th * 8
@@ -146,6 +148,11 @@ function w.start(chapter, region)
   -- from outside it. The mouths stay visible. Kept as a string, three bytes
   -- a run (cell x, cell y, length), as a table of them would cost kilobytes.
   local caves, run, x0 = {}, 0, 0
+  -- A chapter not yet finished starts afresh, whether after being caught or
+  -- from the title: what was found in it is put back. A finished one played
+  -- again keeps what was found, so nothing counts twice.
+  local d = progress.data
+  local again = d.unlocked <= chapter
   for cy = 0, th - 1 do
     for cx = 0, tw - 1 do
       local m = map.get(1, cx, cy) - 999
@@ -163,11 +170,18 @@ function w.start(chapter, region)
         local count = (w.marks["n_" .. kind] or 0) + 1
         w.marks["n_" .. kind] = count
         local id = chapter * 65536 + cy * 256 + cx
+        if again and ICON[kind] and d.got[id] then
+          d.got[id] = nil
+          if kind == "pot" then d.pots = d.pots - 1
+          elseif kind == "lotus" then d.lotuses = d.lotuses - 1
+          elseif kind == "heart" then d.hearts = d.hearts - 1
+          elseif kind == "piece" then d.pieces = d.pieces & ~(1 << ((region.pieces or { 1 })[count] - 1)) end
+        end
         if m == 2 or m == 3 then w.add_slime(x, y, m == 3)
         elseif PEOPLE[kind] then
           w.npcs[#w.npcs + 1] = { who = kind, say = kind == "villager2" and "villager" or kind, x = x - 4, y = y - 3, w = 8, h = 6, face = "down",
                                   spr = PEOPLE[kind], alt = kind == "villager2" }
-        elseif ICON[kind] and (kind == "key" or not progress.data.got[id]) then
+        elseif ICON[kind] and (kind == "key" or not d.got[id]) then
           w.things[#w.things + 1] = { kind = kind, x = x, y = y, id = kind ~= "key" and id, n = count,
                                       bob = math.random() * 6 }
         elseif kind == "exit" then exits[cy * 256 + cx] = true
@@ -244,9 +258,12 @@ end
 
 -- The dark catches her: she spins, shrinks and is gone in a swirl of dark,
 -- the world dims, and the game is over.
+-- Once only: whatever caught her may try again while she fades, and the
+-- scene's end must not give her back control.
 function w.die()
   local p = w.p
-  p.hearts = 0
+  if w.dead then return end
+  w.dead, p.hearts = true, 0
   talk.clear()
   progress.sfx(3)   -- lost
   music_stop(300)
@@ -258,7 +275,7 @@ function w.die()
     p.hide, p.dying = true, nil
     fx.burst(p.x + 4, p.y - 2, 24, fx.DARK)
     s.fade(0.6, 0.8)
-  end, function() core.push("over") end)
+  end, function() w.control = false; core.push("over") end)
 end
 
 -- ---- beams of light -----------------------------------------------------------------
