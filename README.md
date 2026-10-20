@@ -61,7 +61,7 @@ Measured against `docs/SPEC.md`:
 ```
 docs/        SPEC.md, the platform contract; guide/, the game developer's guide
 runtime/     the engine, shared unchanged by every port
-host/        desktop frontends: pulli-host (SDL2 window), pulli-headless
+host/        desktop frontends: pulli-host (SDL2 window, keyboard and game controllers), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 sdk/         helpers written in Lua for games to require: tween, dialog and more
 tools/       pulli.py command line, reference rasterizer and mixer, font generator

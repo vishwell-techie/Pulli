@@ -9,10 +9,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 include(cmake/lua.cmake)
+enable_testing()                  # first, so tests declared in host/ count
 add_subdirectory(runtime)
 add_subdirectory(host)
 
-enable_testing()
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
     add_test(NAME font
