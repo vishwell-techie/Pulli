@@ -36,7 +36,12 @@ static bool arg_b(lua_State *L, int i, bool def) {
 }
 
 /* ---- graphics ------------------------------------------------------ */
-static int l_cls(lua_State *L)  { pulli_cls(&E->ctx.g, arg_i(L,1,0)); return 0; }
+/* cls(c) clears to a colour; cls() with a backdrop set starts from it */
+static int l_cls(lua_State *L)  {
+    if (lua_isnoneornil(L, 1) && E->ctx.g.backdrop) pulli_cls_backdrop(&E->ctx.g);
+    else pulli_cls(&E->ctx.g, arg_i(L,1,0));
+    return 0;
+}
 static int l_pset(lua_State *L) { pulli_pset(&E->ctx.g, arg_i(L,1,0), arg_i(L,2,0), arg_i(L,3,7)); return 0; }
 static int l_pget(lua_State *L) { lua_pushinteger(L, pulli_pget(&E->ctx.g, arg_i(L,1,0), arg_i(L,2,0))); return 1; }
 static int l_line(lua_State *L) { pulli_line(&E->ctx.g, arg_i(L,1,0),arg_i(L,2,0),arg_i(L,3,0),arg_i(L,4,0),arg_i(L,5,7)); return 0; }
@@ -326,6 +331,7 @@ static int l_map_size(lua_State *L) {
 }
 
 static int l_preload(lua_State *L);
+static int l_backdrop(lua_State *L);
 
 static const luaL_Reg CORE[] = {
     {"cls",l_cls},{"pset",l_pset},{"pget",l_pget},{"line",l_line},
@@ -335,11 +341,18 @@ static const luaL_Reg CORE[] = {
     {"btn",l_btn},{"btnp",l_btnp},
     {"sfx",l_sfx},{"music",l_music},{"music_stop",l_music_stop},{"music_pause",l_music_pause},{"palette",l_palette},
     {"save",l_save},{"load",l_load},{"save_commit",l_save_commit},
-    {"time",l_time},{"dbg",l_dbg},{"stat",l_stat},{"preload",l_preload},
+    {"time",l_time},{"dbg",l_dbg},{"stat",l_stat},{"preload",l_preload},{"backdrop",l_backdrop},
     {NULL,NULL}
 };
 
 /* ---- loading (SPEC §3 "Loading") ------------------------------------ */
+/* backdrop(name): a picture the screen's size that cls() starts each frame
+ * from, read once and kept; backdrop() lets it go. */
+static int l_backdrop(lua_State *L) {
+    const char *why = pulli_backdrop_load(E, lua_isnoneornil(L, 1) ? NULL : luaL_checkstring(L, 1));
+    if (why) return luaL_error(L, "backdrop: %s", why);
+    return 0;
+}
 static int l_sheet_load(lua_State *L) {
     const char *why = pulli_sheet_load(E, luaL_checkstring(L, 1));
     if (why) return luaL_error(L, "sheet.load: %s", why);

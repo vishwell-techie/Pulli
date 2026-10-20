@@ -480,6 +480,17 @@ def main():
         end""", extra=dict(parts, **sheets))
     t.check("sheet.load changes the sheet sprites are drawn from; the one in use is kept in memory",
             r.out.split("\n")[:2] == ["8\t12\t12\tfalse\tfalse", "8"], r.out + r.err)
+    # a backdrop is kept too: read once, and not let go when memory fills
+    bd = {"bd.kolam": pulli.kolam(320, 240, bytes([9]) * (320 * 240))}
+    r = t.run_game("""
+        function init() backdrop("bd.kolam") end
+        function draw()
+            local before = stat("active")
+            preload("a.bin", "b.bin", "c.bin")          -- fills memory: the backdrop stays
+            cls() dbg(pget(100, 100), stat("active") >= 75)
+        end""", extra=dict(parts, **bd), frames=2)
+    t.check("a backdrop is kept in memory while it is set, even when memory fills",
+            r.code == 0 and r.out.split("\n")[:2] == ["9\ttrue", "9\ttrue"], r.out + r.err)
     r = t.run_game("sheet.load('nowhere.kolam')", extra=sheets)
     t.check("sheet.load of a sheet the package does not have names it", r.code == 1 and "nowhere.kolam" in r.err, r.err)
 

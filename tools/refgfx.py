@@ -235,6 +235,7 @@ class RefGfx:
         self.atlas = None
         self.atlas_w = 0
         self.atlas_h = 0
+        self.backdrop = None        # W*H indexed pixels cls() starts from (backdrop())
         self.font_en = load_font()
         self.fonts_ta = {"normal": TamilFont(), "small": TamilFont(_FONT_TA_SMALL_TXT)}
         self.font_ta = self.fonts_ta["normal"]
@@ -249,8 +250,14 @@ class RefGfx:
             return
         self.fb[y * W + x] = self.pal_map[c % COLORS]
 
-    def cls(self, c=0):
-        v = self.pal_map[c % COLORS]
+    def cls(self, c=None):
+        """Clear to colour c; with no colour and a backdrop set, start the
+        frame from the backdrop, each pixel through pal()."""
+        if c is None and self.backdrop is not None:
+            for i in range(W * H):
+                self.fb[i] = self.pal_map[self.backdrop[i] % COLORS]
+            return
+        v = self.pal_map[(c or 0) % COLORS]
         for i in range(W * H):
             self.fb[i] = v
 
