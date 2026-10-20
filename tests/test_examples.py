@@ -565,6 +565,89 @@ def main():
             t.check("pong: wins are read back for the level shown", r.code == 0
                     and play(3, saves=saves) != play(3, "right@1"))
 
+        # Nizhalattam, step 1: how Komali moves, in the grey test room. Each
+        # case places him, then drives him through body.read on exact frames.
+        def komali(name, place, read, report, frames=240):
+            extra = ('local body = require("body")\n'
+                     'local up, i0 = update, {}\n'
+                     f'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
+                     f'local st = {{}}\n'
+                     f'function body.read() local k, f = body.k, stat("frame") local i = {{}}\n{read}\n return i end\n'
+                     f'function update(dt) if stat("frame") == 1 then {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
+            with tempfile.TemporaryDirectory() as tmp:
+                folder = os.path.join(tmp, "n")
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                with open(os.path.join(folder, "main.lua"), "a") as f:
+                    f.write("\n" + extra)
+                r = t.run_package(pulli.build(folder), frames=frames)
+            return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
+
+        r, got = komali("jumps", "at(5, 208)",
+                        "if f >= 30 and f <= 70 then i.a = true end if f == 30 or f == 120 then i.a, i.jump = true, true end",
+                        'if f == 110 then dbg("held", k.peak) end if f == 200 then dbg("tap", k.peak) end')
+        held, tap = float(got.get("held", ["0"])[0]), float(got.get("tap", ["0"])[0])
+        t.check("nizhalattam: a held jump rises 4.5 tiles, a tapped one about 1.5",
+                r.code == 0 and 34 <= held <= 38 and 10 <= tap <= 14, f"{held} {tap} {r.err[-200:]}")
+
+        tops = {}
+        for step, cx, feet in (("4", 20, 176), ("5", 25, 168)):
+            r, got = komali("step", f"at({cx}, 208)",
+                            "i.right = true if f >= 30 and f <= 80 then i.a = true end if f == 30 then i.jump = true end",
+                            f'if k.ground and k.y + k.h == {feet} then st.on = true end if f == 200 then dbg("on", tostring(st.on)) end')
+            tops[step] = got.get("on", ["?"])[0]
+        t.check("nizhalattam: a held jump clears a step four tiles high, not five",
+                tops == {"4": "true", "5": "nil"}, tops)
+
+        late = {}
+        for n in (4, 8):
+            r, got = komali("coyote", "at(12, 192)",
+                            f"i.right = true if k.air == {n} and not st.p then st.p = true i.a, i.jump = true, true end",
+                            'if st.p and not st.r then st.r = true dbg("jumped", tostring(k.vy < 0)) end')
+            late[n] = got.get("jumped", ["?"])[0]
+        t.check("nizhalattam: A pressed just after running off a ledge still jumps (6 frames), not later",
+                late == {4: "true", 8: "false"}, late)
+
+        early = {}
+        for n in (15, 8):
+            r, got = komali("buffer", "at(32, 160)",
+                            f"if not st.down then i.right = true end if k.air == {n} and not st.p then st.p = true i.a, i.jump = true, true end",
+                            'if k.air > 0 then st.down = true end '
+                            'if st.down and k.ground and not st.l then st.l = f end '
+                            'if st.l and f == st.l + 2 then dbg("bounced", tostring(k.vy < 0 or not k.ground)) end')
+            early[n] = got.get("bounced", ["?"])[0]
+        t.check("nizhalattam: A pressed just before landing jumps on landing; pressed too early, it does not",
+                early == {15: "true", 8: "false"}, early)
+
+        r, got = komali("dodge", "at(3, 208)",
+                        "if f == 30 then i.right = true end if f == 31 or f == 52 or f == 82 then i.dodge = true end",
+                        'if f == 30 then st.x = k.x end if body.safe() then st.safe = (st.safe or 0) + 1 end '
+                        'if f == 49 then dbg("far", k.x - st.x) end if f == 53 then dbg("again", k.dodge) end '
+                        'if f == 83 then dbg("later", k.dodge) end if f == 100 then dbg("safe", st.safe) end')
+        far = float(got.get("far", ["0"])[0])
+        t.check("nizhalattam: a dodge rolls about 57 px ahead, untouchable for 10 frames, and waits half a second",
+                r.code == 0 and 50 <= far <= 62 and got.get("safe") == ["20"] and got.get("again") == ["0"]
+                and got.get("later", ["0"])[0] != "0", got)
+
+        r, got = komali("pit", "at(49, 208)", "if k.health == 100 then i.right = true end",
+                        'if f == 230 then dbg("back", k.health, tostring(k.x < 52 * 8)) end')
+        t.check("nizhalattam: falling in a pit costs 10 health and puts him back on the last ledge",
+                got.get("back") == ["90", "true"], got)
+
+        r, got = komali("thin", "at(44, 208)",
+                        "if f >= 30 and f <= 70 then i.a = true end if f == 30 then i.jump = true end "
+                        "if f == 120 then i.down, i.a, i.jump = true, true, true end",
+                        'if f == 110 then dbg("up", k.y + k.h, tostring(k.ground)) end '
+                        'if f == 200 then dbg("down", k.y + k.h, tostring(k.ground)) end')
+        t.check("nizhalattam: he lands on a thin floor from below, and down + A drops him through",
+                got.get("up") == ["176", "true"] and got.get("down") == ["208", "true"], got)
+
+        r, got = komali("wall", "at(70, 80)", "i.left = true",
+                        'if k.wall ~= 0 then st.n = (st.n or 0) + 1 st.v = math.max(st.v or 0, k.vy) end '
+                        'if f == 200 then dbg("slid", st.n or 0, st.v or 0) end')
+        slid = got.get("slid", ["0", "9"])
+        t.check("nizhalattam: falling against a wall he holds into, he slides down slowly",
+                int(slid[0]) > 20 and float(slid[1]) <= 1.0, slid)
+
         if t.update:
             with open(path, "w") as f:
                 f.writelines(f"{k} {v}\n" for k, v in seen.items())
