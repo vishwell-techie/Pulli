@@ -27,6 +27,7 @@ void pulli_parts_free(pulli_engine *e);
 
 /* engine.c: the sprite sheet and map in use. NULL, or why not. */
 const char *pulli_sheet_load(pulli_engine *e, const char *name);
+const char *pulli_backdrop_load(pulli_engine *e, const char *name);
 const char *pulli_map_use(pulli_engine *e, const char *name);
 
 /* audio.c */

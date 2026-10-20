@@ -397,6 +397,46 @@ def main():
             t.check(f"engine shades like the reference (seed {seed})",
                     r.code == 0 and r.fb == want, r.err or first_difference(want, r.fb, 1))
 
+        # The backdrop (SPEC §10 item 30): set once, cls() starts each frame
+        # from it, straight or through pal(), whatever the camera and clip.
+        pic = bytes((x * 7 + y * 3 + (x * y) % 5) % 64 for y in range(H) for x in range(W))
+        frames = [
+            ("cls() rectfill(10, 10, 30, 30, 8)", None),
+            ("camera(5, 9) clip(40, 40, 20, 20) cls() clip() camera() circfill(160, 120, 20, 3)", None),
+            ("pal(5, 9) pal(0, 12) pal(63, 1) cls() pal() spr(7, 300, 220)", [(5, 9), (0, 12), (63, 1)]),
+        ]
+        for n, (src, swaps) in enumerate(frames, 1):
+            g = RefGfx()
+            g.atlas, g.atlas_w, g.atlas_h = make_atlas()
+            g.backdrop = pic
+            for a, b in swaps or []:
+                g.pal(a, b)
+            g.cls()
+            g.pal()
+            if n == 1:
+                g.rectfill(10, 10, 30, 30, 8)
+            elif n == 2:
+                g.circfill(160, 120, 20, 3)
+            else:
+                g.spr(7, 300, 220)
+            r = t.run_game('function init() backdrop("bd.kolam") end\n'
+                           f"function draw() {src} end\n", frames=2,
+                           extra={"bd.kolam": pulli.kolam(W, H, pic), "sprites.kolam": pulli.kolam(aw, ah, bytes(atlas))})
+            t.check(f"backdrop: cls() starts the frame from it, like the reference ({n} of {len(frames)})",
+                    r.code == 0 and r.fb == bytes(g.fb), r.err or first_difference(bytes(g.fb), r.fb, 1))
+        r = t.run_game('function init() backdrop("bd.kolam") end\n'
+                       'function draw() cls(4) dbg(pget(0, 0), pget(319, 239)) end\n', frames=1,
+                       extra={"bd.kolam": pulli.kolam(W, H, pic)})
+        t.check("backdrop: cls(c) still clears to a colour", r.code == 0 and "4\t4" in r.out, r.out + r.err)
+        r = t.run_game('function init() backdrop("bd.kolam") backdrop() end\n'
+                       'function draw() cls() dbg(pget(1, 0)) end\n', frames=1,
+                       extra={"bd.kolam": pulli.kolam(W, H, pic)})
+        t.check("backdrop() lets it go: cls() clears to colour 0 again", r.code == 0 and "0" in r.lines, r.out + r.err)
+        r = t.run_game('function init() dbg(pcall(backdrop, "small.kolam")) dbg(pcall(backdrop, "nowhere.kolam")) end\n',
+                       frames=1, extra={"small.kolam": pulli.kolam(32, 16, bytes(512))})
+        t.check("backdrop: a picture not the screen's size, or not there, is an error that says so",
+                r.code == 0 and "the screen's size" in r.out and "nowhere.kolam" in r.out, r.out + r.err)
+
     return t.finish()
 
 

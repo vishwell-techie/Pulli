@@ -181,6 +181,36 @@ const char *pulli_sheet_load(pulli_engine *e, const char *name) {
     return NULL;
 }
 
+/* The backdrop: a .kolam exactly the screen's size, kept in the active set
+ * while it is set, so it is read (and on a two-chip console sent to the
+ * GPU) once, not every frame. NULL lets it go. */
+const char *pulli_backdrop_load(pulli_engine *e, const char *name) {
+    static char why[160];
+    if (!name) {
+        pulli_part_unpin(e, e->backdrop_part);
+        e->backdrop_part = NULL;
+        e->ctx.g.backdrop = NULL;
+        return NULL;
+    }
+    uint32_t len;
+    const uint8_t *b = pulli_entry_use(e, name, true, &len);
+    if (!b) return e->part_error;
+    uint32_t w = len < KOLAM_HEADER ? 0 : b[4] | ((uint32_t)b[5] << 8);
+    uint32_t h = len < KOLAM_HEADER ? 0 : b[6] | ((uint32_t)b[7] << 8);
+    why[0] = 0;
+    if (len < KOLAM_HEADER || memcmp(b, "KLM1", 4) != 0)
+        snprintf(why, sizeof(why), "%s: not a picture (.kolam)", name);
+    else if (w != PULLI_SCREEN_W || h != PULLI_SCREEN_H || len - KOLAM_HEADER != PULLI_FB_BYTES)
+        snprintf(why, sizeof(why), "%s: %ux%u; a backdrop is the screen's size, %dx%d",
+                 name, (unsigned)w, (unsigned)h, PULLI_SCREEN_W, PULLI_SCREEN_H);
+    if (why[0]) { pulli_part_unpin(e, b); return why; }
+    if (b != e->backdrop_part) pulli_part_unpin(e, e->backdrop_part);
+    else pulli_part_unpin(e, b);                   /* the same one again: pinned once */
+    e->backdrop_part = b;
+    e->ctx.g.backdrop = b + KOLAM_HEADER;
+    return NULL;
+}
+
 /* A map: its cells are copied into the engine (a game may change them);
  * the part stays pinned while it is the map in use, as its tile flags are
  * read where they lie. */
@@ -243,7 +273,8 @@ static void teardown(pulli_engine *e) {
     pulli_pkg_close(&e->pkg);
     e->L = NULL;
     e->save = NULL;
-    e->sheet = e->map_part = NULL;
+    e->sheet = e->map_part = e->backdrop_part = NULL;
+    e->ctx.g.backdrop = NULL;
     e->running = false;
 }
 

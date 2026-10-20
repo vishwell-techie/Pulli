@@ -400,7 +400,7 @@ the *update*. Logic stays deterministic; visuals degrade.
 ### Graphics
 
 ```lua
-cls(c)                             -- clear to palette index c (default 0)
+cls(c)                             -- clear to palette index c (default 0); cls() starts from the backdrop, if set
 pset(x, y, c)   pget(x, y)
 line(x0,y0,x1,y1,c)
 rect(x,y,w,h,c) rectfill(x,y,w,h,c)
@@ -521,6 +521,7 @@ map.flags(tile)                    -- 8 collision/meta bits per tile
 sheet.load(name)                   -- use another sprite sheet from the package
 preload(name, ...)                 -- read parts of the package into memory now
 stat("active")                     -- KB of the package in memory
+backdrop(name)                     -- a picture each frame starts from; backdrop() lets it go
 ```
 
 - `sheet.load(name)` makes the `.kolam` called `name` the sheet that `spr`,
@@ -531,6 +532,16 @@ stat("active")                     -- KB of the package in memory
   and `"sfx 12"` or `"music 3"` for one sound. It returns `true`, or `false`
   if a name is not in the package. Parts read this way may still be let go
   later if the active set fills up with others.
+- `backdrop(name)` sets the `.kolam` called `name`, which must be exactly
+  the screen's size, 320 x 240, as the backdrop: it is read once and kept
+  in the active set while it is set (on a console with a graphics chip, it
+  is sent there once). While a backdrop is set, `cls()` with no colour
+  starts the frame from it instead of clearing: each pixel as it is, or
+  through `pal()` if colours are swapped; like any `cls`, it ignores the
+  camera and the clip. `cls(c)` still clears to `c`. `backdrop()` lets it
+  go. A picture of another size, or one the package does not have, is an
+  error naming it. A still background drawn this way costs a copy, not a
+  sprite drawn pixel by pixel every frame.
 - A game that never calls them works as it does today: everything it uses
   is read when first used.
 
@@ -1048,3 +1059,9 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    when loaded rather than at start; `sheet.load`, `preload` and
    `stat("active")`. Cartridge saves in slots of whole 4 KB sectors, so the
    largest save has seven, not eight. `pulli cart` writes a cartridge image.
+30. **The backdrop** (§3), awaiting approval. `backdrop(name)` sets a
+   picture the screen's size, read once and kept, which `cls()` with no
+   colour starts each frame from (through `pal()` when colours are
+   swapped); `backdrop()` lets it go. On a two-chip console it is sent to
+   the graphics chip once, so a still background costs a copy each frame,
+   not a full-screen sprite.

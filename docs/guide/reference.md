@@ -27,7 +27,8 @@ Called after each `update`. If the console runs short of time it skips a
 ## Drawing
 
 ### `cls([c = 0])`
-Fill the whole screen with colour `c`.
+Fill the whole screen with colour `c`. With a backdrop set (see
+`backdrop` below), `cls()` with no colour starts the frame from it.
 
 ### `pset(x, y, [c = 7])`
 Set one pixel.
@@ -256,6 +257,13 @@ the middle of play: file names as packed, such as `"forest.ooru"` or
 `"forest.kolam"`, and `"sfx 12"` or `"music 3"` for one sound. Returns true,
 or false if a name is not in the game; the others are still read. An error
 if a part is bigger than 6 MB.
+
+### `backdrop([name])`
+Set a still background: a picture exactly the screen's size, 320 × 240,
+such as `"sky.kolam"` from a `sky.png`. It is read once and kept, and every
+`cls()` with no colour starts the frame from it, far faster than drawing it
+as a sprite each frame; colours swapped with `pal()` apply to it, so a
+fade darkens it too. `backdrop()` with no name lets it go.
 
 ## Link
 

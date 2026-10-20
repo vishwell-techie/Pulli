@@ -121,6 +121,21 @@ void pulli_cls(pulli_gfx *g, int c) {
     memset(g->fb, g->pal_map[c & PULLI_COLOR_MASK], PULLI_FB_BYTES);
 }
 
+/* The frame starts from the backdrop: a straight copy, or each pixel
+ * through pal() when colours are swapped. Like cls, it ignores the camera
+ * and the clip. */
+void pulli_cls_backdrop(pulli_gfx *g) {
+    const uint8_t *src = g->backdrop;
+    bool plain = true;
+    for (int c = 0; c < PULLI_PALETTE_LEN; c++)
+        if (g->pal_map[c] != c) { plain = false; break; }
+    if (plain) {
+        memcpy(g->fb, src, PULLI_FB_BYTES);
+        return;
+    }
+    for (int i = 0; i < PULLI_FB_BYTES; i++) g->fb[i] = g->pal_map[src[i] & PULLI_COLOR_MASK];
+}
+
 void pulli_pset(pulli_gfx *g, int x, int y, int c) { put(g, x, y, c); }
 
 uint8_t pulli_pget(const pulli_gfx *g, int x, int y) {

@@ -74,6 +74,9 @@ typedef struct {
     /* sprite atlas: linear, 8x8 cells, atlas_w is a multiple of 8 */
     const uint8_t *atlas;
     int      atlas_w, atlas_h;
+    /* the backdrop: a whole screen of indexed pixels that cls() with no
+     * colour starts the frame from (backdrop()), or NULL */
+    const uint8_t *backdrop;
     const uint8_t *font;                   /* 8x8 1bpp, 96 glyphs from ' '   */
     const struct pulli_ta_font *ta;        /* the Tamil size in use: font()  */
     /* The backend's halves hook (below), or NULL. */
@@ -129,6 +132,7 @@ void pulli_default_palette(uint16_t out[PULLI_PALETTE_LEN]);
 
 void    pulli_gfx_init (pulli_gfx *g);    /* default palette and font, cleared screen */
 void    pulli_cls      (pulli_gfx *g, int c);
+void    pulli_cls_backdrop(pulli_gfx *g);
 void    pulli_pset     (pulli_gfx *g, int x, int y, int c);
 uint8_t pulli_pget     (const pulli_gfx *g, int x, int y);
 void    pulli_line     (pulli_gfx *g, int x0, int y0, int x1, int y1, int c);
@@ -366,6 +370,7 @@ typedef struct {
     int         part_count, part_cap;
     uint32_t    active, part_clock;              /* bytes in memory; uses counted */
     const uint8_t *sheet, *map_part;             /* the sprite sheet and map in use */
+    const uint8_t *backdrop_part;                /* the backdrop's part, kept while it is set */
     char        part_error[200];                 /* why a part could not be read */
     uint16_t    base_palette[PULLI_PALETTE_LEN]; /* the game's own colours: palette() puts them back */
     uint32_t    clock_frames, clock_since;       /* updates counted, and when counting began */
