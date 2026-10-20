@@ -73,6 +73,7 @@ function rooms.locked()
 end
 
 local boss_code                                 -- the boss module loaded, if any
+local backdrop_now                              -- the place's background, set once
 
 function rooms.enter(name, from, body)
   local def = ROOMS[name]
@@ -86,6 +87,8 @@ function rooms.enter(name, from, body)
   if def.boss then boss_code = def.boss; require(def.boss) end
   map.load(name)
   preload(def.sheet, def.bg)
+  -- the place's background: set once, and each frame starts from it (cls)
+  if def.bg ~= backdrop_now then backdrop(def.bg) backdrop_now = def.bg end
   rooms.name = name
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8

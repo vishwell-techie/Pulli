@@ -16,9 +16,10 @@
 --   lines.lua     every word, in Tamil and English
 --   fx.lua        scraps, sparks, and the drops of ink (mai)
 --
--- A frame is drawn in passes, a sprite sheet each: the room's tiles from
--- its sheet, then Komali, the shadows and the things in the room from
--- theirs (sheet.load). START pauses; in the pause SELECT changes the
+-- A frame starts from the place's still background (backdrop), then is
+-- drawn in passes, a sprite sheet each: the room's tiles from its sheet,
+-- then Komali, the shadows and the things in the room from theirs
+-- (sheet.load). START pauses; in the pause SELECT changes the
 -- language. SELECT while playing shows the numbers.
 
 local body    = require("body")
@@ -275,18 +276,18 @@ function draw()
   if fade > 0.66 then cls(C.ink) return end
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- half dark
   hints()
-  -- pass 1: the place's background, still while the room moves over it
+  -- the frame starts from the place's background (backdrop, set by
+  -- rooms.lua), still while the room moves over it
   local def = rooms.def()
-  sheet.load(def.bg)
-  spr(0, 0, 0, 40, 30)
+  cls()
   local sx = fight.shake_px > 0 and math.random(-fight.shake_px, fight.shake_px) or 0
   local sy = fight.shake_px > 0 and math.random(-fight.shake_px, fight.shake_px) or 0
   camera(math.floor(cam.x) + sx, math.floor(cam.y) + sy)
-  -- pass 2: the room, from its tile sheet
+  -- pass 1: the room, from its tile sheet
   sheet.load(def.sheet)
   map.draw(0)
   rooms.draw_doors()
-  -- pass 3: the things in it, the shadows and Komali, from theirs
+  -- pass 2: the things in it, the shadows and Komali, from theirs
   sheet.load(rooms.ACTORS)
   rooms.draw_things()
   shadows.draw()
