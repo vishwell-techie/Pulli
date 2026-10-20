@@ -2,6 +2,8 @@
 -- make a blow feel solid.
 --
 --   fight.wear({ "komali", "veeran" })   the roles he carries; the first is worn
+--   fight.lend("veeran")                 a role lent for the rest of the run
+--   fight.sharp, fight.charms            set by run.lua: roles sharpened, charms
 --   fight.update(input, body, shadows)   once a frame, after body.update
 --   fight.draw(body)                     his blow, over him
 --   fight.freeze, fight.shake_px         read by main.lua: frames the world
@@ -16,7 +18,8 @@
 local move = require("move")
 
 local fight = { freeze = 0, shake_px = 0, shake_t = 0, worn = 1, carried = {}, swing = 0,
-                mai = 0 }        -- the ink picked up this run
+                mai = 0,         -- the ink picked up this run
+                sharp = {}, charms = {} }
 
 -- A blow: frames before it can land (s), while it can (a), after (r);
 -- what it costs (n); the box it strikes, in front of him (w x h); heavy
@@ -62,6 +65,24 @@ function fight.wear(list)
 end
 
 function fight.role() return fight.carried[fight.worn] end
+
+-- A role lent: carried for the rest of the run, beside his own and at most
+-- one more. (Choosing which to give up when both places are full comes
+-- with the roles chosen at the Aasaan's box.)
+function fight.lend(name)
+  local c = fight.carried
+  for _, r in ipairs(c) do if r == ROLES[name] then return false end end
+  if #c >= 3 then c[3] = ROLES[name] else c[#c + 1] = ROLES[name] end
+  return true
+end
+
+local function has(charm)
+  for _, c in ipairs(fight.charms) do if c == charm then return true end end
+  return false
+end
+
+-- a blow's cost, with the role's edge
+local function cost(n, role) return fight.sharp[role.name] and math.floor(n * 1.2 + 0.5) or n end
 function fight.cooldown() return cool end
 
 -- a blow lands: the world stops for a moment, and shakes
@@ -91,6 +112,19 @@ function fight.update(i, body, shadows)
 
   -- a dodge or a blow taken ends any blow
   if k.dodge > 0 or k.struck > body.T.struck - 12 then atk, charge, skill_t = nil, 0, 0 end
+  -- the bell anklet: a dodge leaves a ring that strikes
+  if k.dodge == body.T.dodge - 1 and has("bell") then
+    fight.swing = fight.swing + 1
+    fight.ring = 10
+    for _, s in ipairs(shadows.list) do
+      if s.on and shadows.overlap(k.x - 16, k.y, k.w + 32, k.h, s) then
+        s.hit = fight.swing
+        local r = shadows.strike(s, 6, s.x > k.x and 1 or -1, false)
+        if r == "hit" or r == "torn" then fight.hit(false) end
+      end
+    end
+  end
+  if (fight.ring or 0) > 0 then fight.ring = fight.ring - 1 end
 
   -- change role: the one coming in strikes
   if i.swap ~= 0 and #fight.carried > 1 and k.struck == 0 then
@@ -125,7 +159,7 @@ function fight.update(i, body, shadows)
       for _, s in ipairs(shadows.list) do
         if s.on and s.hit ~= fight.swing and shadows.overlap(k.x + (k.face > 0 and k.w or -8), k.y, 8, k.h, s) then
           s.hit = fight.swing
-          if shadows.strike(s, 8, k.face, true) then fight.hit(true) end
+          if shadows.strike(s, cost(8, role), k.face, true) then fight.hit(true) end
         end
       end
     end
@@ -156,7 +190,7 @@ function fight.update(i, body, shadows)
         if s.on and s.hit ~= fight.swing and shadows.overlap(x, y, w, h, s) then
           s.hit = fight.swing
           local dir = atk.around and (s.x > k.x and 1 or -1) or k.face
-          local r = shadows.strike(s, atk.n, dir, atk.heavy)
+          local r = shadows.strike(s, cost(atk.n, role), dir, atk.heavy)
           if r == "hit" or r == "torn" then fight.hit(atk.heavy) end
         end
       end
@@ -179,6 +213,7 @@ end
 function fight.draw(body)
   local k, role = body.k, fight.role()
   local cx, cy = k.x + k.w / 2, k.y + k.h / 2
+  if (fight.ring or 0) > 0 then circ(cx, cy, 26 - fight.ring, 10) end
   if charge >= CHARGE and stat("frame") % 4 < 2 then circ(cx + k.face * 10, cy - 4, 3, 10) end
   if not atk then return end
   local x, y, w, h = reach(k, atk)

@@ -1,23 +1,29 @@
--- shadows.lua — the enemies: shadows of ink and paper. Step 2 has one, the
--- cut-paper soldier.
+-- shadows.lua — the enemies: shadows of ink and paper.
 --
---   shadows.add(x, y)         a soldier, feet at (x, y)
+--   shadows.add(x, y, kind)   feet at (x, y): "soldier", "dummy", "ink", "scrap"
 --   shadows.update(body)      once a frame; strikes Komali through body.hurt
 --   shadows.strike(s, n, dir, heavy)   Komali's blow: "hit", "blocked",
 --                             "torn", or nil if it could not land
 --   shadows.draw()
+--   shadows.soft              a blow's cost is multiplied by this (a lesson
+--                             room makes them soft)
+--   shadows.kinds[kind]       { add, update, draw, strike, torn } for a kind
+--                             made elsewhere (the boss, boss.lua)
 --
--- The soldier walks up to Komali and holds his guard to the front, so a
+-- The cut-paper soldier walks up holding his guard to the front, so a
 -- light blow from the front is turned aside; one from behind lands, and
--- so does a heavy one (the warrior's charged slash, a swap strike). When
--- close he winds up (leaning back, flashing at the end), strikes, and
--- rests a moment: that rest, and his wind-up, are the time to hit him.
--- Beaten, he tears into scraps and leaves drops of ink (mai).
+-- so does a heavy one. When close he winds up (leaning back, flashing at
+-- the end), strikes, and rests a moment: the time to hit him.
+-- The straw dummy stands and takes blows, for learning on.
+-- The inkblot crawls at Komali and hurts to touch; struck down the first
+-- time, it splits into two small ones. The scrap, a torn paper bat, hangs
+-- in the air and swoops at where Komali was.
+-- Beaten, a shadow tears into scraps and leaves drops of ink (mai).
 
 local move = require("move")
 local fx   = require("fx")
 
-local shadows = { list = {}, hits = 0 }
+local shadows = { list = {}, hits = 0, soft = 1, kinds = {} }
 
 local S = {
   hp = 40,
@@ -32,13 +38,42 @@ local S = {
   mai = { 1, 5 },      -- drops of ink he leaves
 }
 shadows.S = S
+-- the others: health, what touching them costs, the mai they leave
+local K = {
+  dummy = { hp = 18, mai = { 1, 2 } },
+  ink = { hp = 10, touch = 6, speed = 0.35, mai = { 1, 2 } },
+  small = { hp = 5, touch = 4, speed = 0.5, mai = { 1, 1 } },
+  scrap = { hp = 6, touch = 6, dive = 2.2, mai = { 1, 3 } },
+}
+shadows.K = K
 
--- Sprites (16x24): standing, walking, winding up, striking, struck.
+-- Sprites: the soldier (16x24) standing, walking, winding up, striking,
+-- struck; the dummy; the inkblot's two frames (16x8) and the small one's
+-- (8x8); the scrap's two (16x8).
 local STAND, WALK, WIND, STRIKE, REEL = 448, 450, 452, 454, 456
+local DUMMY, INK, SMALL, SCRAP = 460, 640, 644, 646
 
-function shadows.add(x, y)
-  local s = { x = x - 5, y = y - 20, w = 10, h = 20, vx = 0, vy = 0, face = -1,
-              hp = S.hp, state = "walk", t = 0, landed = false, hit = 0, on = true, step = 0 }
+function shadows.add(x, y, kind)
+  kind = kind or "soldier"
+  local s = { kind = kind, x = x - 5, y = y - 20, w = 10, h = 20, vx = 0, vy = 0, face = -1,
+              hp = kind == "soldier" and S.hp or K[kind] and K[kind].hp or 1,
+              state = "walk", t = 0, landed = false, hit = 0, on = true, step = 0 }
+  if kind == "ink" then
+    s.y, s.w, s.h = y - 6, 12, 6
+    -- the two it splits into, made now, asleep until then
+    s.kids = {}
+    for n = 1, 2 do
+      local c = shadows.add(x, y, "small")
+      c.on = false
+      s.kids[n] = c
+    end
+  elseif kind == "small" then
+    s.y, s.w, s.h, s.hp = y - 5, 6, 5, K.small.hp
+  elseif kind == "scrap" then
+    s.y, s.w, s.h, s.home = y - 6, 12, 6, y - 6
+  elseif shadows.kinds[kind] then
+    shadows.kinds[kind].add(s)
+  end
   shadows.list[#shadows.list + 1] = s
   return s
 end
@@ -52,88 +87,181 @@ local function overlap(ax, ay, aw, ah, b)
 end
 shadows.overlap = overlap
 
+-- touching Komali hurts (the inkblots and the scrap)
+local function touch(s, body, n)
+  if overlap(s.x, s.y, s.w, s.h, body.k) and body.hurt(math.max(1, math.floor(n * shadows.soft + 0.5)), s.x + s.w / 2) then
+    shadows.hits = shadows.hits + 1
+  end
+end
+
+local function soldier(s, body, k, dx)
+  local st = s.state
+  if st == "walk" then
+    if math.abs(dx) < S.sight and math.abs(k.y - s.y) < 40 then
+      s.face = dx < 0 and -1 or 1
+      if math.abs(dx) > S.reach then
+        -- walk on, but not off an edge
+        local ahead = s.face > 0 and s.x + s.w + 1 or s.x - 2
+        s.vx = move.blocked(ahead, s.y + s.h, 1, 1) and s.face * S.speed or 0
+      else
+        s.vx, s.state, s.t = 0, "wind", S.wind
+      end
+    else
+      s.vx = 0
+    end
+  elseif st == "wind" then
+    s.t = s.t - 1
+    if s.t <= 0 then s.state, s.t, s.landed = "strike", S.strike, false end
+  elseif st == "strike" then
+    local bx = s.face > 0 and s.x + s.w or s.x - 18
+    if not s.landed and overlap(bx, s.y + 4, 18, 12, k) then
+      if body.hurt(math.max(1, math.floor(S.blow * shadows.soft + 0.5)), s.x + s.w / 2) then
+        s.landed = true
+        shadows.hits = shadows.hits + 1
+      end
+    end
+    s.t = s.t - 1
+    if s.t <= 0 then s.state, s.t = "rest", S.rest end
+  elseif st == "rest" or st == "reel" then
+    s.t = s.t - 1
+    if s.t <= 0 then s.state = "walk" end
+  end
+  if st ~= "walk" then s.vx = s.vx * 0.85 end
+end
+
+local function crawl(s, body, k, dx, c)
+  if s.state == "reel" then
+    s.t = s.t - 1
+    s.vx = s.vx * 0.85
+    if s.t <= 0 then s.state = "walk" end
+  elseif math.abs(dx) < 140 and math.abs(k.y - s.y) < 40 then
+    s.face = dx < 0 and -1 or 1
+    local ahead = s.face > 0 and s.x + s.w + 1 or s.x - 2
+    s.vx = move.blocked(ahead, s.y + s.h, 1, 1) and s.face * c.speed or 0
+  else
+    s.vx = 0
+  end
+  touch(s, body, c.touch)
+end
+
+-- The scrap hangs, then swoops at where Komali was, and climbs back.
+local function scrap(s, body, k, dx)
+  local c = K.scrap
+  if s.state == "walk" then
+    s.vx, s.vy = 0, math.sin(s.step * 0.1) * 0.3
+    s.step = s.step + 1
+    if math.abs(dx) < 110 and k.y > s.y then
+      s.state, s.t = "dive", 50
+      local ex, ey = k.x + k.w / 2 - (s.x + s.w / 2), k.y + k.h / 2 - (s.y + s.h / 2)
+      local len = math.max(1, math.sqrt(ex * ex + ey * ey))
+      s.vx, s.vy = ex / len * c.dive, ey / len * c.dive
+    end
+  elseif s.state == "dive" then
+    s.t = s.t - 1
+    if s.t <= 0 then s.state = "rise" end
+  else                                   -- climbing back (or knocked away)
+    s.vx = s.vx * 0.9
+    s.vy = s.y > s.home and -1 or 0
+    if s.y <= s.home then s.state, s.t = "walk", 0 end
+  end
+  s.face = s.vx < 0 and -1 or 1
+  s.x, s.y = s.x + s.vx, s.y + s.vy
+  touch(s, body, c.touch)
+end
+
 function shadows.update(body)
   local k = body.k
   local kx = k.x + k.w / 2
   for _, s in ipairs(shadows.list) do
     if s.on and math.abs(s.x - k.x) < 360 then        -- those far off sleep
       local dx = kx - (s.x + s.w / 2)
-      local st = s.state
-      if st == "walk" then
-        if math.abs(dx) < S.sight and math.abs(k.y - s.y) < 40 then
-          s.face = dx < 0 and -1 or 1
-          if math.abs(dx) > S.reach then
-            -- walk on, but not off an edge
-            local ahead = s.face > 0 and s.x + s.w + 1 or s.x - 2
-            s.vx = move.blocked(ahead, s.y + s.h, 1, 1) and s.face * S.speed or 0
-          else
-            s.vx, s.state, s.t = 0, "wind", S.wind
-          end
-        else
-          s.vx = 0
-        end
-      elseif st == "wind" then
-        s.t = s.t - 1
-        if s.t <= 0 then s.state, s.t, s.landed = "strike", S.strike, false end
-      elseif st == "strike" then
-        local bx = s.face > 0 and s.x + s.w or s.x - 18
-        if not s.landed and overlap(bx, s.y + 4, 18, 12, k) then
-          if body.hurt(S.blow, s.x + s.w / 2) then
-            s.landed = true
-            shadows.hits = shadows.hits + 1
-          end
-        end
-        s.t = s.t - 1
-        if s.t <= 0 then s.state, s.t = "rest", S.rest end
-      elseif st == "rest" or st == "reel" then
-        s.t = s.t - 1
-        if s.t <= 0 then s.state = "walk" end
+      local kind = s.kind
+      if kind == "scrap" then
+        scrap(s, body, k, dx)
+      else
+        if kind == "soldier" then soldier(s, body, k, dx)
+        elseif kind == "ink" or kind == "small" then crawl(s, body, k, dx, K[kind])
+        elseif kind == "dummy" then s.vx = s.vx * 0.8
+        elseif shadows.kinds[kind] then shadows.kinds[kind].update(s, body, k, dx) end
+        s.vy = math.min(s.vy + 0.3, 5)
+        local _, hy = move.by(s, s.vx, s.vy)
+        if hy then s.vy = 0 end
+        s.step = s.step + math.abs(s.vx)
       end
-      if st ~= "walk" then s.vx = s.vx * 0.85 end
-      s.vy = math.min(s.vy + 0.3, 5)
-      local _, hy = move.by(s, s.vx, s.vy)
-      if hy then s.vy = 0 end
-      s.step = s.step + math.abs(s.vx)
     end
   end
 end
 
+local function tear(s, mai)
+  s.on = false
+  fx.tear(s.x + s.w / 2, s.y + s.h / 2, math.random(mai[1], mai[2]))
+  if s.kids then                         -- an inkblot splits in two
+    for n, c in ipairs(s.kids) do
+      c.on, c.x, c.y, c.vx, c.vy, c.state = true, s.x + (n == 1 and 0 or 6), s.y + 1, n == 1 and -1.5 or 1.5, -2, "reel"
+      c.t = 20
+    end
+  end
+  local custom = shadows.kinds[s.kind]
+  if custom and custom.torn then custom.torn(s) end
+  return "torn"
+end
+
 function shadows.strike(s, n, dir, heavy)
   if not s.on then return nil end
+  local custom = shadows.kinds[s.kind]
+  if custom and custom.strike then
+    local r = custom.strike(s, n, dir, heavy)
+    if r ~= "hit" then return r end
   -- a light blow from the side he faces, while he is on guard, is turned aside
-  if not heavy and s.state == "walk" and dir == -s.face then
+  elseif s.kind == "soldier" and not heavy and s.state == "walk" and dir == -s.face then
     fx.spark(s.x + s.w / 2 + s.face * 6, s.y + 10)
     s.vx = -s.face * 0.8
     return "blocked"
   end
   s.hp = s.hp - n
-  if s.hp <= 0 then
-    s.on = false
-    fx.tear(s.x + s.w / 2, s.y + s.h / 2, math.random(S.mai[1], S.mai[2]))
-    return "torn"
+  if s.hp <= 0 then return tear(s, s.kind == "soldier" and S.mai or (K[s.kind] or custom).mai) end
+  if s.kind == "soldier" then
+    -- a heavy blow breaks his wind-up; a light one lands, but he strikes anyway
+    if heavy or s.state == "walk" or s.state == "rest" then
+      s.state, s.t = "reel", heavy and S.reel * 2 or S.reel
+    end
+  elseif s.kind == "scrap" then
+    s.state = "rise"
+  elseif s.kind ~= "dummy" and not custom then
+    s.state, s.t = "reel", 12
   end
-  -- a heavy blow breaks his wind-up; a light one lands, but he strikes anyway
-  if heavy or s.state == "walk" or s.state == "rest" then
-    s.state, s.t = "reel", heavy and S.reel * 2 or S.reel
-  end
-  s.vx = dir * (heavy and 3 or 1.5)
+  if not custom then s.vx = dir * (heavy and 3 or 1.5) end
   return "hit"
 end
 
 function shadows.draw()
+  local f = stat("frame")
   for _, s in ipairs(shadows.list) do
     if s.on then
-      local x, y, st = math.floor(s.x) - 3, math.floor(s.y) - 4, s.state
-      local n = st == "wind" and WIND or st == "strike" and STRIKE or st == "reel" and REEL
-                or (math.abs(s.vx) > 0.1 and (s.step // 8 % 2 == 0 and WALK or STAND)) or STAND
-      if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(15, 7) pal(31, 7) end   -- about to strike
-      spr(n, x, y, 2, 3, s.face < 0)
-      pal()
-      -- his sword: at his side, raised behind, or out in front
-      local hx, hy = x + 8 + s.face * 5, y + 13
-      if st == "wind" then line(hx, hy, hx - s.face * 6, hy - 11, 6)
-      elseif st == "strike" then line(hx, hy, hx + s.face * 16, hy - 1, 7)
-      else line(hx, hy, hx + s.face * 3, hy + 9, 6) end
+      local x, y, st, kind = math.floor(s.x), math.floor(s.y), s.state, s.kind
+      if kind == "soldier" then
+        x, y = x - 3, y - 4
+        local n = st == "wind" and WIND or st == "strike" and STRIKE or st == "reel" and REEL
+                  or (math.abs(s.vx) > 0.1 and (s.step // 8 % 2 == 0 and WALK or STAND)) or STAND
+        if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(15, 7) pal(31, 7) end   -- about to strike
+        spr(n, x, y, 2, 3, s.face < 0)
+        pal()
+        -- his sword: at his side, raised behind, or out in front
+        local hx, hy = x + 8 + s.face * 5, y + 13
+        if st == "wind" then line(hx, hy, hx - s.face * 6, hy - 11, 6)
+        elseif st == "strike" then line(hx, hy, hx + s.face * 16, hy - 1, 7)
+        else line(hx, hy, hx + s.face * 3, hy + 9, 6) end
+      elseif kind == "dummy" then
+        spr(DUMMY, x - 3, y - 4, 2, 3)
+      elseif kind == "ink" then
+        spr(INK + (f // 12 % 2) * 2, x - 2, y - 2, 2, 1, s.face < 0)
+      elseif kind == "small" then
+        spr(SMALL + f // 8 % 2, x - 1, y - 3, 1, 1, s.face < 0)
+      elseif kind == "scrap" then
+        spr(SCRAP + (f // 6 % 2) * 2, x - 2, y - 1, 2, 1, s.face < 0)
+      elseif shadows.kinds[kind] then
+        shadows.kinds[kind].draw(s)
+      end
     end
   end
 end

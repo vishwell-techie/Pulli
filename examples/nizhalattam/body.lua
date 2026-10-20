@@ -51,7 +51,8 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             peak = 0, top = 0, from = 0,
             slow = 1,          -- how fast he may run while striking (set by fight.lua)
             dodge_wait = 1,    -- how long he waits between dodges (his own role: half)
-            struck = 0, guard = 0 }
+            struck = 0, guard = 0,
+            pit_free = false }  -- the thread spool: a pit costs nothing
 body.k = k
 
 move.solid, move.edges = SOLID, false
@@ -77,6 +78,8 @@ function body.read()
   I.jump, I.dodge, I.attack, I.skill = pressed("a"), pressed("y"), pressed("b"), pressed("x")
   I.swap = (pressed("r") and 1 or 0) - (pressed("l") and 1 or 0)
   I.door = pressed("up")                -- up at a door goes through it
+  I.down_p = pressed("down")
+  I.pause = pressed("start")
   return I
 end
 
@@ -188,7 +191,7 @@ function body.update(i)
   -- into a pit: back on the last safe ledge, a little hurt
   local _, mh = map.size()
   if k.y > mh * 8 + 16 then
-    k.health = math.max(1, k.health - T.pit)
+    if not k.pit_free then k.health = math.max(1, k.health - T.pit) end
     k.x, k.y, k.vx, k.vy, k.dodge = k.safe_x, k.safe_y, 0, 0, 0
   end
   k.step = k.step + math.abs(k.vx)

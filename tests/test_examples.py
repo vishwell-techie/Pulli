@@ -10,7 +10,7 @@ runtime is deterministic (SPEC §4), so a changed hash means the engine, the
 Lua build or the example itself changed behaviour. If that was intended,
 rerun with --update. The same hashes must come out on every machine.
 """
-import hashlib, os, shutil, struct, sys, tempfile
+import hashlib, os, re, shutil, struct, sys, tempfile
 
 from harness import Suite, ROOT, TESTS, pulli
 
@@ -573,7 +573,7 @@ def main():
                      f'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
                      f'local st = {{}}\n'
                      f'function body.read() local k, f, s = body.k, stat("frame"), shadows.list[1] local i = {{ swap = 0 }}\n{read}\n return i end\n'
-                     f'function update(dt) if stat("frame") == 1 then {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
+                     f'function update(dt) if stat("frame") == 1 then rooms.enter("test.ooru", nil, body) fight.wear({{ "komali", "veeran" }}) {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
                 shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
@@ -721,7 +721,7 @@ def main():
                         'if f == 60 then dbg("there", rooms.name, math.floor(k.x + k.w / 2), k.y + k.h, k.health, fight.mai) end '
                         'if f == 130 then dbg("back", rooms.name, math.floor((k.x + k.w / 2) / 8)) end', frames=140)
         t.check("nizhalattam: up at a door fades to the room beyond, in at the door back; he keeps his health and mai",
-                got.get("there") == ["climb.ooru", "52", "448", "70", "4"] and got.get("back") == ["map.ooru", "163"], got)
+                got.get("there") == ["climb.ooru", "52", "448", "70", "4"] and got.get("back") == ["test.ooru", "163"], got)
 
         r, got = komali("shut", "at(5, 208)",
                         "if f == 20 or f == 60 or f == 120 then i.door = true end",
@@ -747,7 +747,125 @@ def main():
                         'if f == 95 then for _, s in ipairs(shadows.list) do s.on = false end body.place(55 * 8 + 4, 208) end '
                         'if f == 140 then dbg("route", rooms.name, st_loads) end', frames=150, pre=ahead)
         t.check("nizhalattam: every room and sheet is read ahead, behind a door, before it is used",
-                r.code == 0 and "late" not in got and got.get("route") == ["map.ooru", "2"], got)
+                r.code == 0 and "late" not in got and got.get("route") == ["test.ooru", "2"], got)
+
+        # Step 4: the first playable. A game starts in the Courtyard; `story`
+        # runs it from there, `setup` on frame 1 (entering a room with
+        # rooms.enter, say).
+        def story(setup, read, report, frames=300, pre=""):
+            extra = pre + ('local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
+                           'local run, stall, lines = require("run"), require("stall"), require("lines")\n'
+                           'local up, st = update, {}\n'
+                           'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
+                           f'function body.read() local k, f = body.k, stat("frame") local i = {{ swap = 0 }}\n{read}\n return i end\n'
+                           f'function update(dt) local k, f = body.k, stat("frame") if f == 1 then {setup} end up(dt)\n{report}\nend\n')
+            with tempfile.TemporaryDirectory() as tmp:
+                folder = os.path.join(tmp, "n")
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                with open(os.path.join(folder, "main.lua"), "a") as f:
+                    f.write("\n" + extra)
+                r = t.run_package(pulli.build(folder), frames=frames)
+            return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
+
+        r, got = story("at(42, 208)", "if f == 10 then i.door = true end",
+                       'if f == 2 then dbg("start", rooms.name, #fight.carried) end if f == 60 then dbg("in", rooms.name) end', frames=70)
+        t.check("nizhalattam: a game starts in the Courtyard with Komali's own role; its door leads into the Screen",
+                got.get("start") == ["map.ooru", "1"] and got.get("in") == ["s1.ooru"], got)
+
+        # striking the dummies: walk up to the nearest, strike it, on to the next
+        r, got = story('rooms.enter("s2.ooru", "s1.ooru", body)',
+                       'local near for _, s in ipairs(shadows.list) do if s.on and s.x > k.x and (not near or s.x < near.x) then near = s end end '
+                       'if near and near.x - k.x > 12 then i.right = true elseif near and f % 14 == 0 then i.attack = true end',
+                       'if f == 3 then dbg("shut", tostring(rooms.locked())) end '
+                       'if f == 900 then dbg("open", tostring(rooms.locked()), fight.mai > 0) end', frames=910)
+        t.check("nizhalattam: the striking lesson's door stays shut until its three dummies are torn, and they leave mai",
+                got.get("shut") == ["true"] and got.get("open") == ["false", "true"], got)
+
+        r, got = story('rooms.enter("s3.ooru", "s2.ooru", body)', "if shadows.list[1].x - k.x > 24 then i.right = true end",
+                       'if k.health < 100 and not st.h then st.h = true dbg("soft", k.health) end', frames=400)
+        t.check("nizhalattam: in the dodging lesson the soldier's blow is soft: 4, not 12",
+                got.get("soft") == ["96"], f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("s4.ooru", "s3.ooru", body)', "",
+                       'if f == 3 then for _, s in ipairs(shadows.list) do if s.kind == "ink" then st.ink = s end end '
+                       '  dbg("struck", shadows.strike(st.ink, 10, 1, false)) local n = 0 '
+                       '  for _, s in ipairs(shadows.list) do if s.on and s.kind == "small" then n = n + 1 end end dbg("small", n) '
+                       '  for _, s in ipairs(shadows.list) do if s.kind == "small" and s.on then dbg("again", shadows.strike(s, 10, 1, false)) break end end '
+                       '  n = 0 for _, s in ipairs(shadows.list) do if s.on and s.kind == "small" then n = n + 1 end end dbg("left", n) end', frames=5)
+        t.check("nizhalattam: an inkblot struck down splits into two small ones, which do not split again",
+                got.get("struck") == ["torn"] and got.get("small") == ["2"] and got.get("again") == ["torn"] and got.get("left") == ["1"], got)
+
+        r, got = story('rooms.enter("s5.ooru", "s4.ooru", body)',
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "scrap" then k.x = s.x break end end end',
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "scrap" then st.s = s break end end end '
+                       'if st.s and st.s.state == "dive" then st.d = true end '
+                       'if f == 200 then dbg("swoop", tostring(st.d), tostring(k.health < 100)) end', frames=210)
+        t.check("nizhalattam: a scrap hanging over Komali swoops at him, and it hurts",
+                got.get("swoop") == ["true", "true"], f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 400, 60',
+                       'if f == 10 then i.door = true end if f == 15 or f == 25 or f == 35 or f == 45 then i.jump = true end '
+                       'if f == 20 or f == 30 or f == 40 then i.down_p = true end if f == 50 then i.attack = true end',
+                       'if f == 60 then dbg("bought", k.health, fight.mai, table.concat(run.charms, ","), tostring(run.sharp.Komali), tostring(stall.is_open())) end', frames=70)
+        t.check("nizhalattam: at the stall mai buys mending, a sharper role, and charms; B leaves",
+                got.get("bought") == ["85", "130", "bell,spool", "true", "false"], got)
+
+        r, got = story('rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 10, 60',
+                       'if f == 10 then i.door = true end if f == 15 then i.jump = true end',
+                       'if f == 30 then dbg("poor", k.health, fight.mai) end', frames=40)
+        t.check("nizhalattam: without the mai, nothing is bought",
+                got.get("poor") == ["60", "10"], got)
+
+        r, got = story('rooms.enter("s7.ooru", "s6.ooru", body) run.charms[1] = "spool" at(18, 208) '
+                       'for _, s in ipairs(shadows.list) do s.on = false end',
+                       "if f < 60 then i.right = true end",
+                       'if k.y > 230 then st.fell = true end if f == 200 then dbg("spool", tostring(st.fell), k.health) end', frames=210)
+        t.check("nizhalattam: with the thread spool, a fall into a pit costs nothing",
+                got.get("spool") == ["true", "100"], f"{got} {r.err[-300:]}")
+
+        # the boss: each move's first wind-up is twice as long as later ones
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body)', "",
+                       'k.health = 100 local b = shadows.boss '
+                       'if b.state == "wind" and not st.w then st.w = true st.seen = st.seen or {} '
+                       '  local m = b.move st.seen[m] = (st.seen[m] or 0) + 1 dbg(m .. st.seen[m], b.t) '
+                       'elseif b.state ~= "wind" then st.w = false end', frames=1500)
+        firsts = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("1")}
+        seconds = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("2")}
+        shown = [m for m in seconds if m in firsts and firsts[m] == 2 * seconds[m]]
+        t.check("nizhalattam: Veeran shows each move first, with a wind-up twice as long",
+                r.code == 0 and len(shown) >= 2, got)
+
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body)', "if f == 140 then i.door = true end",
+                       'if f == 3 then st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                       'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) '
+                       '  at(44, 208) end '
+                       'if f == 380 then dbg("home", rooms.name, run.data.screen_played, #fight.carried, fight.mai) end', frames=390)
+        t.check("nizhalattam: Veeran torn lends his role and 8 oil; the door on ends the Screen, back in the Courtyard",
+                got.get("lent") == ["2", "Veeran", "8"] and got.get("home") == ["map.ooru", "1", "1", "0"], got)
+
+        r, got = story('rooms.enter("s5.ooru", "s4.ooru", body) fight.mai = 30', "",
+                       'if f == 5 then st.oil = run.data.oil k.health = 0 end '
+                       'if f == 240 then dbg("woke", rooms.name, k.health, fight.mai, run.data.falls, run.data.oil - st.oil) end', frames=250)
+        t.check("nizhalattam: fallen, Komali wakes on the Aasaan's box: the run's mai is lost, oil is kept",
+                got.get("woke") == ["map.ooru", "100", "0", "1", "0"], got)
+
+        r, got = story('rooms.enter("s5.ooru", "s4.ooru", body)', "if f == 20 or f == 90 then i.pause = true end",
+                       'if f == 30 then st.x = shadows.list[1].step end if f == 80 then dbg("still", tostring(shadows.list[1].step == st.x)) end '
+                       'if f == 120 then dbg("moving", tostring(shadows.list[1].step ~= st.x)) end', frames=130)
+        t.check("nizhalattam: START pauses the world, and START again carries on",
+                got.get("still") == ["true"] and got.get("moving") == ["true"], f"{got} {r.err[-300:]}")
+
+        en = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_en.lua")).read(), re.M))
+        ta = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_ta.lua")).read(), re.M))
+        t.check("nizhalattam: every line is there in Tamil and in English", en == ta and len(en) > 30, en ^ ta)
+
+        r, got = story("", "",
+                       'if f == 30 then collectgarbage() dbg("hub", stat("mem")) rooms.enter("boss.ooru", "s7.ooru", body) end '
+                       'if f == 60 then collectgarbage() dbg("boss", stat("mem")) rooms.enter("map.ooru", nil, body) end '
+                       'if f == 90 then collectgarbage() dbg("after", stat("mem")) end', frames=100)
+        hub, bossroom, after = (float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "after"))
+        t.check("nizhalattam: the Lua heap stays within its budget, and the boss's code is let go after his room",
+                hub < 175 and bossroom < 190 and after < bossroom - 3, got)
 
         if t.update:
             with open(path, "w") as f:

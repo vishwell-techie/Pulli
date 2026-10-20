@@ -5,7 +5,10 @@
 --   rooms.update(input, body) once a frame: up at a door goes through it.
 --                             True while the screen fades (the world waits)
 --   rooms.draw_doors()        the doors, with the room's tiles
+--   rooms.draw_things()       the stall and the Aasaan's box, with the actors
 --   rooms.fade()              0 to 1, how dark the screen is
+--   rooms.ended               set when Komali goes through the last door of
+--                             a story ("end"): main.lua ends the run
 --
 -- A room is a map of its own, drawn with its own tile sheet. Its doors are
 -- markers on layer 1, taken in the order the map is read (row by row), and
@@ -17,17 +20,40 @@
 local shadows = require("shadows")
 local fx      = require("fx")
 
-local rooms = { name = nil, w = 0, h = 0 }
+local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = nil, floor_y = 0 }
 
+-- Each room: its tile sheet, where its doors lead (in the order the map is
+-- read), whether it is a fight room (its doors shut until its shadows are
+-- torn), whether its shadows strike softly (a lesson), and the hint shown
+-- on the cloth, with the buttons it names.
 local ROOMS = {
-  ["map.ooru"]   = { sheet = "sprites.kolam", doors = { "climb.ooru" } },
-  ["climb.ooru"] = { sheet = "paper.kolam", doors = { "arena.ooru", "map.ooru" } },
-  ["arena.ooru"] = { sheet = "paper.kolam", doors = { "climb.ooru", "map.ooru" }, fight = true },
+  ["map.ooru"]   = { sheet = "paper.kolam", doors = { "test.ooru", "s1.ooru" }, name = "hub",
+                     hint = "h_door", keys = { "up" } },
+  -- the Screen, the first story: a lesson a room, then the boss
+  ["s1.ooru"]    = { sheet = "paper.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" },
+                     hint2 = "h_high", keys2 = { "a" } },
+  ["s2.ooru"]    = { sheet = "paper.kolam", doors = { "s3.ooru" }, fight = true, soft = true,
+                     hint = "h_strike", keys = { "b" } },
+  ["s3.ooru"]    = { sheet = "paper.kolam", doors = { "s4.ooru" }, fight = true, soft = true,
+                     hint = "h_dodge", keys = { "y" } },
+  ["s4.ooru"]    = { sheet = "paper.kolam", doors = { "s5.ooru" }, fight = true, soft = true,
+                     hint = "h_skill", keys = { "x" } },
+  ["s5.ooru"]    = { sheet = "paper.kolam", doors = { "s6.ooru" }, fight = true, hint = "h_fight", keys = {} },
+  ["s6.ooru"]    = { sheet = "paper.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" } },
+  ["s7.ooru"]    = { sheet = "paper.kolam", doors = { "boss.ooru" }, hint = "h_pit", keys = {} },
+  ["boss.ooru"]  = { sheet = "paper.kolam", doors = { "end" }, fight = true, hint = "h_boss", keys = {},
+                     boss = "veeran" },
+  -- the test rooms, off the Courtyard's side door
+  ["test.ooru"]  = { sheet = "sprites.kolam", doors = { "climb.ooru" } },
+  ["climb.ooru"] = { sheet = "paper.kolam", doors = { "arena.ooru", "test.ooru" } },
+  ["arena.ooru"] = { sheet = "paper.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
-local START, SOLDIER, DOOR = 1000, 1001, 1002   -- markers on layer 1
+-- markers on layer 1
+local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
+local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap", [BOSS] = "veeran" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -43,26 +69,42 @@ function rooms.locked()
   return false
 end
 
+local boss_code                                 -- the boss module loaded, if any
+
 function rooms.enter(name, from, body)
   local def = ROOMS[name]
+  -- a boss's code is kept only in its room
+  if boss_code and boss_code ~= def.boss then
+    shadows.kinds[boss_code] = nil
+    unrequire(boss_code)
+    boss_code = nil
+  end
+  shadows.boss, shadows.beaten = nil, false
+  if def.boss then boss_code = def.boss; require(def.boss) end
   map.load(name)
+  preload(def.sheet)
   rooms.name = name
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8
   shadows.clear()
+  shadows.soft = def.soft and 0.33 or 1
   fx.clear()
+  rooms.stall_x, rooms.box_x = nil, nil
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
   local sx, sy = 40, 200
   for cy = 0, h - 1 do
     for cx = 0, w - 1 do
       local m = map.get(1, cx, cy)
-      if m == START then sx, sy = cx * 8 + 4, cy * 8 + 8
-      elseif m == SOLDIER then shadows.add(cx * 8 + 4, cy * 8 + 8)
+      local x, y = cx * 8 + 4, cy * 8 + 8
+      if m == START then sx, sy = x, y
+      elseif KIND[m] then shadows.add(x, y, KIND[m])
+      elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
+      elseif m == BOX then rooms.box_x, rooms.floor_y = x, y
       elseif m == DOOR then
         local n = #dx + 1
         dx[n], dy[n], dto[n] = cx, cy, def.doors[n]
       end
-      if m >= START and m <= DOOR then map.set(1, cx, cy, 0) end
+      if m >= START and m <= BOSS then map.set(1, cx, cy, 0) end
     end
   end
   -- in at the door from where he came
@@ -70,8 +112,13 @@ function rooms.enter(name, from, body)
     if from and dto[n] == from then sx, sy = dx[n] * 8 + 4, dy[n] * 8 + 8 end
   end
   body.place(sx, sy)
-  -- the rooms beyond this one's doors, and their sheets, read ahead
-  for n = 1, #dto do preload(dto[n], ROOMS[dto[n]].sheet) end
+  -- the rooms beyond this one's doors, and their sheets, read ahead (past
+  -- a story's last door, the Courtyard)
+  for n = 1, #dto do
+    local to = dto[n] == "end" and "map.ooru" or dto[n]
+    preload(to, ROOMS[to].sheet)
+    if ROOMS[to].boss then preload(ROOMS[to].boss .. ".lua") end
+  end
 end
 
 -- The door he stands at, if any.
@@ -92,7 +139,11 @@ function rooms.update(i, body)
   local k = body.k
   if i.door and k.ground and k.dodge == 0 then
     local n = at_door(k)
-    if n and not rooms.locked() then going, fade_t = dto[n], 0 return true end
+    if n and not rooms.locked() then
+      if dto[n] == "end" then rooms.ended = true return true end
+      going, fade_t = dto[n], 0
+      return true
+    end
   end
   return false
 end
@@ -112,6 +163,17 @@ function rooms.draw_doors()
     for c = 0, 2 do line(x + 4 + c * 4, y + 3, x + 4 + c * 4, y + 23, shut and 38 or 18) end
     if shut then line(x, y + 12, x + 15, y + 12, 6) end
   end
+end
+
+-- the stall and the Aasaan's box, drawn from the actors' sheet
+function rooms.draw_things()
+  if rooms.stall_x then spr(720, rooms.stall_x - 12, rooms.floor_y - 24, 3, 3) end
+  if rooms.box_x then spr(724, rooms.box_x - 8, rooms.floor_y - 14, 2, 2) end
+end
+
+-- Is Komali (k) standing at x: the stall, or the box?
+function rooms.near(x, k)
+  return x ~= nil and math.abs(x - (k.x + k.w / 2)) < 16 and k.ground
 end
 
 return rooms
