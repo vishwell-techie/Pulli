@@ -4,7 +4,8 @@
 --   body.place(x, y)          -- feet at (x, y), in map pixels
 --   body.update(input)        -- once a frame; input from body.read()
 --   body.hurt(n, from_x)      -- struck: false if he could not be touched
---   body.draw(c)              -- c: the role's colours, swapped in (pal)
+--   body.draw(c, pose, armed) -- c: the role's colours, swapped in (pal);
+--                             pose: a frame of a blow (body.FRAME), or nil
 --
 -- Every number that decides how it feels is in body.T, in pixels and
 -- frames (the game runs at a fixed 60 frames a second), so it can be tuned
@@ -41,8 +42,10 @@ local T = {
 body.T = T
 
 local SOLID, THIN = 1, 2
--- Sprites (cell x + 64 * cell y), 16x24 each.
-local IDLE, RUN, JUMP, FALL, DODGE, WALL = 256, 260, 268, 270, 272, 276
+-- Komali's frames in actors.png, 24x32 each: frame k is sprite 3k, or
+-- 256 + 3k with a sword in hand (the warrior's role). See art.py.
+local IDLE, RUN, JUMP, FALL, DODGE, WALL, HURT = 0, 2, 8, 9, 10, 12, 13
+body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
@@ -218,18 +221,20 @@ function body.hurt(n, from_x)
   return n
 end
 
-function body.draw(c)
-  local s
-  if k.dodge > 0 then s = DODGE + (k.dodge // 3 % 2) * 2
-  elseif k.wall ~= 0 then s = WALL
-  elseif not k.ground then s = k.vy < 0 and JUMP or FALL
-  elseif math.abs(k.vx) > 0.2 then s = RUN + (k.step // 10 % 4) * 2
-  else s = IDLE + (stat("frame") // 40 % 2) * 2 end
+function body.draw(c, pose, armed)
+  local f
+  if pose then f = pose
+  elseif k.dodge > 0 then f = DODGE + k.dodge // 4 % 2
+  elseif k.struck > T.struck - 12 then f = HURT
+  elseif k.wall ~= 0 then f = WALL
+  elseif not k.ground then f = k.vy < 0 and JUMP or FALL
+  elseif math.abs(k.vx) > 0.2 then f = RUN + k.step // 8 % 6
+  else f = IDLE + stat("frame") // 40 % 2 end
   local flip = k.face < 0
-  if k.wall ~= 0 then flip = k.wall > 0 end
-  if k.struck > 0 and k.struck // 4 % 2 == 0 then return end   -- flashing after a blow
+  if k.wall ~= 0 then flip = k.wall < 0 end
+  if k.struck > 0 and k.struck < T.struck - 12 and k.struck // 4 % 2 == 0 then return end   -- flashing
   if c then for n = 1, #c, 2 do pal(c[n], c[n + 1]) end end
-  spr(s, math.floor(k.x) - 3, math.floor(k.y) - 2, 2, 3, flip)
+  spr((armed and 256 or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
   pal()
 end
 

@@ -11,6 +11,7 @@
 local lines = require("lines")
 local fight = require("fight")
 local run   = require("run")
+local C     = require("colours")
 
 local stall = { open_ = false }
 
@@ -62,21 +63,22 @@ end
 function stall.draw(body)
   if not stall.open_ then return end
   font("small")
-  rectfill(40, 40, 240, 160, 0)
-  rect(40, 40, 240, 160, 9)
-  print(lines.t("stall"), 52, 48, 10)
-  print(lines.t("mai") .. " " .. fight.mai, 200, 48, 12)
+  rectfill(40, 40, 240, 160, C.deep)
+  rect(40, 40, 240, 160, C.marigold)
+  rect(42, 42, 236, 156, C.wood)
+  print(lines.t("stall"), 52, 48, C.lamp)
+  spr(790, 196, 49)
+  print(fight.mai, 208, 48, C.cloth)
   local y = 70
   for n, item in ipairs(ITEMS) do
-    local c = n == pick and 10 or 6
-    if n == pick then print(">", 50, y, 10) end
-    print(label(item), 62, y, c)
-    if item.price then print(item.price, 236, y, fight.mai >= item.price and 7 or 5) end
+    if n == pick then rectfill(46, y - 2, 228, 16, C.wood) print(">", 50, y, C.lamp) end
+    print(label(item), 62, y, n == pick and C.lamp or C.cloth)
+    if item.price then print(item.price, 236, y, fight.mai >= item.price and C.glow or C.tan) end
     y = y + 18
   end
   local it = ITEMS[pick]
-  if note_t > 0 then print(lines.t(note), 52, 176, 8)
-  elseif it.charm then print(lines.t(it.key .. "_d"), 52, 176, 6) end
+  if note_t > 0 then print(lines.t(note), 52, 176, C.scarlet)
+  elseif it.charm then print(lines.t(it.key .. "_d"), 52, 176, C.tan) end
   font()
 end
 

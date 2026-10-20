@@ -10,16 +10,19 @@
 -- bits are kept in a few long arrays rather than a table each (the SDK's
 -- particles), which would cost half a kilobyte a bit.
 
+local C = require("colours")
+
 local fx = {}
 
 -- bits: scraps of paper and sparks
-local BITS = 128
+local BITS = 64                         -- two shadows torn at once
 local bx, by, bvx, bvy, bt, bk = {}, {}, {}, {}, {}, {}
 for n = 1, BITS do bx[n], by[n], bvx[n], bvy[n], bt[n], bk[n] = 0, 0, 0, 0, 0, 0 end
 local alive = 0
 local SCRAP, SPARK = 1, 2
-local SCRAP_COL = { 15, 31, 22, 1 }
-local SPARK_COL = { 7, 10, 9 }
+local SCRAP_COL = { C.glow, C.cloth, C.warm, C.tan }
+local SPARK_COL = { C.glow, C.lamp, C.marigold }
+local DROP = 790                     -- the drop of mai, 8x8, in actors.png
 local LIFE = { 54, 15 }
 
 local function emit(x, y, count, kind, speed)
@@ -34,7 +37,7 @@ local function emit(x, y, count, kind, speed)
 end
 
 -- drops of mai: where, how fast, and how long they have been out
-local MAX = 40
+local MAX = 24
 local dx, dy, dvx, dvy, dt = {}, {}, {}, {}, {}
 for n = 1, MAX do dx[n], dy[n], dvx[n], dvy[n], dt[n] = 0, 0, 0, 0, -1 end
 
@@ -103,8 +106,7 @@ function fx.draw()
   end
   for d = 1, MAX do
     if dt[d] >= 0 then
-      circfill(dx[d], dy[d], 2, 1)
-      pset(dx[d] - 1, dy[d] - 1, 12)
+      spr(DROP, dx[d] - 4, dy[d] - 4)
     end
   end
 end

@@ -22,6 +22,7 @@
 
 local move = require("move")
 local fx   = require("fx")
+local C    = require("colours")
 
 local shadows = { list = {}, hits = 0, soft = 1, kinds = {} }
 
@@ -47,11 +48,12 @@ local K = {
 }
 shadows.K = K
 
--- Sprites: the soldier (16x24) standing, walking, winding up, striking,
--- struck; the dummy; the inkblot's two frames (16x8) and the small one's
--- (8x8); the scrap's two (16x8).
-local STAND, WALK, WIND, STRIKE, REEL = 448, 450, 452, 454, 456
-local DUMMY, INK, SMALL, SCRAP = 460, 640, 644, 646
+-- Sprites in actors.png (see art.py): the soldier, 24x32, standing,
+-- walking (four), winding up, striking, struck; the dummy, 24x32; the
+-- inkblot's two frames (16x8) and the small one's (8x8); the scrap's three
+-- (16x8).
+local STAND, WALK, WIND, STRIKE, REEL = 512, 515, 527, 530, 533
+local DUMMY, INK, SMALL, SCRAP = 768, 778, 782, 784
 
 function shadows.add(x, y, kind)
   kind = kind or "soldier"
@@ -240,25 +242,19 @@ function shadows.draw()
     if s.on then
       local x, y, st, kind = math.floor(s.x), math.floor(s.y), s.state, s.kind
       if kind == "soldier" then
-        x, y = x - 3, y - 4
         local n = st == "wind" and WIND or st == "strike" and STRIKE or st == "reel" and REEL
-                  or (math.abs(s.vx) > 0.1 and (s.step // 8 % 2 == 0 and WALK or STAND)) or STAND
-        if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(15, 7) pal(31, 7) end   -- about to strike
-        spr(n, x, y, 2, 3, s.face < 0)
+                  or (math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 3) or STAND
+        if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(C.cloth, C.glow) pal(C.warm, C.glow) end   -- about to strike
+        spr(n, x - 7, y - 12, 3, 4, s.face < 0)
         pal()
-        -- his sword: at his side, raised behind, or out in front
-        local hx, hy = x + 8 + s.face * 5, y + 13
-        if st == "wind" then line(hx, hy, hx - s.face * 6, hy - 11, 6)
-        elseif st == "strike" then line(hx, hy, hx + s.face * 16, hy - 1, 7)
-        else line(hx, hy, hx + s.face * 3, hy + 9, 6) end
       elseif kind == "dummy" then
-        spr(DUMMY, x - 3, y - 4, 2, 3)
+        spr(DUMMY, x - 7, y - 12, 3, 4)
       elseif kind == "ink" then
         spr(INK + (f // 12 % 2) * 2, x - 2, y - 2, 2, 1, s.face < 0)
       elseif kind == "small" then
         spr(SMALL + f // 8 % 2, x - 1, y - 3, 1, 1, s.face < 0)
       elseif kind == "scrap" then
-        spr(SCRAP + (f // 6 % 2) * 2, x - 2, y - 1, 2, 1, s.face < 0)
+        spr(SCRAP + f // 5 % 3 * 2, x - 2, y - 1, 2, 1, s.face < 0)
       elseif shadows.kinds[kind] then
         shadows.kinds[kind].draw(s)
       end

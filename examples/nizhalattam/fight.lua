@@ -16,6 +16,7 @@
 -- breaks a guard). A blow that lands stops the world for a few frames.
 
 local move = require("move")
+local C    = require("colours")
 
 local fight = { freeze = 0, shake_px = 0, shake_t = 0, worn = 1, carried = {}, swing = 0,
                 mai = 0,         -- the ink picked up this run
@@ -37,7 +38,10 @@ local ROLES = {
   },
   veeran = {
     name = "Veeran",
-    colours = { 8, 12, 24, 28, 10, 6, 41, 38 },      -- blue costume, steel helmet
+    colours = { C.red, C.blue, C.vermil, C.sky, C.red + 32, C.blue + 32,       -- blue tunic,
+                C.saffron, C.cloth, C.saffron + 32, C.cloth + 32,          -- a white veshti,
+                C.marigold, C.silver, C.marigold + 32, C.silver + 32 },    -- a steel helmet
+    armed = true,                                    -- his frames with a sword in hand
     combo = { { s = 5, a = 4, r = 10, n = 12, w = 20, h = 16 },
               { s = 5, a = 4, r = 10, n = 12, w = 20, h = 16 },
               { s = 7, a = 5, r = 14, n = 20, w = 22, h = 18 } },
@@ -64,7 +68,20 @@ function fight.wear(list)
   atk, step, charge, cool, skill_t = nil, 0, 0, 0, 0
 end
 
-function fight.role() return fight.carried[fight.worn] end
+function fight.role() -- The frame Komali shows for what he is doing (body.FRAME), or nil.
+function fight.pose(body)
+  local role = fight.role()
+  if skill_t > 0 then return role.skill == "pratfall" and "flat" or "slap1" end
+  if atk then
+    if atk == role.swap then return role.name == "Komali" and "cart" or "slap3" end
+    if atk == role.air then return "spin" end
+    if atk == role.heavy then return "slap3" end
+    return step == 2 and "slap2" or step == 3 and "slap3" or "slap1"
+  end
+  if charge >= CHARGE then return "gather" end
+end
+
+return fight.carried[fight.worn] end
 
 -- A role lent: carried for the rest of the run, beside his own and at most
 -- one more. (Choosing which to give up when both places are full comes
@@ -213,15 +230,14 @@ end
 function fight.draw(body)
   local k, role = body.k, fight.role()
   local cx, cy = k.x + k.w / 2, k.y + k.h / 2
-  if (fight.ring or 0) > 0 then circ(cx, cy, 26 - fight.ring, 10) end
-  if charge >= CHARGE and stat("frame") % 4 < 2 then circ(cx + k.face * 10, cy - 4, 3, 10) end
+  if (fight.ring or 0) > 0 then circ(cx, cy, 26 - fight.ring, C.lamp) end
+  if charge >= CHARGE and stat("frame") % 4 < 2 then circ(cx - k.face * 4, cy - 16, 3, C.glow) end
   if not atk then return end
   local x, y, w, h = reach(k, atk)
   if not x then
-    if role.name == "Veeran" then line(cx, cy, cx - k.face * 6, cy - 10, 6) end   -- raised
     return
   end
-  local col = atk.heavy and 10 or 7
+  local col = atk.heavy and C.lamp or C.glow
   local r = atk.around and atk.w or atk.w
   local p = (f - atk.s) / atk.a
   for n = 0, 4 do

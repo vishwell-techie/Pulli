@@ -16,6 +16,7 @@
 -- rests, open to blows. Below half his health he rests less.
 
 local shadows = require("shadows")
+local C       = require("colours")
 local fx      = require("fx")
 
 local boss = {}
@@ -34,9 +35,10 @@ local B = {
 }
 boss.B = B
 
--- Sprites (16x24): on guard, walking, winding up, striking, gathering, the
--- dash, struck.
-local GUARD, WALK, WIND, STRIKE, GATHER, BASH, REEL = 704, 706, 708, 710, 712, 714, 716
+-- Sprites in actors.png (24x32, see art.py): on guard, walking (four),
+-- winding up, striking, gathering, the dash, struck. His sword and shield
+-- are on them.
+local GUARD, WALK, WIND, STRIKE, GATHER, BASH, REEL = 536, 539, 551, 554, 557, 560, 563
 
 local function overlap(ax, ay, aw, ah, b)
   return ax < b.x + b.w and b.x < ax + aw and ay < b.y + b.h and b.y < ay + ah
@@ -126,24 +128,27 @@ function kind.torn(s)
 end
 
 function kind.draw(s)
-  local x, y, st = math.floor(s.x) - 3, math.floor(s.y) - 4, s.state
+  local x, y, st = math.floor(s.x) - 7, math.floor(s.y) - 12, s.state
   local n = GUARD
-  if st == "walk" then n = math.abs(s.vx) > 0.1 and (s.step // 8 % 2 == 0 and WALK or GUARD) or GUARD
+  if st == "walk" then n = math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 3 or GUARD
   elseif st == "wind" then n = s.move == "heavy" and GATHER or WIND
   elseif st == "combo" or st == "heavy" then n = STRIKE
   elseif st == "bash" then n = BASH
   elseif st == "reel" then n = REEL end
-  if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(12, 7) pal(28, 7) pal(6, 7) end   -- about to strike
-  spr(n, x, y, 2, 3, s.face < 0)
+  if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(C.blue, C.glow) pal(C.sky, C.glow) pal(C.marigold, C.glow) end
+  spr(n, x, y, 3, 4, s.face < 0)
   pal()
-  local hx, hy = x + 8 + s.face * 5, y + 13
-  if st == "wind" then
-    line(hx, hy, hx - s.face * 7, hy - 12, 6)
-    if s.move == "heavy" and stat("frame") % 4 < 2 then circ(hx - s.face * 7, hy - 12, 3, 10) end
-  elseif st == "combo" and s.t % B.slash.gap <= 4 then line(hx, hy, hx + s.face * 18, hy - 2, 7)
-  elseif st == "heavy" then line(hx, hy - 4, hx + s.face * 26, hy + 2, 10)
-  elseif st == "bash" then circfill(hx + s.face * 3, hy - 2, 6, 4) circ(hx + s.face * 3, hy - 2, 6, 9)
-  else line(hx, hy, hx + s.face * 3, hy + 10, 6) end
+  local cx = x + 12
+  if st == "wind" and s.move == "heavy" and stat("frame") % 4 < 2 then circ(cx - s.face * 4, y + 2, 3, C.glow) end
+  -- the sweep of a blow that can land
+  if (st == "combo" and s.t % B.slash.gap <= 4) or st == "heavy" then
+    local r = st == "heavy" and 26 or 18
+    for n = 0, 3 do
+      local a0 = -1.0 + n * 0.5
+      line(cx + s.face * math.cos(a0) * r, y + 18 + math.sin(a0) * 10,
+           cx + s.face * math.cos(a0 + 0.5) * r, y + 18 + math.sin(a0 + 0.5) * 10, st == "heavy" and C.lamp or C.glow)
+    end
+  end
 end
 
 shadows.kinds.veeran = kind

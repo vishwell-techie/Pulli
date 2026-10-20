@@ -19,15 +19,17 @@
 
 local shadows = require("shadows")
 local fx      = require("fx")
+local C       = require("colours")
 
 local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = nil, floor_y = 0 }
 
--- Each room: its tile sheet, where its doors lead (in the order the map is
+-- Each room: its tile sheet and its background (BG_), where its doors lead (in the order the map is
 -- read), whether it is a fight room (its doors shut until its shadows are
 -- torn), whether its shadows strike softly (a lesson), and the hint shown
 -- on the cloth, with the buttons it names.
+local SCREEN, COURT = "bg_screen.kolam", "bg_court.kolam"
 local ROOMS = {
-  ["map.ooru"]   = { sheet = "paper.kolam", doors = { "test.ooru", "s1.ooru" }, name = "hub",
+  ["map.ooru"]   = { sheet = "court.kolam", bg = COURT, doors = { "test.ooru", "s1.ooru" }, name = "hub",
                      hint = "h_door", keys = { "up" } },
   -- the Screen, the first story: a lesson a room, then the boss
   ["s1.ooru"]    = { sheet = "paper.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" },
@@ -48,6 +50,7 @@ local ROOMS = {
   ["climb.ooru"] = { sheet = "paper.kolam", doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = { sheet = "paper.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
+for _, def in pairs(ROOMS) do def.bg = def.bg or SCREEN end   -- the lamp-lit cloth
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
@@ -82,7 +85,7 @@ function rooms.enter(name, from, body)
   shadows.boss, shadows.beaten = nil, false
   if def.boss then boss_code = def.boss; require(def.boss) end
   map.load(name)
-  preload(def.sheet)
+  preload(def.sheet, def.bg)
   rooms.name = name
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8
@@ -116,7 +119,7 @@ function rooms.enter(name, from, body)
   -- a story's last door, the Courtyard)
   for n = 1, #dto do
     local to = dto[n] == "end" and "map.ooru" or dto[n]
-    preload(to, ROOMS[to].sheet)
+    preload(to, ROOMS[to].sheet, ROOMS[to].bg)
     if ROOMS[to].boss then preload(ROOMS[to].boss .. ".lua") end
   end
 end
@@ -153,22 +156,35 @@ function rooms.fade()
   return fade_t < FADE and fade_t / FADE or (FADE * 2 - fade_t) / FADE
 end
 
--- a door: a cloth curtain in a wooden frame; barred while it is shut
+-- a door: a curtained arch in a carved frame, lamplight through the gap;
+-- barred while it is shut
 function rooms.draw_doors()
   local shut = rooms.locked()
   for n = 1, #dx do
-    local x, y = dx[n] * 8 - 4, dy[n] * 8 - 16
-    rectfill(x, y, 16, 24, 36)
-    rectfill(x + 2, y + 2, 12, 22, shut and 33 or 2)
-    for c = 0, 2 do line(x + 4 + c * 4, y + 3, x + 4 + c * 4, y + 23, shut and 38 or 18) end
-    if shut then line(x, y + 12, x + 15, y + 12, 6) end
+    local x, y = dx[n] * 8 - 6, dy[n] * 8 - 24
+    rectfill(x, y + 4, 20, 28, C.wood)
+    rectfill(x + 2, y + 2, 16, 4, C.wood)
+    rectfill(x + 4, y, 12, 4, C.wood)
+    rectfill(x + 2, y + 6, 16, 26, shut and C.night or C.lamp)
+    rectfill(x + 3, y + 6, 6, 26, shut and C.dusk or C.wine)      -- the curtains, drawn aside
+    rectfill(x + 11, y + 6, 6, 26, shut and C.dusk or C.wine)
+    for c = 0, 2 do line(x + 4 + c * 2, y + 7, x + 4 + c * 2, y + 31, shut and C.night or C.oxblood) end
+    line(x + 2, y + 5, x + 17, y + 5, C.marigold)
+    pset(x + 9, y + 1, C.lamp) pset(x + 10, y + 1, C.lamp)
+    if shut then
+      line(x + 1, y + 14, x + 18, y + 14, C.steel) line(x + 1, y + 22, x + 18, y + 22, C.steel)
+    end
   end
 end
 
 -- the stall and the Aasaan's box, drawn from the actors' sheet
 function rooms.draw_things()
-  if rooms.stall_x then spr(720, rooms.stall_x - 12, rooms.floor_y - 24, 3, 3) end
-  if rooms.box_x then spr(724, rooms.box_x - 8, rooms.floor_y - 14, 2, 2) end
+  if rooms.stall_x then spr(774, rooms.stall_x - 16, rooms.floor_y - 32, 4, 4) end
+  if rooms.box_x then
+    spr(771, rooms.box_x - 12, rooms.floor_y - 16, 3, 2)
+    -- the Aasaan beside his box, nodding now and then
+    spr(512 + (18 + stat("frame") // 90 % 2) * 3, rooms.box_x + 12, rooms.floor_y - 32, 3, 4, true)
+  end
 end
 
 -- Is Komali (k) standing at x: the stall, or the box?

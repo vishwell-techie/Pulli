@@ -747,7 +747,7 @@ def main():
                         'if f == 95 then for _, s in ipairs(shadows.list) do s.on = false end body.place(55 * 8 + 4, 208) end '
                         'if f == 140 then dbg("route", rooms.name, st_loads) end', frames=150, pre=ahead)
         t.check("nizhalattam: every room and sheet is read ahead, behind a door, before it is used",
-                r.code == 0 and "late" not in got and got.get("route") == ["test.ooru", "2"], got)
+                r.code == 0 and "late" not in got and got.get("route") == ["test.ooru", "3"], got)
 
         # Step 4: the first playable. A game starts in the Courtyard; `story`
         # runs it from there, `setup` on frame 1 (entering a room with
