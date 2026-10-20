@@ -76,6 +76,7 @@ function body.read()
   I.a, I.b = btn("a"), btn("b")
   I.jump, I.dodge, I.attack, I.skill = pressed("a"), pressed("y"), pressed("b"), pressed("x")
   I.swap = (pressed("r") and 1 or 0) - (pressed("l") and 1 or 0)
+  I.door = pressed("up")                -- up at a door goes through it
   return I
 end
 

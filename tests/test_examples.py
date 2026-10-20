@@ -567,8 +567,8 @@ def main():
 
         # Nizhalattam, step 1: how Komali moves, in the grey test room. Each
         # case places him, then drives him through body.read on exact frames.
-        def komali(name, place, read, report, frames=240):
-            extra = ('local body, shadows, fight = require("body"), require("shadows"), require("fight")\n'
+        def komali(name, place, read, report, frames=240, pre=""):
+            extra = pre + ('local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
                      'local up, i0 = update, {}\n'
                      f'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
                      f'local st = {{}}\n'
@@ -712,6 +712,42 @@ def main():
         grew = float(got.get("grew", ["99"])[0])
         t.check("nizhalattam: half a minute of fighting makes nothing that stays in memory",
                 r.code == 0 and grew < 2, f"{grew} KB {r.err[-200:]}")
+
+        # Step 3: rooms and doors. The test room's door is at cell (163, 22),
+        # on the step at its far end; the climb's door back is at (6, 55).
+        r, got = komali("door", "at(162, 184)",
+                        "if f == 10 or f == 80 then i.door = true end",
+                        'if f == 9 then k.health = 70 fight.mai = 4 end '
+                        'if f == 60 then dbg("there", rooms.name, math.floor(k.x + k.w / 2), k.y + k.h, k.health, fight.mai) end '
+                        'if f == 130 then dbg("back", rooms.name, math.floor((k.x + k.w / 2) / 8)) end', frames=140)
+        t.check("nizhalattam: up at a door fades to the room beyond, in at the door back; he keeps his health and mai",
+                got.get("there") == ["climb.ooru", "52", "448", "70", "4"] and got.get("back") == ["map.ooru", "163"], got)
+
+        r, got = komali("shut", "at(5, 208)",
+                        "if f == 20 or f == 60 or f == 120 then i.door = true end",
+                        'if f == 3 then rooms.enter("arena.ooru", "climb.ooru", body) end '
+                        'if f == 50 then dbg("shut", rooms.name, tostring(rooms.locked())) '
+                        '  for _, s in ipairs(shadows.list) do s.on = false end end '
+                        'if f == 100 then dbg("open", rooms.name) end', frames=110)
+        t.check("nizhalattam: a fight room's door stays shut until its shadows are torn",
+                got.get("shut") == ["arena.ooru", "true"] and got.get("open") == ["climb.ooru"], got)
+
+        # Through every room, by their doors: each map and sheet is read
+        # ahead before it is first used, and a frame changes sheets twice.
+        ahead = ('local ready, pre, ml, sl = {}, preload, map.load, sheet.load\n'
+                 'ready["map.ooru"], ready["sprites.kolam"] = true, true\n'
+                 'function preload(...) for _, n in ipairs({ ... }) do ready[n] = true end return pre(...) end\n'
+                 'function map.load(n) if not ready[n] then dbg("late", n) end return ml(n) end\n'
+                 'local loads = 0\n'
+                 'function sheet.load(n) loads = loads + 1 if not ready[n] then dbg("late", n) end return sl(n) end\n'
+                 'local d = draw function draw() loads = 0 d() st_loads = loads end\n')
+        r, got = komali("ahead", "at(162, 184)",
+                        "if f == 10 or f == 60 or f == 110 then i.door = true end",
+                        'if f == 45 then body.place(34 * 8 + 4, 64) end '            # the climb's top door
+                        'if f == 95 then for _, s in ipairs(shadows.list) do s.on = false end body.place(55 * 8 + 4, 208) end '
+                        'if f == 140 then dbg("route", rooms.name, st_loads) end', frames=150, pre=ahead)
+        t.check("nizhalattam: every room and sheet is read ahead, behind a door, before it is used",
+                r.code == 0 and "late" not in got and got.get("route") == ["map.ooru", "2"], got)
 
         if t.update:
             with open(path, "w") as f:
