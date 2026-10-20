@@ -568,11 +568,11 @@ def main():
         # Nizhalattam, step 1: how Komali moves, in the grey test room. Each
         # case places him, then drives him through body.read on exact frames.
         def komali(name, place, read, report, frames=240):
-            extra = ('local body = require("body")\n'
+            extra = ('local body, shadows, fight = require("body"), require("shadows"), require("fight")\n'
                      'local up, i0 = update, {}\n'
                      f'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
                      f'local st = {{}}\n'
-                     f'function body.read() local k, f = body.k, stat("frame") local i = {{}}\n{read}\n return i end\n'
+                     f'function body.read() local k, f, s = body.k, stat("frame"), shadows.list[1] local i = {{ swap = 0 }}\n{read}\n return i end\n'
                      f'function update(dt) if stat("frame") == 1 then {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
@@ -647,6 +647,71 @@ def main():
         slid = got.get("slid", ["0", "9"])
         t.check("nizhalattam: falling against a wall he holds into, he slides down slowly",
                 int(slid[0]) > 20 and float(slid[1]) <= 1.0, slid)
+
+        # Step 2: fighting. The arena's first soldier stands at cell 128.
+        # `s` is that soldier; frame 2 sets the scene.
+        def scene(setup, read, report, frames=300):
+            return komali("fight", "at(124, 208)", read,
+                          f"local s = shadows.list[1] if f == 2 then {setup} end\n{report}", frames)
+
+        r, got = scene("",
+                       "",
+                       'if f == 2 then s.x, s.state, s.face = k.x + 30, "walk", -1 '
+                       'dbg("front", shadows.strike(s, 6, 1, false), s.hp) '
+                       'dbg("behind", shadows.strike(s, 6, -1, false), s.hp) '
+                       's.state = "walk" dbg("heavy", shadows.strike(s, 10, 1, true), s.hp) end', frames=5)
+        t.check("nizhalattam: a soldier on guard turns a light blow from the front aside; from behind, or heavy, it lands",
+                got.get("front") == ["blocked", "40"] and got.get("behind") == ["hit", "34"]
+                and got.get("heavy") == ["hit", "24"], got)
+
+        r, got = scene("", "",
+                       'if s.state == "wind" and not st.w then st.w = f end '
+                       'if k.health < 100 and not st.h then st.h = f dbg("struck", k.health, f - st.w) end')
+        warn = int(got.get("struck", ["0", "0", "0"])[1]) if "struck" in got else 0
+        t.check("nizhalattam: the soldier walks up, winds up for 24 frames, then strikes for 12",
+                got.get("struck", [""])[0] == "88" and warn == 25, got)
+
+        r, got = scene("", 'if s.state == "wind" and s.t == 2 then i.dodge, i.right = true, true end',
+                       'if f == 140 then dbg("health", k.health, tostring(k.x > s.x)) end', frames=150)
+        t.check("nizhalattam: a dodge just before the blow lands passes through it",
+                got.get("health") == ["100", "true"], got)
+
+        r, got = scene("", 'if f == 2 then i.swap = 1 end',
+                       'if k.health < 100 and not st.h then st.h = true dbg("struck", k.health, fight.role().name) end')
+        t.check("nizhalattam: wearing the warrior, a blow costs 15% less",
+                got.get("struck") == ["90", "Veeran"], got)
+
+        r, got = scene('s.x, s.state, s.face = k.x + 16, "walk", -1', 'if f == 3 then i.swap = 1 end',
+                       'if f == 20 then dbg("swap", s.hp, s.state) end', frames=25)
+        t.check("nizhalattam: the role coming in strikes, and breaks a guard",
+                got.get("swap") == ["22", "reel"], got)
+
+        r, got = scene('s.x, s.state, s.face = k.x + 20, "walk", -1', 'if f == 3 then i.skill = true end',
+                       'if f == 6 then dbg("trip", s.state, k.struck > 0) end', frames=8)
+        t.check("nizhalattam: Komali's pratfall trips the soldiers close by, and nothing touches him",
+                got.get("trip") == ["reel", "true"], got)
+
+        # just out of reach of his first swing, within reach of the heavy slash
+        r, got = scene('fight.wear({ "veeran", "komali" }) s.x, s.state, s.t, s.face = k.x + 30, "rest", 400, -1',
+                       'if f >= 30 and f <= 85 then i.b = true end if f == 30 then i.attack = true end',
+                       'if not s.on and not st.t then st.t = f dbg("torn", f) end '
+                       'if f == 299 then dbg("mai", fight.mai) end')
+        t.check("nizhalattam: the warrior's slash, B held until it shines, tears a soldier; its ink flies to Komali",
+                "torn" in got and int(got.get("mai", ["0"])[0]) >= 1, got)
+
+        r, got = scene('s.x, s.state, s.t, s.face = k.x + 16, "rest", 400, -1', 'i.right = f > 10 if f == 10 then i.attack = true end',
+                       'if s.hp < 40 and not st.h then st.h = f st.x = k.x end '
+                       'if st.h and f == st.h + 2 then dbg("still", k.x == st.x, fight.freeze > 0) end', frames=40)
+        t.check("nizhalattam: when a blow lands the world stands still for a moment",
+                got.get("still") == ["true", "true"], got)
+
+        r, got = scene("", 'i.right = f % 200 < 100 i.left = not i.right if f % 23 == 0 then i.attack = true end '
+                       'if f % 61 == 0 then i.dodge = true end if f % 300 == 0 then i.swap = 1 end',
+                       'if f == 600 then collectgarbage() st.m = stat("mem") end '
+                       'if f == 1800 then collectgarbage() dbg("grew", stat("mem") - st.m) end', frames=1800)
+        grew = float(got.get("grew", ["99"])[0])
+        t.check("nizhalattam: half a minute of fighting makes nothing that stays in memory",
+                r.code == 0 and grew < 2, f"{grew} KB {r.err[-200:]}")
 
         if t.update:
             with open(path, "w") as f:
