@@ -480,7 +480,7 @@ def main():
 
     # ---- bad maps --------------------------------------------------------------------
     def bad(name, blob, *needles, entry="map.ooru"):
-        r = t.run_game("", extra={entry: blob})
+        r = t.run_game("" if entry == "map.ooru" else f"map.load('{entry}')", extra={entry: blob})
         t.check(name, r.code == 1 and entry in r.err and all(n in r.err for n in needles), f"exit {r.code}\n{r.err}")
 
     def patched(offset, fmt, value):
@@ -495,7 +495,9 @@ def main():
     bad("a map of no width is refused", patched(4, "<H", 0), "empty or too large")
     bad("a map past the console's limit is refused",
         b"ORU1" + struct.pack("<HHBBH", 200, 100, 2, 0, 0) + bytes(80000), "too large")
-    bad("a bad map under any name stops the game from starting", small[:-1], "does not match", entry="cave.ooru")
+    bad("a bad map under any name stops the game when it is loaded", small[:-1], "does not match", entry="cave.ooru")
+    r = t.run_game("", extra={"cave.ooru": small[:-1]})
+    t.check("a bad map the game never loads is never read, so it does not stop the game", r.code == 0, r.err)
     limit = pulli.ooru(128, 128, [[1] * 16384, [2] * 16384], bytes(16384))
     r = t.run_game("dbg(map.size()) dbg((map.get(1, 127, 127)))", extra={"map.ooru": limit})
     t.check("the largest map the format allows loads", r.code == 0 and r.lines == ["128\t128", "2"], r.err)

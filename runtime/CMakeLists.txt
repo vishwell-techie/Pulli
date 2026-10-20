@@ -7,6 +7,8 @@ add_library(pulli_runtime STATIC
     font.c
     font_ta.c
     font_ta_small.c
+    parts.c
+    cart.c
     gfx.c
     map.c
     pkg.c

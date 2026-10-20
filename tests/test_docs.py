@@ -61,7 +61,7 @@ def main():
         r = t.run_game("""local names = {}
             for k, v in pairs(_G) do
               if type(v) == 'function' then names[#names + 1] = k
-              elseif type(v) == 'table' and (k == 'map' or k == 'link' or k == 'sys' or k == 'fix') then
+              elseif type(v) == 'table' and (k == 'map' or k == 'link' or k == 'sys' or k == 'fix' or k == 'sheet') then
                 for kk, vv in pairs(v) do if type(vv) == 'function' then names[#names + 1] = k .. '.' .. kk end end
               end
             end

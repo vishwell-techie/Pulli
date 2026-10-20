@@ -134,6 +134,13 @@ see-through colour are not drawn.
 Draw any rectangle of the sprite sheet, given in pixels, stretched to
 `dw` × `dh` on the screen.
 
+### `sheet.load(name)`
+Draw sprites from another sheet: every `.png` in the game's folder becomes
+a sheet of the same name, `sprites.kolam` from `sprites.png` being the one
+in use at the start. `sheet.load("cave.kolam")` makes `spr`, `sspr` and
+`map.draw` use `cave.png` from then on. Sprites already drawn stay. An
+error if the game has no such sheet.
+
 ## Maps
 
 See [Art and sound](art-and-sound.md) for making maps in Tiled.
@@ -234,6 +241,22 @@ Forget a module, so its memory can be freed once nothing else uses what it
 returned. The next `require(name)` runs the file again. Returns true if it
 was loaded. Useful for levels or chapters the player has finished.
 
+## Loading
+
+A game may be up to 64 MB, but at most 6 MB of it is in memory at once.
+Each part is read the first time the game uses it: a module on `require`,
+a map on `map.load`, a sheet on `sheet.load`, a sound the first time it
+plays. When memory is full, the parts used longest ago are let go and read
+again if needed; the sheet and map in use and the sounds playing always
+stay. A small game never notices any of this.
+
+### `preload(name, ...)`
+Read parts into memory now, behind a loading screen, so nothing is read in
+the middle of play: file names as packed, such as `"forest.ooru"` or
+`"forest.kolam"`, and `"sfx 12"` or `"music 3"` for one sound. Returns true,
+or false if a name is not in the game; the others are still read. An error
+if a part is bigger than 6 MB.
+
 ## Link
 
 Two consoles joined by a cable exchange short messages. In the window, run
@@ -266,7 +289,8 @@ Seconds since the game started, counted in frames: it goes up by exactly
 ### `stat(what)`
 `stat("frame")`: updates since the game started. `stat("mem")`: Lua memory
 in use, in KB. `stat("fps")`: updates a second over the last second.
-`stat("cpu")`: the percentage of the last frame's time that `update` and
+`stat("active")`: the game's parts in memory, in KB (at most 6144; see
+Loading). `stat("cpu")`: the percentage of the last frame's time that `update` and
 `draw` used; over 100 means the frame ran late. `fps` and `cpu` are for
 finding out why a game is slow, not for the game to act on: they differ from
 run to run, and are `nil` where there is no clock to measure with.

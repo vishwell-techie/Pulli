@@ -18,7 +18,8 @@ def refit(data, flags=None, edit=None, reseal=True):
         body[5] = flags
     if edit:
         edit(body)
-    struct.pack_into("<I", body, 12, zlib.crc32(bytes(body[16:])) & 0xFFFFFFFF)
+    start = struct.unpack_from("<I", body, 16)[0]
+    struct.pack_into("<I", body, 12, zlib.crc32(bytes(body[16:start])) & 0xFFFFFFFF)
     return pulli.seal(bytes(body)) if reseal else bytes(body) + pulli.split(data)[1]
 
 
@@ -60,38 +61,45 @@ def main():
                 dict(pulli.parse(data)) == files and len(notes) == 1 and "operating system" in notes[0], notes)
         for name in made:
             os.remove(os.path.join(tmp, name))
-        for i in range(70):
+        for i in range(1030):
             open(os.path.join(tmp, f"extra{i}.bin"), "wb").close()
         try:
             pulli.build(tmp)
             listed = ""
         except pulli.PackageError as e:
             listed = str(e)
-        t.check("too many files: the error says which are being packed", "extra69.bin" in listed, listed[:120])
-        for i in range(70):
+        t.check("too many files: the error says which are being packed", "extra999.bin" in listed, listed[:120])
+        for i in range(1030):
             os.remove(os.path.join(tmp, f"extra{i}.bin"))
 
         os.remove(os.path.join(tmp, "main.lua"))
         t.check("packer refuses a game with no main.lua", rejects(pulli.build, tmp))
 
-    version, flags, count, total, crc = struct.unpack("<BBHII", data[4:16])
+    version, flags, count, total, crc, start = struct.unpack("<BBHIII", data[4:20])
     body, tail = pulli.split(data)
-    t.check("header: magic, version, count, size", data[:4] == b"PULI" and version == 1
-            and count == 5 and total == len(body))
-    t.check("header: checksum is CRC-32 of the package after the header",
-            crc == zlib.crc32(body[16:]) & 0xFFFFFFFF)
-    t.check("a built package ends with a developer licence and signature",
+    t.check("header: magic, version, count, size, where the payload starts",
+            data[:4] == b"PULI" and version == 2 and count == 5 and total == len(body)
+            and start % 4 == 0 and 20 + 40 * count + 32 <= start)
+    t.check("header: checksum is CRC-32 of the front after it: table and block hashes",
+            crc == zlib.crc32(body[16:start]) & 0xFFFFFFFF)
+    hashes = body[20 + 40 * count:]
+    t.check("the front holds the SHA-256 of every 64 KB block of the payload",
+            hashes[:32] == hashlib.sha256(body[start:start + 65536]).digest())
+    t.check("a built package ends with a developer licence and signature, over its front",
             tail[:4] == b"SEAL" and pulli.read_seal(data) ==
-            (pulli.LICENCE_DEVELOPER, b"", pulli.SIGNATURE_DEVELOPER, hashlib.sha256(body).digest()))
-    offsets = [struct.unpack_from("<I", data, 16 + i * 40 + 32)[0] for i in range(count)]
-    t.check("every entry starts on a 4-byte boundary", all(o % 4 == 0 for o in offsets))
+            (pulli.LICENCE_DEVELOPER, b"", pulli.SIGNATURE_DEVELOPER, hashlib.sha256(body[:start]).digest()))
+    offsets = [struct.unpack_from("<I", data, 20 + i * 40 + 32)[0] for i in range(count)]
+    t.check("every entry starts on a 4-byte boundary, in the payload", all(o % 4 == 0 and o >= start for o in offsets))
 
     t.check("packer refuses a 33-character name",
             rejects(pulli.build_entries, [("b" * 33, b"")]))
     t.check("packer refuses a name with a path in it",
             rejects(pulli.build_entries, [("../x", b"")]))
-    t.check("packer refuses 65 entries",
-            rejects(pulli.build_entries, [(f"f{i}", b"") for i in range(65)]))
+    t.check("packer takes 1024 entries", not rejects(pulli.build_entries, [(f"f{i}", b"") for i in range(1024)]))
+    t.check("packer refuses 1025 entries",
+            rejects(pulli.build_entries, [(f"f{i}", b"") for i in range(1025)]))
+    t.check("packer refuses a package over 64 MB",
+            "64" in (rejects(pulli.build_entries, [("big", bytes(64 * 1024 * 1024))]) or ""))
 
     good = pulli.build_entries([("main.lua", MAIN.encode()), ("manifest.lua", MANIFEST.encode())])
     body, tail = pulli.split(good)
@@ -99,16 +107,19 @@ def main():
     flipped[len(body) - 3] ^= 0x40
 
     def past_the_end(b):
-        struct.pack_into("<I", b, 16 + 36, 1 << 20)        # first entry's length
+        struct.pack_into("<I", b, 20 + 36, 1 << 20)        # first entry's length
 
     def future_version(b):
-        b[4] = 2
+        b[4] = 3
+
+    def other_hash(b):                                     # the front, and so the signature
+        b[20 + 40 * 2] ^= 1
 
     def other_colour(b):
         b[b.index(b"cls(3)") + 4] = ord("4")               # the game now clears to another colour
 
     damaged = {
-        "one flipped bit": (bytes(flipped), "checksum"),
+        "one flipped bit": (bytes(flipped), "damaged"),
         "truncated file": (good[:len(body) - 10], "truncated"),
         "not a package at all": (b"hello world, this is not a package", "not a Pulli package"),
         "empty file": (b"", "not a Pulli package"),
@@ -120,15 +131,17 @@ def main():
         # the seal
         "no licence and signature": (body, "no licence and signature"),
         "licence and signature cut short": (good[:-5], "truncated"),
-        "changed after signing, checksum repaired": (refit(good, edit=other_colour, reseal=False),
-                                                     "signature does not match"),
+        "a byte of the game changed after signing": (refit(good, edit=other_colour, reseal=False), "damaged"),
+        "the front changed after signing, checksum repaired": (refit(good, edit=other_hash, reseal=False),
+                                                               "signature does not match"),
         "a wrong signature": (pulli.seal(body, signature=bytes(32)), "signature does not match"),
         "a kind of licence from the future": (pulli.seal(body, licence_kind=7), "kind of licence"),
         "a kind of signature from the future": (pulli.seal(body, signature_kind=7, signature=b"x" * 64),
                                                 "kind of signature"),
     }
     for name in ("one flipped bit", "truncated file", "not a package at all", "entry past the end",
-                 "no licence and signature", "changed after signing, checksum repaired", "a wrong signature"):
+                 "no licence and signature", "a byte of the game changed after signing",
+                 "the front changed after signing, checksum repaired", "a wrong signature"):
         t.check(f"python reader rejects: {name}", rejects(pulli.parse, damaged[name][0]))
 
     # What the store will do: put a different licence on the very same package.
@@ -143,8 +156,29 @@ def main():
         t.check("C reader accepts a good package, including a 32-character name",
                 r.code == 0, r.err)
         for name, (blob, expect) in damaged.items():
-            r = t.run_package(blob)
-            t.check(f"C reader rejects: {name}", r.code == 1 and expect in r.err, r.err)
+            for mapped in (False, True):
+                r = t.run_package(blob, mapped=mapped)
+                t.check(f"C reader rejects: {name}{' (mapped)' if mapped else ''}",
+                        r.code == 1 and expect in r.err, r.err)
+
+        # Damage is found where it is read, not before: a package whose only
+        # damage is in a part the game never uses starts and runs; reading
+        # that part stops the game, naming it. A block in the middle of a
+        # large part is checked too.
+        big = bytes(range(256)) * 1024                     # 256 KB: four blocks
+        pkg = pulli.build_entries([("main.lua", b"function update() if stat('frame') == 3 then preload('big.bin') end end"),
+                                   ("manifest.lua", MANIFEST.encode()), ("big.bin", big)])
+        hit = bytearray(pkg)
+        hit[pkg.index(big) + 2 * 65536 + 7] ^= 1           # inside the third block of big.bin
+        for mapped in (False, True):
+            way = " (mapped)" if mapped else ""
+            r = t.run_package(bytes(hit), frames=2, mapped=mapped)
+            t.check(f"C reader: damage in a part not yet used does not stop the game{way}", r.code == 0, r.err)
+            r = t.run_package(bytes(hit), frames=5, mapped=mapped)
+            t.check(f"C reader: reading the damaged part stops the game and names it{way}",
+                    r.code == 1 and "big.bin" in r.err and "damaged" in r.err, r.err)
+            r = t.run_package(pkg, frames=5, mapped=mapped)
+            t.check(f"C reader: the same package undamaged reads it{way}", r.code == 0, r.err)
         t.check("C reader accepts the same package under a different licence",
                 t.run_package(licensed).code == 0)
         # The signature is a SHA-256 computed in C; its padding rules change

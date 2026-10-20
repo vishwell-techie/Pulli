@@ -75,7 +75,11 @@ core.add("play", {
         if m ~= name then unrequire(m) end
       end
       collectgarbage()                    -- room to load the region in
-      w.start(which == "opening" and 0 or which, require(name))
+      -- its map and music, and anything else it names, read now, behind
+      -- the loading screen, rather than the first time they are used
+      local region = require(name)
+      preload(region.map, "music " .. region.music, table.unpack(region.preload or {}))
+      w.start(which == "opening" and 0 or which, region)
       return
     end
     if core.pressed("select") and w.control then play.debug = not play.debug end

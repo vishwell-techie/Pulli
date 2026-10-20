@@ -23,6 +23,7 @@ local fx       = require("fx")
 local core     = require("core")
 
 local temple = { map = "temple.ooru", music = 6, pieces = { 7 }, floor_h = 240,   -- temple music
+  preload = { "top.ooru", "music 7" },                                           -- the top, irul music
   lines = { hint = "c5_start", done = "c5_stairs", exit = "c5_stairs" } }
 local top = { map = "top.ooru", music = 7 }   -- irul music
 temple.top = top

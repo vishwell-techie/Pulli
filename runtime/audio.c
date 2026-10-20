@@ -1,12 +1,14 @@
 /* audio.c — the mixer (SPEC §3 "Audio", §2 "sfx.oli and music.isai").
  *
  * Every game frame the engine mixes exactly PULLI_AUDIO_FRAMES stereo
- * frames and hands them to the port. All of it is integer arithmetic on
- * data read in place from the package, so a game sounds the same, sample
- * for sample, on every machine. tools/refaudio.py is the reference this
- * file must match.
+ * frames and hands them to the port. All of it is integer arithmetic, so
+ * a game sounds the same, sample for sample, on every machine.
+ * tools/refaudio.py is the reference this file must match. A bank's table
+ * is read when the game starts; each sound is read into the active set the
+ * first time it is played, and kept there while it plays (parts.c).
  */
 #include "internal.h"
+#include <stdio.h>
 #include <string.h>
 
 #define BANK_HEADER 8
@@ -32,17 +34,16 @@ static int16_t  rds16(const uint8_t *p) { return (int16_t)(uint16_t)rd16(p); }
 
 /* One sound as its bank describes it. */
 typedef struct {
-    const uint8_t *data;
     uint32_t bytes, frames, loop, rate;
     uint8_t  channels, adpcm;
     int16_t  loop_pred[2];
     uint8_t  loop_index[2];
 } clip;
 
-static void read_clip(pulli_blob bank, unsigned n, clip *c, uint32_t *offset) {
-    const uint8_t *p = bank.data + BANK_HEADER + CLIP_ENTRY * n;
+/* `table` is the bank's header and table; offsets are from the bank's start. */
+static void read_clip(pulli_blob table, unsigned n, clip *c, uint32_t *offset) {
+    const uint8_t *p = table.data + BANK_HEADER + CLIP_ENTRY * n;
     *offset = rd32(p);
-    c->data = bank.data + *offset;
     c->bytes = rd32(p + 4);
     c->frames = rd32(p + 8);
     c->loop = rd32(p + 12);
@@ -55,17 +56,15 @@ static void read_clip(pulli_blob bank, unsigned n, clip *c, uint32_t *offset) {
     }
 }
 
-/* Checks a whole bank once, at boot, so playing a sound never has to.
- * Returns NULL if it is sound, else what is wrong with it. */
-static const char *check_bank(pulli_blob bank, const char *magic, uint16_t *count) {
-    if (bank.len < BANK_HEADER || memcmp(bank.data, magic, 4) != 0) return "not a sound bank";
-    uint32_t n = rd16(bank.data + 4);
-    if (n > PULLI_CLIP_MAX) return "too many sounds";
-    if (BANK_HEADER + CLIP_ENTRY * n > bank.len) return "sound table runs past the end";
+/* Checks a bank's table once, at boot, so playing a sound never has to:
+ * every sound must lie inside the bank, of `len` bytes. Returns NULL if it
+ * is sound, else what is wrong with it. */
+static const char *check_bank(pulli_blob table, uint32_t len, uint16_t *count) {
+    uint32_t n = rd16(table.data + 4);
     for (uint32_t i = 0; i < n; i++) {
         clip c;
         uint32_t offset;
-        read_clip(bank, i, &c, &offset);
+        read_clip(table, i, &c, &offset);
         if (c.channels < 1 || c.channels > 2) return "a sound must be mono or stereo";
         if (c.adpcm > 1) return "unknown sound encoding";
         if (c.rate < PULLI_CLIP_RATE_MIN || c.rate > PULLI_CLIP_RATE_MAX) return "sample rate out of range";
@@ -73,7 +72,7 @@ static const char *check_bank(pulli_blob bank, const char *magic, uint16_t *coun
         if (c.loop >= c.frames) return "loop point is past the end of the sound";
         uint32_t samples = c.frames * c.channels;
         if (c.bytes != (c.adpcm ? (samples + 1) / 2 : samples * 2)) return "sound length does not match its data";
-        if (offset < BANK_HEADER + CLIP_ENTRY * n || offset > bank.len || c.bytes > bank.len - offset)
+        if (offset < BANK_HEADER + CLIP_ENTRY * n || offset > len || c.bytes > len - offset)
             return "sound data lies outside the bank";
         if (c.loop_index[0] > 88 || c.loop_index[1] > 88) return "bad loop state";
     }
@@ -81,17 +80,53 @@ static const char *check_bank(pulli_blob bank, const char *magic, uint16_t *coun
     return NULL;
 }
 
+/* Reads one bank's table into the active set, pinned, and checks it. */
+static const char *open_bank(pulli_engine *e, const char *name, const char *magic,
+                             pulli_blob *table, uint32_t *at, uint32_t *len, uint16_t *count) {
+    pulli_entry en;
+    uint8_t head[BANK_HEADER];
+    const uint8_t *h;
+    if (!pulli_pkg_find(&e->pkg, name, &en)) return NULL;
+    if (en.len < BANK_HEADER) return "not a sound bank";
+    const char *why = pulli_pkg_get(&e->pkg, en.offset, BANK_HEADER, head, &h);
+    if (why) return why;
+    if (memcmp(h, magic, 4) != 0) return "not a sound bank";
+    uint32_t n = rd16(h + 4);
+    if (n > PULLI_CLIP_MAX) return "too many sounds";
+    if (BANK_HEADER + CLIP_ENTRY * n > en.len) return "sound table runs past the end";
+    table->len = BANK_HEADER + CLIP_ENTRY * n;
+    table->data = pulli_part_use(e, en.offset, table->len, name, true, false);
+    if (!table->data) return e->part_error;
+    *at = en.offset;
+    *len = en.len;
+    return check_bank(*table, en.len, count);
+}
+
 const char *pulli_audio_boot(pulli_engine *e, const char **which) {
     pulli_audio *a = &e->audio;
     const char *why;
     memset(a, 0, sizeof(*a));
     *which = "sfx.oli";
-    if (pulli_pkg_find(&e->pkg, *which, &a->sfx) && (why = check_bank(a->sfx, "OLI1", &a->sfx_count)))
-        return why;
+    if ((why = open_bank(e, *which, "OLI1", &a->sfx, &a->sfx_at, &a->sfx_len, &a->sfx_count))) return why;
     *which = "music.isai";
-    if (pulli_pkg_find(&e->pkg, *which, &a->music) && (why = check_bank(a->music, "ISA1", &a->music_count)))
-        return why;
+    if ((why = open_bank(e, *which, "ISA1", &a->music, &a->music_at, &a->music_len, &a->music_count))) return why;
     return NULL;
+}
+
+/* Sound n of a bank, in the active set: its clip and its bytes. */
+static const uint8_t *sound(pulli_engine *e, bool music, unsigned n, clip *c) {
+    pulli_audio *a = &e->audio;
+    char label[16];
+    uint32_t offset;
+    read_clip(music ? a->music : a->sfx, n, c, &offset);
+    snprintf(label, sizeof(label), "%s %u", music ? "music" : "sfx", n);
+    return pulli_part_use(e, (music ? a->music_at : a->sfx_at) + offset, c->bytes, label, false, true);
+}
+
+const char *pulli_audio_preload(pulli_engine *e, bool music, int n) {
+    clip c;
+    if (n < 0 || n >= (music ? e->audio.music_count : e->audio.sfx_count)) return "no such sound";
+    return sound(e, music, (unsigned)n, &c) ? NULL : e->part_error;
 }
 
 /* ---- voices ---------------------------------------------------------- */
@@ -135,12 +170,10 @@ static void fetch(pulli_voice *v) {
     v->at++;
 }
 
-static void start(pulli_audio *a, pulli_voice *v, pulli_blob bank, unsigned n, bool looping) {
-    clip c;
-    uint32_t offset;
-    read_clip(bank, n, &c, &offset);
+static void start(pulli_audio *a, pulli_voice *v, const clip *cl, const uint8_t *data, bool looping) {
+    clip c = *cl;
     memset(v, 0, sizeof(*v));
-    v->data = c.data;
+    v->data = data;
     v->frames = c.frames;
     v->loop = c.loop;
     v->channels = c.channels;
@@ -200,14 +233,18 @@ void pulli_audio_mix(pulli_audio *a, int16_t *out, int frames) {
 
 /* ---- what the Lua API calls ------------------------------------------ */
 
-void pulli_audio_sfx(pulli_audio *a, int n, int channel) {
-    if (channel >= PULLI_SFX_CHANNELS) return;
+const char *pulli_audio_sfx(pulli_engine *e, int n, int channel) {
+    pulli_audio *a = &e->audio;
+    if (channel >= PULLI_SFX_CHANNELS) return NULL;
     if (n < 0) {                                  /* stop one channel, or all of them */
         for (int c = 0; c < PULLI_SFX_CHANNELS; c++)
             if (channel < 0 || c == channel) a->ch[c].active = false;
-        return;
+        return NULL;
     }
-    if (n >= a->sfx_count) return;
+    if (n >= a->sfx_count) return NULL;
+    clip cl;
+    const uint8_t *data = sound(e, false, (unsigned)n, &cl);
+    if (!data) return e->part_error;
     if (channel < 0) {                            /* a free channel, else the oldest sound */
         channel = 0;
         for (int c = 0; c < PULLI_SFX_CHANNELS; c++) {
@@ -215,7 +252,8 @@ void pulli_audio_sfx(pulli_audio *a, int n, int channel) {
             if (a->ch[c].started < a->ch[channel].started) channel = c;
         }
     }
-    start(a, &a->ch[channel], a->sfx, (unsigned)n, false);
+    start(a, &a->ch[channel], &cl, data, false);
+    return NULL;
 }
 
 /* How much the gain moves per output frame for a fade of this length. */
@@ -239,13 +277,18 @@ void pulli_audio_music_stop(pulli_audio *a, int fade_ms) {
     }
 }
 
-void pulli_audio_music(pulli_audio *a, int n, int fade_ms, bool looping) {
-    if (n < 0 || n >= a->music_count) return;
+const char *pulli_audio_music(pulli_engine *e, int n, int fade_ms, bool looping) {
+    pulli_audio *a = &e->audio;
+    if (n < 0 || n >= a->music_count) return NULL;
+    clip cl;
+    const uint8_t *data = sound(e, true, (unsigned)n, &cl);
+    if (!data) return e->part_error;
     pulli_audio_music_stop(a, fade_ms);
     a->music_paused = false;                      /* new music plays */
-    start(a, &a->tune[0], a->music, (unsigned)n, looping);
+    start(a, &a->tune[0], &cl, data, looping);
     if (fade_ms > 0) {
         a->tune[0].gain = 0;
         a->tune[0].gain_step = fade_step(fade_ms);
     }
+    return NULL;
 }

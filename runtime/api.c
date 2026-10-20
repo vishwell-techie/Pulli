@@ -4,11 +4,12 @@
 #include "internal.h"
 #include "pmath.h"
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 static pulli_engine *E;     /* the one running game */
 
-_Static_assert(PULLI_ICON_COUNT == PULLI_BTN_COUNT, "one icon for each button");
+typedef char pulli_one_icon_for_each_button[PULLI_ICON_COUNT == PULLI_BTN_COUNT ? 1 : -1];
 
 static const char *BTN_NAMES[PULLI_BTN_COUNT] = {
     "left","right","up","down","a","b","x","y","l","r","start","select"
@@ -163,11 +164,13 @@ static int l_btnp(lua_State *L) {
 
 /* ---- audio ---------------------------------------------------------- */
 static int l_sfx(lua_State *L) {
-    pulli_audio_sfx(&E->audio, arg_i(L,1,0), arg_i(L,2,-1));
+    const char *why = pulli_audio_sfx(E, arg_i(L,1,0), arg_i(L,2,-1));
+    if (why) return luaL_error(L, "sfx: %s", why);
     return 0;
 }
 static int l_music(lua_State *L) {
-    pulli_audio_music(&E->audio, arg_i(L,1,0), arg_i(L,2,0), arg_b(L,3,true));
+    const char *why = pulli_audio_music(E, arg_i(L,1,0), arg_i(L,2,0), arg_b(L,3,true));
+    if (why) return luaL_error(L, "music: %s", why);
     return 0;
 }
 static int l_music_pause(lua_State *L) {
@@ -224,6 +227,7 @@ static int l_dbg(lua_State *L) {
 static int l_stat(lua_State *L) {
     const char *what = luaL_optstring(L, 1, "");
     if      (!strcmp(what, "mem"))   lua_pushnumber(L, (lua_Number)E->heap_used / 1024);
+    else if (!strcmp(what, "active")) lua_pushnumber(L, (lua_Number)E->active / 1024);
     else if (!strcmp(what, "frame")) lua_pushinteger(L, (lua_Integer)E->ctx.frame);
     /* These two need a clock, which a port may not have. They are for
      * finding out why a game is slow, not for the game to act on: they
@@ -287,11 +291,8 @@ static uint16_t *map_cell(lua_State *L) {
 }
 static int l_map_load(lua_State *L) {
     const char *name = luaL_optstring(L, 1, "map.ooru");
-    pulli_blob b;
-    if (!pulli_pkg_find(&E->pkg, name, &b)) return luaL_error(L, "map.load: the package has no '%s'", name);
-    const char *why = pulli_map_check(b);
-    if (why) return luaL_error(L, "map.load: %s: %s", name, why);
-    pulli_map_load(&E->ctx.map, b);
+    const char *why = pulli_map_use(E, name);
+    if (why) return luaL_error(L, "map.load: %s", why);
     return 0;
 }
 static int l_map_draw(lua_State *L) {
@@ -324,6 +325,8 @@ static int l_map_size(lua_State *L) {
     return 2;
 }
 
+static int l_preload(lua_State *L);
+
 static const luaL_Reg CORE[] = {
     {"cls",l_cls},{"pset",l_pset},{"pget",l_pget},{"line",l_line},
     {"rect",l_rect},{"rectfill",l_rectfill},{"circ",l_circ},{"circfill",l_circfill},{"shade",l_shade},
@@ -332,8 +335,41 @@ static const luaL_Reg CORE[] = {
     {"btn",l_btn},{"btnp",l_btnp},
     {"sfx",l_sfx},{"music",l_music},{"music_stop",l_music_stop},{"music_pause",l_music_pause},{"palette",l_palette},
     {"save",l_save},{"load",l_load},{"save_commit",l_save_commit},
-    {"time",l_time},{"dbg",l_dbg},{"stat",l_stat},
+    {"time",l_time},{"dbg",l_dbg},{"stat",l_stat},{"preload",l_preload},
     {NULL,NULL}
+};
+
+/* ---- loading (SPEC §3 "Loading") ------------------------------------ */
+static int l_sheet_load(lua_State *L) {
+    const char *why = pulli_sheet_load(E, luaL_checkstring(L, 1));
+    if (why) return luaL_error(L, "sheet.load: %s", why);
+    return 0;
+}
+/* preload(name, ...): entry names, or "sfx N" and "music N" for one sound.
+ * true, or false if any name is not in the package; the others are read. */
+static int l_preload(lua_State *L) {
+    bool all = true;
+    for (int i = 1; i <= lua_gettop(L); i++) {
+        const char *name = luaL_checkstring(L, i);
+        int n;
+        char rest;
+        bool music = sscanf(name, "music %d%c", &n, &rest) == 1;
+        if (music || sscanf(name, "sfx %d%c", &n, &rest) == 1) {
+            if (n < 0 || n >= (music ? E->audio.music_count : E->audio.sfx_count)) { all = false; continue; }
+            const char *why = pulli_audio_preload(E, music, n);
+            if (why) return luaL_error(L, "preload: %s", why);
+            continue;
+        }
+        uint32_t len;
+        if (!pulli_pkg_find(&E->pkg, name, NULL)) { all = false; continue; }
+        if (!pulli_entry_use(E, name, false, &len)) return luaL_error(L, "preload: %s", E->part_error);
+    }
+    lua_pushboolean(L, all);
+    return 1;
+}
+
+static const luaL_Reg SHEET[] = {
+    {"load",l_sheet_load},{NULL,NULL}
 };
 
 static const luaL_Reg MAP[] = {
@@ -405,6 +441,7 @@ static int l_require(lua_State *L) {
     const char *name = luaL_checklstring(L, 1, &n);
     char entry[PULLI_PKG_NAME_MAX + 1];
     pulli_blob src;
+    pulli_entry en;
     for (size_t i = 0; i < n; i++) {
         char c = name[i];
         if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
@@ -420,8 +457,11 @@ static int l_require(lua_State *L) {
     if (!lua_isnil(L, -1)) return 1;                           /* loaded before */
     lua_pop(L, 1);
 
-    if (!strcmp(name, "main") || !strcmp(name, "manifest") || !pulli_pkg_find(&E->pkg, entry, &src))
+    if (!strcmp(name, "main") || !strcmp(name, "manifest") || !pulli_pkg_find(&E->pkg, entry, &en))
         return luaL_error(L, "require: the package has no module '%s' (%s)", name, entry);
+    /* Read into the active set, compiled, and then free to be let go. */
+    if (!(src.data = pulli_entry_use(E, entry, false, &src.len)))
+        return luaL_error(L, "require: %s", E->part_error);
     lua_pushlightuserdata(L, (void *)MODULES);
     lua_setfield(L, -2, name);
     lua_pushfstring(L, "@%s", entry);
@@ -500,6 +540,8 @@ void pulli_api_open(lua_State *L, pulli_engine *e) {
 
     luaL_newlib(L, MAP);
     lua_setglobal(L, "map");
+    luaL_newlib(L, SHEET);
+    lua_setglobal(L, "sheet");
     luaL_newlib(L, SYS);
     lua_setglobal(L, "sys");
     luaL_newlib(L, LINK);

@@ -166,11 +166,16 @@ void    pulli_scanout  (const pulli_gfx *g, int y0, int rows, uint16_t *out);
 
 /* ---- game package (.pulli), SPEC §2 -------------------------------- */
 #define PULLI_PKG_MAGIC        "PULI"
-#define PULLI_PKG_VERSION      1
-#define PULLI_PKG_HEADER       16
+#define PULLI_PKG_VERSION      2
+#define PULLI_PKG_HEADER       20
 #define PULLI_PKG_ENTRY        40
 #define PULLI_PKG_NAME_MAX     32
-#define PULLI_PKG_MAX_ENTRIES  64
+#define PULLI_PKG_MAX_ENTRIES  1024
+#define PULLI_PKG_BLOCK        65536         /* the payload is checked in blocks of this size */
+#define PULLI_PKG_HASH         32            /* SHA-256 of each block */
+#define PULLI_PKG_MAX_SIZE     (64u * 1024 * 1024)
+#define PULLI_PKG_MAX_BLOCKS   (PULLI_PKG_MAX_SIZE / PULLI_PKG_BLOCK)
+#define PULLI_ACTIVE_MAX       (6u * 1024 * 1024)   /* the package's parts in memory at once (SPEC §2) */
 #define PULLI_PKG_ENCRYPTED    0x01
 #define PULLI_PKG_SIGNED       0x02
 #define PULLI_PKG_DEVBUILD     0x04
@@ -181,24 +186,44 @@ void    pulli_scanout  (const pulli_gfx *g, int y0, int rows, uint16_t *out);
 #define PULLI_SEAL_VERSION     1
 #define PULLI_SEAL_HEADER      12
 #define PULLI_LICENCE_DEVELOPER   0   /* runs on any device; not for sale */
-#define PULLI_SIGNATURE_DEVELOPER 0   /* SHA-256 of the package: catches damage, proves nothing */
+#define PULLI_SIGNATURE_DEVELOPER 0   /* SHA-256 of the package's front: catches damage, proves nothing */
 
 typedef struct { const uint8_t *data; uint32_t len; } pulli_blob;
 
-/* A package is read in place and never copied, so `data` must outlive it.
- * On the device that memory is cartridge or XIP flash. */
+/* Reads `len` bytes of the package file from `offset` into dst. */
+typedef bool (*pulli_read_fn)(uint32_t offset, void *dst, uint32_t len);
+
+/* A package is either mapped, all of it addressable at `base` for as long
+ * as it is open (flash read in place), or read in parts through `read`
+ * (a file, an SD card, a cartridge). The front of the package (header,
+ * entry table and block hashes) is checked when it is opened; the payload
+ * a block at a time as it is used. */
 typedef struct {
-    const uint8_t *base;
-    uint32_t size;
+    const uint8_t *base;                        /* mapped, or NULL */
+    pulli_read_fn  read;                        /* when not mapped */
+    const uint8_t *front;                       /* header, table, hashes */
+    uint8_t       *own;                         /* what this reader allocated, when not mapped */
+    uint8_t       *scratch;                     /* one block, when not mapped */
+    uint32_t size, payload, blocks;
     uint16_t count;
     uint8_t  flags;
     uint8_t  licence_kind, signature_kind;      /* PULLI_LICENCE_*, PULLI_SIGNATURE_* */
     pulli_blob licence, signature;
+    uint8_t  checked[PULLI_PKG_MAX_BLOCKS / 8]; /* mapped: blocks already checked */
 } pulli_pkg;
 
-/* Validates the whole container. Returns NULL on success, else the reason. */
-const char *pulli_pkg_open(pulli_pkg *pk, const void *data, size_t len);
-bool        pulli_pkg_find(const pulli_pkg *pk, const char *name, pulli_blob *out);
+typedef struct { uint32_t offset, len; } pulli_entry;
+
+/* Checks the front and the seal. Pass `data` for a mapped package, or NULL
+ * and a `read` function; `len` is how many bytes the file has. Returns NULL
+ * on success, else the reason. */
+const char *pulli_pkg_open(pulli_pkg *pk, const void *data, size_t len, pulli_read_fn read);
+void        pulli_pkg_close(pulli_pkg *pk);
+bool        pulli_pkg_find(const pulli_pkg *pk, const char *name, pulli_entry *out);
+void        pulli_pkg_name(const pulli_pkg *pk, int i, char out[PULLI_PKG_NAME_MAX + 1]);
+/* Bytes of the payload, checked against their blocks' hashes. Mapped, *out
+ * points into the package; otherwise they are read into dst (len bytes). */
+const char *pulli_pkg_get(pulli_pkg *pk, uint32_t offset, uint32_t len, uint8_t *dst, const uint8_t **out);
 uint32_t    pulli_crc32(const uint8_t *data, size_t len);
 
 /* ---- audio (SPEC §3 "Audio") --------------------------------------- */
@@ -217,7 +242,9 @@ typedef struct {
 } pulli_voice;
 
 typedef struct {
-    pulli_blob  sfx, music;                 /* sfx.oli and music.isai, read in place */
+    pulli_blob  sfx, music;                 /* sfx.oli and music.isai: each bank's table, in the active set */
+    uint32_t    sfx_at, music_at;           /* where each bank starts in the package */
+    uint32_t    sfx_len, music_len;         /* and its length */
     uint16_t    sfx_count, music_count;
     pulli_voice ch[PULLI_SFX_CHANNELS];
     pulli_voice tune[2];                    /* [0] the music playing, [1] music fading out */
@@ -265,7 +292,30 @@ typedef struct {
      * a second core runs one half there while this core runs the other,
      * and returns when both are done. NULL: one after the other. */
     void (*halves)(void (*fn)(void *arg, int half), void *arg);
+    /* A package not held in memory is read through this (pulli_boot with
+     * no data): a file, an SD card, a cartridge. */
+    pulli_read_fn pkg_read;
 } pulli_backend;
+
+/* ---- save data in a cartridge's flash (SPEC §2 "Cartridges") --------- */
+#define PULLI_CART_SAVE_AREA  (512u * 1024)   /* the last 512 KB of the flash */
+#define PULLI_CART_SECTOR     4096u           /* what one erase clears */
+
+/* A port's cartridge flash. `base` is where the save area starts. Erase
+ * sets one sector to 0xFF; program only clears bits, as NOR flash does. */
+typedef struct {
+    uint32_t base;
+    bool (*read)(uint32_t offset, void *dst, uint32_t len);
+    bool (*erase)(uint32_t offset);
+    bool (*program)(uint32_t offset, const void *src, uint32_t len);
+} pulli_cart_flash;
+
+/* For a port's save_read and save_write: the newest whole save (its
+ * length, or <0 for none), and a new one written to the next slot. */
+int      pulli_cart_save_read (const pulli_cart_flash *f, uint32_t save_size, void *blob, size_t max);
+bool     pulli_cart_save_write(const pulli_cart_flash *f, uint32_t save_size, const void *blob, size_t len);
+uint32_t pulli_cart_slots(uint32_t save_size);        /* slots in the save area */
+uint32_t pulli_cart_slot_bytes(uint32_t save_size);
 
 /* ---- engine --------------------------------------------------------- */
 typedef enum { PULLI_SAVE_NONE = 0, PULLI_SAVE_SD, PULLI_SAVE_CART } pulli_save_target;
@@ -288,6 +338,17 @@ typedef struct {
 
 struct lua_State;
 
+/* A part of the package in memory (SPEC §2): a whole entry, a sound bank's
+ * table, or one sound. */
+typedef struct {
+    uint32_t offset, len;
+    const uint8_t *data;                    /* NULL when not in memory */
+    uint8_t *buf;                           /* what was read, when not mapped */
+    uint32_t used;                          /* when last used, for letting go */
+    uint16_t pins;                          /* in use: not to be let go */
+    bool     sound;                         /* pinned while a voice plays it */
+} pulli_part;
+
 /* One running game. Only one engine may be live at a time. */
 typedef struct {
     pulli_ctx            ctx;
@@ -301,6 +362,11 @@ typedef struct {
     bool     save_dirty;
     uint32_t save_written;                       /* frame of the last automatic write */
     pulli_audio audio;
+    pulli_part *parts;                           /* the active set */
+    int         part_count, part_cap;
+    uint32_t    active, part_clock;              /* bytes in memory; uses counted */
+    const uint8_t *sheet, *map_part;             /* the sprite sheet and map in use */
+    char        part_error[200];                 /* why a part could not be read */
     uint16_t    base_palette[PULLI_PALETTE_LEN]; /* the game's own colours: palette() puts them back */
     uint32_t    clock_frames, clock_since;       /* updates counted, and when counting began */
     uint32_t    fps;                             /* updates a second, measured once a second */
@@ -314,6 +380,8 @@ typedef struct {
 } pulli_engine;
 
 /* Loads the manifest and main.lua from the package and calls init().
+ * `pkg` is the package mapped in memory, or NULL to read it through
+ * backend->pkg_read; `len` is the size of the file either way.
  * Each call returns false once the game has failed; see engine->error. */
 bool pulli_boot    (pulli_engine *e, const void *pkg, size_t len, const pulli_backend *backend);
 bool pulli_update  (pulli_engine *e, uint32_t buttons);   /* one fixed 1/60 s step */

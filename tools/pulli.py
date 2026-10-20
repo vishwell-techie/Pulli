@@ -14,6 +14,9 @@
                                                            game's own, for a paint program
     python3 tools/pulli.py add    [<dir> helper...]        copy SDK helpers into a game to
                                                            change them; alone, list them
+    python3 tools/pulli.py cart   <game.pulli> <out.img> [MB]
+                                                           a cartridge's flash: the package,
+                                                           then room, then 512 KB for saves
 
 Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
@@ -23,11 +26,15 @@ import base64, gzip, hashlib, os, re, shlex, shutil, struct, subprocess, sys, te
 import xml.etree.ElementTree as ET
 
 MAGIC = b"PULI"
-VERSION = 1
-HEADER = 16
+VERSION = 2
+HEADER = 20
 ENTRY = 40
 NAME_MAX = 32
-MAX_ENTRIES = 64
+MAX_ENTRIES = 1024
+BLOCK = 65536             # the payload is checked in blocks of this size
+HASH = 32                 # SHA-256 of each block
+MAX_SIZE = 64 * 1024 * 1024
+ACTIVE_MAX = 6 * 1024 * 1024    # of a package in memory at once (SPEC §2)
 REQUIRED = ("manifest.lua", "main.lua")
 EXT = ".pulli"
 
@@ -43,7 +50,7 @@ SEAL_MAGIC = b"SEAL"
 SEAL_VERSION = 1
 SEAL_HEADER = 12
 LICENCE_DEVELOPER = 0     # runs on any device; not for sale
-SIGNATURE_DEVELOPER = 0   # SHA-256 of the package: catches damage, proves nothing
+SIGNATURE_DEVELOPER = 0   # SHA-256 of the package's front: catches damage, proves nothing
 KIND_NAMES = {0: "developer"}
 
 # Sound banks (SPEC §2). `pack` builds them from the .wav files in a game's
@@ -82,12 +89,18 @@ def _align4(n: int) -> int:
     return (n + 3) & ~3
 
 
+def front(body: bytes) -> bytes:
+    """The package's front: header, entry table and block hashes. Signing it
+    signs the whole package, as it holds a hash of every block."""
+    return body[:struct.unpack("<I", body[16:20])[0]]
+
+
 def seal(body: bytes, licence_kind: int = LICENCE_DEVELOPER, licence: bytes = b"",
          signature_kind: int = SIGNATURE_DEVELOPER, signature: bytes = None) -> bytes:
     """Return `body` with a licence and signature attached. By default these
     are the developer ones, which is what every locally built package gets."""
     if signature is None:
-        signature = hashlib.sha256(body).digest()
+        signature = hashlib.sha256(front(body)).digest()
     return (body + SEAL_MAGIC +
             struct.pack("<BBBBHH", SEAL_VERSION, licence_kind, signature_kind, 0,
                         len(licence), len(signature)) + licence + signature)
@@ -115,7 +128,7 @@ def read_seal(data: bytes):
         raise PackageError("licence and signature are the wrong length")
     licence = tail[SEAL_HEADER:SEAL_HEADER + lic_len]
     signature = tail[SEAL_HEADER + lic_len:]
-    if sig_kind == SIGNATURE_DEVELOPER and signature != hashlib.sha256(body).digest():
+    if sig_kind == SIGNATURE_DEVELOPER and signature != hashlib.sha256(front(body)).digest():
         raise PackageError("signature does not match: the package was changed after it was signed")
     return lic_kind, licence, sig_kind, signature
 
@@ -132,24 +145,26 @@ def build_entries(entries, flags: int = 0) -> bytes:
     if len({name for name, _ in entries}) != len(entries):
         raise PackageError("two entries share a name")
 
-    # Payload starts after header + entry table, and every entry is 4-byte
-    # aligned so the MCU can read structures in place from XIP flash.
-    offset = _align4(HEADER + ENTRY * len(entries))
-    table, payload = b"", b""
-    cursor = offset
+    # The payload: every entry 4-byte aligned, so the MCU can read
+    # structures in place from flash. Laid out first, as the front's size
+    # depends on how many 64 KB blocks it fills.
+    layout, payload = [], b""
     for name, blob in entries:
-        pad = _align4(cursor) - cursor
-        payload += b"\0" * pad
-        cursor += pad
-        table += name.encode("ascii").ljust(NAME_MAX, b"\0") + struct.pack("<II", cursor, len(blob))
+        payload += b"\0" * (_align4(len(payload)) - len(payload))
+        layout.append((name, len(payload), len(blob)))
         payload += blob
-        cursor += len(blob)
-
-    table_pad = b"\0" * (offset - (HEADER + ENTRY * len(entries)))
-    body = table + table_pad + payload
-    total = HEADER + len(body)
-    crc = zlib.crc32(body) & 0xFFFFFFFF
-    return seal(MAGIC + struct.pack("<BBHII", VERSION, flags, len(entries), total, crc) + body)
+    blocks = (len(payload) + BLOCK - 1) // BLOCK
+    start = _align4(HEADER + ENTRY * len(entries) + HASH * blocks)
+    total = start + len(payload)
+    if total > MAX_SIZE:
+        raise PackageError(f"the package would be {total // 1024} KB; the most is 64 MB")
+    table = b"".join(name.encode("ascii").ljust(NAME_MAX, b"\0") + struct.pack("<II", start + at, n)
+                     for name, at, n in layout)
+    hashes = b"".join(hashlib.sha256(payload[i:i + BLOCK]).digest() for i in range(0, len(payload), BLOCK))
+    rest = struct.pack("<I", start) + table + hashes
+    rest += b"\0" * (start - 16 - len(rest))
+    crc = zlib.crc32(rest) & 0xFFFFFFFF
+    return seal(MAGIC + struct.pack("<BBHII", VERSION, flags, len(entries), total, crc) + rest + payload)
 
 
 # Files an operating system leaves in folders, never part of a game: Windows
@@ -261,19 +276,25 @@ def parse(data: bytes):
     """Validate a package and its seal, and return its (name, bytes) entries."""
     whole = data
     data, _ = split(data)
-    version, flags, count, total, crc = struct.unpack("<BBHII", data[4:16])
+    version, flags, count, total, crc, start = struct.unpack("<BBHIII", data[4:20])
     if version != VERSION:
         raise PackageError(f"unsupported package version {version}")
-    if count > MAX_ENTRIES or HEADER + count * ENTRY > total:
+    blocks = (total - start + BLOCK - 1) // BLOCK if start <= total else 0
+    if count > MAX_ENTRIES or start > total or HEADER + count * ENTRY + HASH * blocks > start:
         raise PackageError("entry table runs past the end of the package")
-    if (zlib.crc32(data[HEADER:]) & 0xFFFFFFFF) != crc:
+    if (zlib.crc32(data[16:start]) & 0xFFFFFFFF) != crc:
         raise PackageError("checksum mismatch: package is corrupt")
+    hashes = data[HEADER + count * ENTRY:]
+    for b in range(blocks):
+        at = start + b * BLOCK
+        if hashlib.sha256(data[at:at + BLOCK]).digest() != hashes[b * HASH:(b + 1) * HASH]:
+            raise PackageError(f"the package is damaged: block {b} does not match its hash")
     entries = []
     for i in range(count):
         e = data[HEADER + i * ENTRY: HEADER + (i + 1) * ENTRY]
         name = e[:NAME_MAX].rstrip(b"\0").decode("ascii", "replace")
         off, length = struct.unpack("<II", e[NAME_MAX:])
-        if off < HEADER + count * ENTRY or off + length > len(data):
+        if off < start or off + length > len(data):
             raise PackageError(f"entry {name} lies outside the package")
         entries.append((name, data[off:off + length]))
     read_seal(whole)
@@ -921,6 +942,34 @@ def _launch(name, target, extra):
     return subprocess.call([host, target] + extra)
 
 
+CART_SAVE_AREA = 512 * 1024
+
+
+def cart_image(package: bytes, megabytes: int = None) -> bytes:
+    """A cartridge's flash, as `pulli-headless --cart` reads it: the package
+    and its seal at the start, erased flash (0xFF) after, and the last 512 KB
+    kept for saves (SPEC §2, "Cartridges"). The size is the smallest power of
+    two megabytes that holds them, unless one is given."""
+    parse(package)
+    need = len(package) + CART_SAVE_AREA
+    if megabytes is None:
+        megabytes = 1
+        while megabytes * 1024 * 1024 < need:
+            megabytes *= 2
+    size = megabytes * 1024 * 1024
+    if size < need:
+        raise PackageError(f"{megabytes} MB is too small: the package and the save area take {need} bytes")
+    return package + b"\xff" * (size - len(package))
+
+
+def cmd_cart(path, out, megabytes=None):
+    with open(path, "rb") as f:
+        image = cart_image(f.read(), int(megabytes) if megabytes else None)
+    with open(out, "wb") as f:
+        f.write(image)
+    print(f"cartridge image -> {out} ({len(image) // (1024 * 1024)} MB, saves in the last 512 KB)")
+
+
 def cmd_run(target, *options):
     return _launch("pulli-host", target, list(options))
 
@@ -932,7 +981,7 @@ def cmd_check(target, frames="600"):
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
     "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 4), "check": (cmd_check, 1, 2),
-    "palette": (cmd_palette, 1, 2), "add": (cmd_add, 0, 9),
+    "palette": (cmd_palette, 1, 2), "add": (cmd_add, 0, 9), "cart": (cmd_cart, 2, 3),
 }
 
 
