@@ -28,6 +28,7 @@ local shadows = require("shadows")
 local fx      = require("fx")
 local rooms   = require("rooms")
 local stall   = require("stall")
+local box     = require("box")
 local run     = require("run")
 local lines   = require("lines")
 local text    = require("text")
@@ -42,9 +43,9 @@ local hint, hint2, hint_for = nil, nil, nil
 local CARD = 150                        -- frames a card shows (A skips after a second)
 
 local function home()
-  run.begin()
+  run.begin(body)
   rooms.enter("map.ooru", nil, body)
-  body.k.health = 100
+  body.k.health = body.k.max
   cam.x, cam.y = body.k.x - 160, 0
 end
 
@@ -130,6 +131,7 @@ function update(dt)
     return
   end
   if stall.update(i, body) then return end
+  if box.update(i, body) then return end
   if select_p then show = not show end
 
   if fight.freeze > 0 then
@@ -158,6 +160,7 @@ function update(dt)
     return
   end
   if i.door and rooms.near(rooms.stall_x, body.k) then stall.open() return end
+  if i.door and rooms.near(rooms.box_x, body.k) then box.open() return end
 
   local before = body.k.health
   body.k.pit_free = run.charm("spool")
@@ -165,6 +168,19 @@ function update(dt)
   fight.update(i, body, shadows)
   shadows.update(body)
   if body.k.health < before then fight.hit(false) end   -- struck: the world stops too
+  -- Veeran is too big to pass through, rolling or not: Komali is pushed
+  -- back out to the side he came from, and bounces off his crown
+  local b = shadows.boss
+  if b and b.on and shadows.overlap(b.x, b.y, b.w, b.h, body.k) then
+    local k = body.k
+    if k.vy > 0 and k.y + k.h - k.vy <= b.y + 2 then
+      k.y, k.vy = b.y - k.h, -2.6
+    else
+      local left = k.x + k.w / 2 < b.x + b.w / 2
+      require("move").by(k, left and (b.x - k.w - k.x) or (b.x + b.w - k.x), 0)
+      k.vx = 0
+    end
+  end
   fight.mai = fight.mai + fx.update(body.k)
   follow()
   -- the boss torn: his role lent, and oil
@@ -195,8 +211,8 @@ local function hud()
   line(0, 18, 319, 18, C.marigold)
   line(0, 19, 319, 19, C.ink)
   rectfill(4, 5, 64, 8, C.ink)
-  rectfill(6, 7, 60 * k.health // 100, 4, k.health > 30 and C.saffron or C.scarlet)
-  line(6, 7, 5 + 60 * k.health // 100, 7, k.health > 30 and C.lamp or C.pink)
+  rectfill(6, 7, 60 * k.health // k.max, 4, k.health > 30 and C.saffron or C.red)
+  line(6, 7, 5 + 60 * k.health // k.max, 7, k.health > 30 and C.lamp or C.vermil)
   print(k.health, 72, 4, C.cloth)
   local x = 100
   for n, r in ipairs(fight.carried) do
@@ -217,8 +233,8 @@ local function hud()
   if b and b.on then
     rectfill(58, 226, 204, 10, C.ink)
     rect(58, 226, 204, 10, C.marigold)
-    rectfill(60, 228, 200 * b.hp // b.max, 6, C.scarlet)
-    line(60, 228, 59 + 200 * b.hp // b.max, 228, C.pink)
+    rectfill(60, 228, 200 * b.hp // b.max, 6, C.red)
+    line(60, 228, 59 + 200 * b.hp // b.max, 228, C.vermil)
   end
   font()
 end
@@ -300,6 +316,7 @@ function draw()
   camera()
   hud()
   stall.draw(body)
+  box.draw(body)
   overlay()
   if show then
     local k = body.k

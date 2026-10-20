@@ -768,7 +768,7 @@ def main():
                 r = t.run_package(pulli.build(folder), frames=frames)
             return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
 
-        r, got = story("at(42, 208)", "if f == 10 then i.door = true end",
+        r, got = story("at(34, 208)", "if f == 10 then i.door = true end",
                        'if f == 2 then dbg("start", rooms.name, #fight.carried) end if f == 60 then dbg("in", rooms.name) end', frames=70)
         t.check("nizhalattam: a game starts in the Courtyard with Komali's own role; its door leads into the Screen",
                 got.get("start") == ["map.ooru", "1"] and got.get("in") == ["s1.ooru"], got)
@@ -833,13 +833,15 @@ def main():
         firsts = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("1")}
         seconds = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("2")}
         shown = [m for m in seconds if m in firsts and firsts[m] == 2 * seconds[m]]
+        wind = {"combo": 20, "heavy": 45, "bash": 16}       # veeran.lua's B.wind
         t.check("nizhalattam: Veeran shows each move first, with a wind-up twice as long",
-                r.code == 0 and len(shown) >= 2, got)
+                r.code == 0 and len(firsts) >= 2 and all(v == 2 * wind[m] for m, v in firsts.items())
+                and len(shown) >= 1 and all(seconds[m] == wind[m] for m in seconds), got)
 
         r, got = story('rooms.enter("boss.ooru", "s7.ooru", body)', "if f == 140 then i.door = true end",
                        'if f == 3 then st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
                        'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) '
-                       '  at(44, 208) end '
+                       '  at(54, 208) end '
                        'if f == 380 then dbg("home", rooms.name, run.data.screen_played, #fight.carried, fight.mai) end', frames=390)
         t.check("nizhalattam: Veeran torn lends his role and 8 oil; the door on ends the Screen, back in the Courtyard",
                 got.get("lent") == ["2", "Veeran", "8"] and got.get("home") == ["map.ooru", "1", "1", "0"], got)
@@ -851,10 +853,62 @@ def main():
                 got.get("woke") == ["map.ooru", "100", "0", "1", "0"], got)
 
         r, got = story('rooms.enter("s5.ooru", "s4.ooru", body)', "if f == 20 or f == 90 then i.pause = true end",
-                       'if f == 30 then st.x = shadows.list[1].step end if f == 80 then dbg("still", tostring(shadows.list[1].step == st.x)) end '
-                       'if f == 120 then dbg("moving", tostring(shadows.list[1].step ~= st.x)) end', frames=130)
+                       'local sum = 0 for _, s in ipairs(shadows.list) do if s.on then sum = sum + s.x + s.y + s.step end end '
+                       'if f == 30 then st.x = sum end if f == 80 then dbg("still", tostring(sum == st.x)) end '
+                       'if f == 120 then dbg("moving", tostring(sum ~= st.x)) end', frames=130)
         t.check("nizhalattam: START pauses the world, and START again carries on",
                 got.get("still") == ["true"] and got.get("moving") == ["true"], f"{got} {r.err[-300:]}")
+
+        # Places have colours of their own: entering the Screen sets them.
+        r, got = story("", "",
+                       'if f == 3 then dbg("court", palette(20)) dbg("court_shade", palette(52)) '
+                       '  rooms.enter("s1.ooru", "map.ooru", body) dbg("screen", palette(20)) dbg("screen_shade", palette(52)) '
+                       '  dbg("actor", palette(10)) rooms.enter("map.ooru", "s1.ooru", body) dbg("again", palette(20)) end', frames=5)
+        t.check("nizhalattam: each place sets its own colours (20-31 and their shades); the characters' stay",
+                got.get("court") and got.get("court") != got.get("screen") and got.get("court_shade") != got.get("screen_shade")
+                and got.get("again") == got.get("court") and got.get("screen", ["0"])[0] == "255", got)
+
+        # Veeran is twice Komali's size, and in the way: no walking, rolling
+        # or single jump gets past him; a double jump does.
+        held = 'local b = shadows.boss b.state, b.t, b.vx = "rest", 9999, 0 '
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body) at(24, 208)',
+                       'i.right = true if f % 40 == 0 then i.dodge = true end if f % 25 == 5 then i.a, i.jump = true, true end '
+                       'if f % 25 > 5 and f % 25 < 20 then i.a = true end',
+                       held + 'k.health = 100 if f == 400 then dbg("past", tostring(k.x > b.x + b.w), b.h) end', frames=410)
+        t.check("nizhalattam: Veeran, 40 tall, blocks Komali: walking, rolling and single jumps do not get past",
+                got.get("past") == ["false", "40"], got)
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body) at(24, 208) k.double = true',
+                       'i.right = true if f == 40 or f == 62 then i.a, i.jump = true, true end if f > 40 and f < 90 then i.a = true end',
+                       held + 'k.health = 100 if f == 200 then dbg("past", tostring(k.x > b.x + b.w)) end', frames=210)
+        t.check("nizhalattam: with the double jump, Komali clears Veeran",
+                got.get("past") == ["true"], got)
+
+        # The boss room's rails climb to a bridge above Veeran: from the
+        # floor, rails each a jump above the last lead over him.
+        import xml.etree.ElementTree as ET
+        root = ET.parse(os.path.join(ROOT, "examples", "nizhalattam", "boss.tmx")).getroot()
+        bw, bh = int(root.get("width")), int(root.get("height"))
+        layer = [(int(v) & 0x0FFFFFFF) - 1 for v in root.find("layer").find("data").text.replace("\n", "").split(",") if v.strip()]
+        stand = {(x, y) for y in range(bh) for x in range(bw) if layer[y * bw + x] in (1, 3, 5, 6, 7, 11, 12)}
+        reach, todo = {c for c in stand if c[1] == 26}, [c for c in stand if c[1] == 26]
+        while todo:
+            x, y = todo.pop()
+            for c in stand:
+                if c not in reach and 0 <= y - c[1] <= 4 and abs(c[0] - x) <= 6 or (c not in reach and c[1] > y and abs(c[0] - x) <= 6):
+                    reach.add(c)
+                    todo.append(c)
+        bridge = sorted(x for x, y in reach if y <= 21 and 26 <= x <= 34)
+        t.check("nizhalattam: in the boss room, rails a jump apart reach a bridge above Veeran's head",
+                len(bridge) >= 6, bridge)
+
+        # The Aasaan's box sells repairs for oil: the double jump, from the next run.
+        r, got = story('run.data.oil = 30 at(7, 208)',
+                       'if f == 10 then i.door = true end if f == 20 then i.down_p = true end if f == 30 then i.jump = true end '
+                       'if f == 40 then i.attack = true end',
+                       'if f == 50 then dbg("bought", run.data.oil, run.data.repairs.r_double, tostring(k.double)) '
+                       '  run.begin(body) dbg("next", tostring(k.double)) end', frames=60)
+        t.check("nizhalattam: at the Aasaan's box oil buys the double jump, which takes hold from the next run",
+                got.get("bought") == ["5", "1", "false"] and got.get("next") == ["true"], got)
 
         en = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_en.lua")).read(), re.M))
         ta = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_ta.lua")).read(), re.M))

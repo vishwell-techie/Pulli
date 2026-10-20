@@ -37,6 +37,12 @@ return {
   charms = "Charms",
   mai = "Mai",
   oil_k = "Oil",
+  r_health = "More health, +15",
+  r_double = "The double jump",
+  r_mai = "Start with 50 more mai",
+  no_oil = "Not enough oil",
+  done_r = "Already done",
+  bought_r = "Done: from the next run",
   role_Komali = "Komali",
   role_Veeran = "Veeran",
 }

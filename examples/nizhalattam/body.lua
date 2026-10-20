@@ -28,6 +28,7 @@ local T = {
   cut = 2.5,          -- letting go of A caps the climb: a tap rises 1.5 tiles
   max_fall = 5,
   coyote = 6,         -- frames after leaving a ledge he can still jump
+  again = 0.85,       -- the double jump (a repair): this much of the first
   buffer = 6,         -- frames A is remembered before landing
   dodge = 18,         -- frames a dodge lasts
   dodge_safe = { 2, 11 },  -- the frames of it he cannot be touched (10)
@@ -55,7 +56,10 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             slow = 1,          -- how fast he may run while striking (set by fight.lua)
             dodge_wait = 1,    -- how long he waits between dodges (his own role: half)
             struck = 0, guard = 0,
-            pit_free = false }  -- the thread spool: a pit costs nothing
+            pit_free = false,   -- the thread spool: a pit costs nothing
+            max = 100,          -- health at full (more with the Aasaan's repairs)
+            jumps = 0,          -- jumps left in the air (1 with the double jump)
+            double = false }
 body.k = k
 
 move.solid, move.edges = SOLID, false
@@ -140,7 +144,10 @@ function body.update(i)
     local grip = k.ground and (dir ~= 0 and T.accel or T.stop) or (dir ~= 0 and T.air_accel or T.air_stop)
     k.vx = toward(k.vx, dir * T.run * k.slow, grip)
     -- jumping: on the ground, or just off it; down + A on a thin floor drops
-    if k.buf > 0 and (k.ground or k.air <= T.coyote) then
+    if k.buf > 0 and not (k.ground or k.air <= T.coyote) and k.jumps > 0 then
+      k.vy, k.buf, k.jumps = -T.jump * T.again, 0, k.jumps - 1     -- the double jump
+      k.from, k.top = k.y, k.y
+    elseif k.buf > 0 and (k.ground or k.air <= T.coyote) then
       if i.down and k.ground and on_thin() then
         k.drop, k.buf = T.drop, 0
       else
@@ -178,7 +185,7 @@ function body.update(i)
   k.ground = move.blocked(k.x, k.y + k.h, k.w, 1) or on_thin()
   if was_ground and not k.ground and k.vy >= 0 then k.from, k.top = k.y, k.y end   -- walked off
   if k.ground then
-    k.air = 0
+    k.air, k.jumps = 0, k.double and 1 or 0
     if not was_ground then k.peak = k.from - k.top end   -- how high the last jump rose
     -- a safe place to come back to: firm ground under him and a tile
     -- either side, so he does not come back on the very edge of the pit

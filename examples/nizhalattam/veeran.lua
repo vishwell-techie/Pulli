@@ -23,10 +23,11 @@ local boss = {}
 
 local B = {
   hp = 160,
+  w = 20, h = 40,                                  -- twice Komali's size: no single jump clears him
   speed = 0.7,
   wind = { combo = 20, heavy = 45, bash = 16 },   -- frames of warning (twice the first time)
-  slash = { n = 10, reach = 20, gap = 16 },        -- each of the three slashes
-  heavy = { n = 22, reach = 30, frames = 6 },
+  slash = { n = 10, reach = 30, gap = 16 },        -- each of the three slashes
+  heavy = { n = 22, reach = 44, frames = 6 },
   bash = { n = 12, speed = 2.2, frames = 30 },
   rest = { combo = 50, heavy = 70, bash = 40 },
   mai = { 40, 50 },
@@ -35,10 +36,10 @@ local B = {
 }
 boss.B = B
 
--- Sprites in actors.png (24x32, see art.py): on guard, walking (four),
--- winding up, striking, gathering, the dash, struck. His sword and shield
--- are on them.
-local GUARD, WALK, WIND, STRIKE, GATHER, BASH, REEL = 536, 539, 551, 554, 557, 560, 563
+-- Sprites in actors.png (48x64, twice the size, see art.py): on guard,
+-- walking (four), winding up, striking, gathering, the dash, struck. His
+-- sword and shield are on them.
+local GUARD, WALK, WIND, STRIKE, GATHER, BASH, REEL = 1024, 1030, 1054, 1060, 1066, 1072, 1078
 
 local function overlap(ax, ay, aw, ah, b)
   return ax < b.x + b.w and b.x < ax + aw and ay < b.y + b.h and b.y < ay + ah
@@ -47,6 +48,7 @@ end
 local kind = { mai = B.mai }
 
 function kind.add(s)
+  s.x, s.y, s.w, s.h = s.x + 5 - B.w / 2, s.y + 20 - B.h, B.w, B.h
   s.hp, s.max, s.shown, s.think, s.turn = B.hp, B.hp, {}, 40, 0
   s.oil, s.role = B.oil, B.role
   shadows.boss, shadows.beaten = s, false
@@ -62,12 +64,12 @@ function kind.update(s, body, k, dx)
   if st == "walk" then
     s.face = dx < 0 and -1 or 1
     local dist = math.abs(dx)
-    s.vx = dist > 26 and s.face * B.speed or 0
+    s.vx = dist > 34 and s.face * B.speed or 0
     s.think = s.think - 1
     if s.think <= 0 then
       local m
-      if dist < 34 then m = "combo"
-      elseif dist > 80 then m = "bash"
+      if dist < 44 then m = "combo"
+      elseif dist > 110 then m = "bash"
       else s.turn = s.turn + 1; m = s.turn % 2 == 1 and "heavy" or "combo" end
       s.move, s.state, s.vx = m, "wind", 0
       s.t = B.wind[m] * (s.shown[m] and 1 or 2)
@@ -85,7 +87,7 @@ function kind.update(s, body, k, dx)
     if f == 1 then s.landed, s.count = false, s.count + 1; s.vx = s.face * 1.2 end
     if f >= 1 and f <= 4 and not s.landed then
       local bx = s.face > 0 and s.x + s.w or s.x - B.slash.reach
-      if overlap(bx, s.y + 2, B.slash.reach, 14, k) and hurt(s, body, B.slash.n) then s.landed = true end
+      if overlap(bx, s.y + 8, B.slash.reach, 26, k) and hurt(s, body, B.slash.n) then s.landed = true end
     end
     s.vx = s.vx * 0.8
     if s.count >= 3 and f == B.slash.gap - 1 then s.state, s.t = "rest", math.floor(B.rest.combo * tired) end
@@ -93,7 +95,7 @@ function kind.update(s, body, k, dx)
     s.t = s.t + 1
     if not s.landed then
       local bx = s.face > 0 and s.x + s.w or s.x - B.heavy.reach
-      if overlap(bx, s.y, B.heavy.reach, 20, k) and hurt(s, body, B.heavy.n) then s.landed = true end
+      if overlap(bx, s.y, B.heavy.reach, B.h, k) and hurt(s, body, B.heavy.n) then s.landed = true end
     end
     if s.t >= B.heavy.frames then s.state, s.t = "rest", math.floor(B.rest.heavy * tired) end
   elseif st == "bash" then
@@ -128,7 +130,7 @@ function kind.torn(s)
 end
 
 function kind.draw(s)
-  local x, y, st = math.floor(s.x) - 7, math.floor(s.y) - 12, s.state
+  local x, y, st = math.floor(s.x + s.w / 2) - 24, math.floor(s.y + s.h) - 63, s.state
   local n = GUARD
   if st == "walk" then n = math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 3 or GUARD
   elseif st == "wind" then n = s.move == "heavy" and GATHER or WIND
@@ -136,17 +138,17 @@ function kind.draw(s)
   elseif st == "bash" then n = BASH
   elseif st == "reel" then n = REEL end
   if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(C.blue, C.glow) pal(C.sky, C.glow) pal(C.marigold, C.glow) end
-  spr(n, x, y, 3, 4, s.face < 0)
+  spr(n, x, y, 6, 8, s.face < 0)
   pal()
-  local cx = x + 12
-  if st == "wind" and s.move == "heavy" and stat("frame") % 4 < 2 then circ(cx - s.face * 4, y + 2, 3, C.glow) end
+  local cx = x + 24
+  if st == "wind" and s.move == "heavy" and stat("frame") % 4 < 2 then circ(cx - s.face * 8, y + 4, 4, C.glow) end
   -- the sweep of a blow that can land
   if (st == "combo" and s.t % B.slash.gap <= 4) or st == "heavy" then
-    local r = st == "heavy" and 26 or 18
+    local r = st == "heavy" and 46 or 34
     for n = 0, 3 do
       local a0 = -1.0 + n * 0.5
-      line(cx + s.face * math.cos(a0) * r, y + 18 + math.sin(a0) * 10,
-           cx + s.face * math.cos(a0 + 0.5) * r, y + 18 + math.sin(a0 + 0.5) * 10, st == "heavy" and C.lamp or C.glow)
+      line(cx + s.face * math.cos(a0) * r, y + 38 + math.sin(a0) * 20,
+           cx + s.face * math.cos(a0 + 0.5) * r, y + 38 + math.sin(a0 + 0.5) * 20, st == "heavy" and C.lamp or C.glow)
     end
   end
 end

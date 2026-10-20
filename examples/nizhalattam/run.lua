@@ -17,7 +17,8 @@ local run = { charms = {}, sharp = {} }
 local KEY, VERSION = "progress", 1
 
 local function defaults()
-  return { version = VERSION, lang = "ta", oil = 0, screen_played = 0, falls = 0 }
+  return { version = VERSION, lang = "ta", oil = 0, screen_played = 0, falls = 0,
+           repairs = {} }                  -- the Aasaan's repairs: r_health, r_double, r_mai
 end
 
 function run.load()
@@ -34,8 +35,14 @@ end
 
 function run.keep() save(KEY, run.data) end
 
-function run.begin()
-  fight.mai = 0
+-- A new run, with the repairs bought so far: health, the double jump, mai.
+function run.begin(body)
+  local r = run.data.repairs
+  fight.mai = 50 * (r.r_mai or 0)
+  if body then
+    body.k.max = 100 + 15 * (r.r_health or 0)
+    body.k.double = (r.r_double or 0) > 0
+  end
   for n = #run.charms, 1, -1 do run.charms[n] = nil end
   for k in pairs(run.sharp) do run.sharp[k] = nil end
   fight.wear({ "komali" })

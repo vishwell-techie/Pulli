@@ -35,12 +35,12 @@ local function say(key) note, note_t = key, 90 end
 local function buy(item, body)
   local k, role = body.k, fight.role()
   if item.key == "leave" then stall.open_ = false return end
-  if (item.key == "mend" and k.health >= 100) or (item.key == "sharpen" and run.sharp[role.name])
+  if (item.key == "mend" and k.health >= k.max) or (item.key == "sharpen" and run.sharp[role.name])
      or (item.charm and run.charm(item.key)) then say("have") return end
   if item.charm and #run.charms >= CHARMS then say("full") return end
   if fight.mai < item.price then say("no_mai") return end
   fight.mai = fight.mai - item.price
-  if item.key == "mend" then k.health = math.min(100, k.health + 25)
+  if item.key == "mend" then k.health = math.min(k.max, k.health + 25)
   elseif item.key == "sharpen" then run.sharp[role.name] = true
   else run.charms[#run.charms + 1] = item.key end
 end
@@ -77,7 +77,7 @@ function stall.draw(body)
     y = y + 18
   end
   local it = ITEMS[pick]
-  if note_t > 0 then print(lines.t(note), 52, 176, C.scarlet)
+  if note_t > 0 then print(lines.t(note), 52, 176, C.vermil)
   elseif it.charm then print(lines.t(it.key .. "_d"), 52, 176, C.tan) end
   font()
 end

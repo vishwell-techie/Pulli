@@ -20,37 +20,41 @@
 local shadows = require("shadows")
 local fx      = require("fx")
 local C       = require("colours")
+local PLACES  = require("places")
 
 local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = nil, floor_y = 0 }
 
--- Each room: its tile sheet and its background (BG_), where its doors lead (in the order the map is
+-- Each room: its place (whose colours it is drawn in: the Courtyard, or the
+-- Screen by default), its tile sheet and its background, where its doors lead (in the order the map is
 -- read), whether it is a fight room (its doors shut until its shadows are
 -- torn), whether its shadows strike softly (a lesson), and the hint shown
 -- on the cloth, with the buttons it names.
 local SCREEN, COURT = "bg_screen.kolam", "bg_court.kolam"
 local ROOMS = {
-  ["map.ooru"]   = { sheet = "court.kolam", bg = COURT, doors = { "test.ooru", "s1.ooru" }, name = "hub",
+  ["map.ooru"]   = { place = "court", sheet = "court.kolam", bg = COURT, doors = { "test.ooru", "s1.ooru" },
+                     hidden = 2,                -- the booth's glowing screen in the backdrop is the door
+                     name = "hub",
                      hint = "h_door", keys = { "up" } },
   -- the Screen, the first story: a lesson a room, then the boss
-  ["s1.ooru"]    = { sheet = "paper.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" },
+  ["s1.ooru"]    = { sheet = "screen.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" },
                      hint2 = "h_high", keys2 = { "a" } },
-  ["s2.ooru"]    = { sheet = "paper.kolam", doors = { "s3.ooru" }, fight = true, soft = true,
+  ["s2.ooru"]    = { sheet = "screen.kolam", doors = { "s3.ooru" }, fight = true, soft = true,
                      hint = "h_strike", keys = { "b" } },
-  ["s3.ooru"]    = { sheet = "paper.kolam", doors = { "s4.ooru" }, fight = true, soft = true,
+  ["s3.ooru"]    = { sheet = "screen.kolam", doors = { "s4.ooru" }, fight = true, soft = true,
                      hint = "h_dodge", keys = { "y" } },
-  ["s4.ooru"]    = { sheet = "paper.kolam", doors = { "s5.ooru" }, fight = true, soft = true,
+  ["s4.ooru"]    = { sheet = "screen.kolam", doors = { "s5.ooru" }, fight = true, soft = true,
                      hint = "h_skill", keys = { "x" } },
-  ["s5.ooru"]    = { sheet = "paper.kolam", doors = { "s6.ooru" }, fight = true, hint = "h_fight", keys = {} },
-  ["s6.ooru"]    = { sheet = "paper.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" } },
-  ["s7.ooru"]    = { sheet = "paper.kolam", doors = { "boss.ooru" }, hint = "h_pit", keys = {} },
-  ["boss.ooru"]  = { sheet = "paper.kolam", doors = { "end" }, fight = true, hint = "h_boss", keys = {},
+  ["s5.ooru"]    = { sheet = "screen.kolam", doors = { "s6.ooru" }, fight = true, hint = "h_fight", keys = {} },
+  ["s6.ooru"]    = { sheet = "screen.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" } },
+  ["s7.ooru"]    = { sheet = "screen.kolam", doors = { "boss.ooru" }, hint = "h_pit", keys = {} },
+  ["boss.ooru"]  = { sheet = "screen.kolam", doors = { "end" }, fight = true, hint = "h_boss", keys = {},
                      boss = "veeran" },
   -- the test rooms, off the Courtyard's side door
   ["test.ooru"]  = { sheet = "sprites.kolam", doors = { "climb.ooru" } },
-  ["climb.ooru"] = { sheet = "paper.kolam", doors = { "arena.ooru", "test.ooru" } },
-  ["arena.ooru"] = { sheet = "paper.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
+  ["climb.ooru"] = { sheet = "screen.kolam", doors = { "arena.ooru", "test.ooru" } },
+  ["arena.ooru"] = { sheet = "screen.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
-for _, def in pairs(ROOMS) do def.bg = def.bg or SCREEN end   -- the lamp-lit cloth
+for _, def in pairs(ROOMS) do def.bg, def.place = def.bg or SCREEN, def.place or "screen" end
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
@@ -74,6 +78,15 @@ end
 
 local boss_code                                 -- the boss module loaded, if any
 local backdrop_now                              -- the place's background, set once
+local place_now                                 -- the place whose colours are set
+
+-- A place's own colours: 20-31 and their shades 52-63 (places.lua).
+local function colours_of(place)
+  local p = PLACES[place]
+  for n = 0, 23 do
+    palette(n < 12 and 20 + n or 52 + n - 12, p[n * 3 + 1], p[n * 3 + 2], p[n * 3 + 3])
+  end
+end
 
 function rooms.enter(name, from, body)
   local def = ROOMS[name]
@@ -89,6 +102,7 @@ function rooms.enter(name, from, body)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
   if def.bg ~= backdrop_now then backdrop(def.bg) backdrop_now = def.bg end
+  if def.place ~= place_now then colours_of(def.place) place_now = def.place end
   rooms.name = name
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8
@@ -163,21 +177,21 @@ end
 -- barred while it is shut
 function rooms.draw_doors()
   local shut = rooms.locked()
-  for n = 1, #dx do
+  for n = 1, #dx do if n ~= rooms.def().hidden then
     local x, y = dx[n] * 8 - 6, dy[n] * 8 - 24
     rectfill(x, y + 4, 20, 28, C.wood)
     rectfill(x + 2, y + 2, 16, 4, C.wood)
     rectfill(x + 4, y, 12, 4, C.wood)
-    rectfill(x + 2, y + 6, 16, 26, shut and C.night or C.lamp)
-    rectfill(x + 3, y + 6, 6, 26, shut and C.dusk or C.wine)      -- the curtains, drawn aside
-    rectfill(x + 11, y + 6, 6, 26, shut and C.dusk or C.wine)
-    for c = 0, 2 do line(x + 4 + c * 2, y + 7, x + 4 + c * 2, y + 31, shut and C.night or C.oxblood) end
+    rectfill(x + 2, y + 6, 16, 26, shut and C.ink or C.lamp)
+    rectfill(x + 3, y + 6, 6, 26, shut and C.navy or C.red)      -- the curtains, drawn aside
+    rectfill(x + 11, y + 6, 6, 26, shut and C.navy or C.red)
+    for c = 0, 2 do line(x + 4 + c * 2, y + 7, x + 4 + c * 2, y + 31, shut and C.ink or C.oxblood) end
     line(x + 2, y + 5, x + 17, y + 5, C.marigold)
     pset(x + 9, y + 1, C.lamp) pset(x + 10, y + 1, C.lamp)
     if shut then
-      line(x + 1, y + 14, x + 18, y + 14, C.steel) line(x + 1, y + 22, x + 18, y + 22, C.steel)
+      line(x + 1, y + 14, x + 18, y + 14, C.silver) line(x + 1, y + 22, x + 18, y + 22, C.silver)
     end
-  end
+  end end
 end
 
 -- the stall and the Aasaan's box, drawn from the actors' sheet
@@ -186,7 +200,7 @@ function rooms.draw_things()
   if rooms.box_x then
     spr(771, rooms.box_x - 12, rooms.floor_y - 16, 3, 2)
     -- the Aasaan beside his box, nodding now and then
-    spr(512 + (18 + stat("frame") // 90 % 2) * 3, rooms.box_x + 12, rooms.floor_y - 32, 3, 4, true)
+    spr(512 + (8 + stat("frame") // 90 % 2) * 3, rooms.box_x + 12, rooms.floor_y - 32, 3, 4, true)
   end
 end
 
