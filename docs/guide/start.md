@@ -34,16 +34,21 @@ python3 tools/pulli.py run mygame
 `new` makes a folder with two files, and `run` opens it in a window, three
 times the console's 320 × 240 unless you give another size after the game:
 `python3 tools/pulli.py run mygame 2` for twice. Move the square with the
-arrow keys. Escape closes the window.
+arrow keys, or with a game controller. Escape closes the window.
 
-| Console | Keyboard |
-|---|---|
-| D-pad | arrow keys |
-| A, B | Z, X |
-| X, Y | A, S |
-| L, R | Q, W |
-| START | Enter |
-| SELECT | right Shift |
+| Console | Keyboard | Controller |
+|---|---|---|
+| D-pad | arrow keys | D-pad, or the left stick |
+| A, B | Z, X | A, B |
+| X, Y | A, S | X, Y |
+| L, R | Q, W | the shoulder buttons, or the triggers |
+| START | Enter | Start |
+| SELECT | right Shift | Back (Select, View, Share, or −) |
+
+Any controller SDL knows works: Xbox, PlayStation, Switch Pro and most USB
+pads. It can be plugged in while a game runs, and the keyboard keeps
+working beside it. The buttons go by the names printed on an Xbox
+controller: on a PlayStation pad, A is ✕ and B is ○.
 
 ## What is in a game
 

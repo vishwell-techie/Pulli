@@ -1,4 +1,5 @@
-/* sdl_main.c — Pulli desktop host: a window, a keyboard and a clock.
+/* sdl_main.c — Pulli desktop host: a window, a keyboard, game controllers
+ * (pad.c) and a clock.
  *
  *   pulli-host <game.pulli> [scale] [--link PORT]      (scale 3 when left out)
  *
@@ -10,6 +11,7 @@
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include "common.h"
+#include "pad.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -101,6 +103,11 @@ int main(int argc, char **argv) {
     } else {
         fprintf(stderr, "pulli-host: no sound (%s)\n", SDL_GetError());
     }
+    /* No controller support is not an error either: the keyboard still works. */
+    if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) == 0)
+        pad_open_all();
+    else
+        fprintf(stderr, "pulli-host: no game controllers (%s)\n", SDL_GetError());
     if (link_port && !host_use_link(&backend, link_port, false)) {
         fprintf(stderr, "pulli-host: cannot open a link on port %s (use 1024 to 65535)\n", link_port);
         SDL_Quit();
@@ -138,6 +145,7 @@ int main(int argc, char **argv) {
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) running = false;
             if (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_ESCAPE) running = false;
+            pad_event(&ev);
         }
         uint64_t now = SDL_GetPerformanceCounter();
         double elapsed = (double)(now - prev) / (double)SDL_GetPerformanceFrequency();
@@ -148,7 +156,7 @@ int main(int argc, char **argv) {
         /* Behind schedule: run the missed updates and draw once (SPEC §3). */
         const Uint8 *keys = SDL_GetKeyboardState(NULL);
         while (running && accum >= STEP) {
-            uint32_t buttons = 0;
+            uint32_t buttons = pad_buttons();
             for (int i = 0; i < PULLI_BTN_COUNT; i++)
                 if (keys[KEYMAP[i]]) buttons |= 1u << i;
             running = pulli_update(&engine, buttons);
@@ -167,6 +175,7 @@ int main(int argc, char **argv) {
     if (status) fprintf(stderr, "error: %s\n", engine.error);
     pulli_shutdown(&engine);
     host_link_close();
+    pad_close_all();
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
