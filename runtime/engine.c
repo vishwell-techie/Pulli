@@ -1,6 +1,7 @@
 /* engine.c — one game's lifetime: package, manifest, Lua VM, frames.
  * No platform dependencies. A port owns the main loop and calls in here. */
 #include "internal.h"
+#include "luadebug.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,10 +23,81 @@ static bool fail(pulli_engine *e, const char *fmt, ...) {
 }
 
 /* The Lua heap is capped (SPEC §0.3): a game that would run out of memory
- * on the device has to run out of memory on the desktop too. */
+ * on the device has to run out of memory on the desktop too. The console
+ * has 4-byte pointers; a desktop with 8-byte ones counts the same objects
+ * about 1.47 times bigger (measured against a Pico 2: 1.47 to 1.49 for
+ * whole games, more for a bare Lua state). The desktop counts in its own bytes and scales the
+ * limit and what it reports, so stat("mem") and running out of memory come
+ * within about 1% of the console, on the high side (SPEC §10). */
+#define HEAP_WIDE    (sizeof(void *) > 4)
+#define HEAP_TO(b)   (HEAP_WIDE ? (b) * 100 / 147 : (b))     /* to the console's bytes */
+#define HEAP_FROM(b) (HEAP_WIDE ? (b) * 147 / 100 : (b))     /* and back */
+
+size_t pulli_heap_used(const pulli_engine *e) { return HEAP_TO(e->heap_used); }
+size_t pulli_heap_peak(const pulli_engine *e) { return HEAP_TO(e->heap_peak); }
+
+/* The debug information kept in a debug build: its blocks, by address, so
+ * the heap counts it as if it had been dropped (a debug build runs out of
+ * memory where a release build does). An open-addressed table of pointers,
+ * outside the Lua heap. */
+struct pulli_debug_set { const void **p; size_t *n; size_t cap, used; };
+#define GONE ((const void *)1)
+
+static size_t slot_of(const struct pulli_debug_set *s, const void *p) {
+    return (size_t)(((uintptr_t)p >> 3) * 2654435761u) & (s->cap - 1);
+}
+
+static bool debug_set_add(struct pulli_debug_set *s, const void *p, size_t n) {
+    if ((s->used + 1) * 4 > s->cap * 3) {                   /* grow, dropping the gone */
+        struct pulli_debug_set g = { NULL, NULL, s->cap ? s->cap * 2 : 256, 0 };
+        g.p = calloc(g.cap, sizeof(*g.p));
+        g.n = calloc(g.cap, sizeof(*g.n));
+        if (!g.p || !g.n) { free(g.p); free(g.n); return false; }
+        for (size_t i = 0; i < s->cap; i++)
+            if (s->p[i] && s->p[i] != GONE) {
+                size_t j = slot_of(&g, s->p[i]);
+                while (g.p[j]) j = (j + 1) & (g.cap - 1);
+                g.p[j] = s->p[i];
+                g.n[j] = s->n[i];
+                g.used++;
+            }
+        free(s->p);
+        free(s->n);
+        *s = g;
+    }
+    size_t j = slot_of(s, p);
+    while (s->p[j] && s->p[j] != GONE) j = (j + 1) & (s->cap - 1);
+    if (!s->p[j]) s->used++;                                 /* (a gone slot is counted already) */
+    s->p[j] = p;
+    s->n[j] = n;
+    return true;
+}
+
+/* Whether p is a debug block; if so it is forgotten. */
+static bool debug_set_take(struct pulli_debug_set *s, const void *p) {
+    if (!s->cap) return false;
+    for (size_t j = slot_of(s, p); s->p[j]; j = (j + 1) & (s->cap - 1))
+        if (s->p[j] == p) { s->p[j] = GONE; return true; }
+    return false;
+}
+
+static void keep_block(void *ud, const void *block, size_t bytes) {
+    pulli_engine *e = ud;
+    if (debug_set_add(e->debug_blocks, block, bytes)) e->heap_used -= bytes;
+}
+
+/* A chunk compiled (main.lua, a module): its debug information is dropped,
+ * or in a debug build kept and left out of the count. */
+void pulli_lua_loaded(pulli_engine *e, lua_State *L) {
+    if (!e->debug) pulli_lua_strip(L);
+    else if (e->debug_blocks) pulli_lua_debug_blocks(L, keep_block, e);
+}
+
 static void *heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     pulli_engine *e = ud;
     size_t old = ptr ? osize : 0;
+    if (ptr && e->debug_blocks && debug_set_take(e->debug_blocks, ptr))
+        e->heap_used += old;                    /* not counted: counted again, to be let go */
     if (nsize == 0) {
         free(ptr);
         e->heap_used -= old;
@@ -133,12 +205,16 @@ static int read_manifest(lua_State *L) {
                                  PULLI_SAVE_INTERVAL_MIN, PULLI_SAVE_INTERVAL_MAX);
     m->save_size   = int_field(L, "save_size", 4096, 16, PULLI_SAVE_MAX);
     m->lua_heap_kb = int_field(L, "lua_heap", PULLI_LUA_HEAP_MAX_KB, 16, PULLI_LUA_HEAP_MAX_KB);
+    lua_getfield(L, -1, "debug");
+    if (!lua_isnil(L, -1) && !lua_isboolean(L, -1)) luaL_error(L, "'debug' must be true or false");
+    m->debug = lua_toboolean(L, -1);
+    lua_pop(L, 1);
     return 0;
 }
 
 static bool load_manifest(pulli_engine *e, pulli_blob src) {
     struct boot_args args = { e, src };
-    e->heap_limit = MANIFEST_HEAP;
+    e->heap_limit = HEAP_FROM(MANIFEST_HEAP);
     lua_State *M = lua_newstate(heap_alloc, e);
     if (!M) return fail(e, "out of memory");
     lua_pushcfunction(M, read_manifest);
@@ -240,6 +316,7 @@ static int start_game(lua_State *L) {
      * from a package means trusting whoever built the package. */
     if (luaL_loadbufferx(L, (const char *)a->src.data, a->src.len, "@main.lua", "t") != LUA_OK)
         return lua_error(L);
+    pulli_lua_loaded(a->e, L);
     lua_call(L, 0, 0);
     return 0;
 }
@@ -268,6 +345,12 @@ static bool run_callback(pulli_engine *e, const char *name, bool pass_dt) {
 
 static void teardown(pulli_engine *e) {
     if (e->L) lua_close(e->L);
+    if (e->debug_blocks) {
+        free(e->debug_blocks->p);
+        free(e->debug_blocks->n);
+        free(e->debug_blocks);
+        e->debug_blocks = NULL;
+    }
     free(e->save);
     pulli_parts_free(e);
     pulli_pkg_close(&e->pkg);
@@ -335,8 +418,15 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
     }
 
     struct boot_args args = { e, main_lua };
-    e->heap_limit = (size_t)e->manifest.lua_heap_kb * 1024;
+    e->heap_limit = HEAP_FROM((size_t)e->manifest.lua_heap_kb * 1024);
     e->heap_peak = 0;
+    /* A debug build keeps the game's debug information: asked for by the
+     * manifest, or by the developer (--debug, PULLI_DEBUG). */
+    e->debug = e->manifest.debug || (backend && backend->debug);
+    if (e->debug) {
+        e->debug_blocks = calloc(1, sizeof(*e->debug_blocks));
+        if (!e->debug_blocks) return boot_fail(e, "%s%s", "out of memory", "");
+    }
     e->L = lua_newstate(heap_alloc, e);
     if (!e->L) { teardown(e); return fail(e, "out of memory"); }
     lua_pushcfunction(e->L, traceback);

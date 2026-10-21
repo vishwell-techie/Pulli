@@ -447,6 +447,17 @@ def main():
         function update() for i = 1, 2000 do hog[#hog + 1] = { i } end end
     """, manifest=manifest(lua_heap="64"), frames=600)
     expect_error("the Lua heap is capped at the manifest's lua_heap", r, "not enough memory")
+    # The count and the cap are in the console's bytes (a 64-bit desktop
+    # scales its own, SPEC §10): the heap fills to just under lua_heap.
+    r = t.run_game("""
+        local hog, most = {}, 0
+        function update()
+          for i = 1, 200 do hog[#hog + 1] = { i } most = math.max(most, stat('mem')) end
+        end
+        function draw() dbg(most) end
+    """, manifest=manifest(lua_heap="64"), frames=600)
+    most = float(r.lines[-1]) if r.lines else 0
+    t.check("stat('mem') climbs to just under lua_heap before memory runs out", 60 < most <= 64, most)
 
     # ---- the parts of the package in memory (SPEC §2, §3 "Loading") ---------
     from harness import pulli
@@ -553,8 +564,32 @@ def main():
         t.check("a small save on a cartridge works the same", [l for l in r.lines if l.startswith("run")] == ["run\t2"], r.err)
 
     # ---- errors -------------------------------------------------------
-    r = t.run_game("function update()\n  local t = nil\n  return t.x\nend\n", frames=10)
-    expect_error("a runtime error stops the game and says where", r, "main.lua:3:", "stack traceback", "0 of 10 frames")
+    boom = "function update()\n  local t = nil\n  return t.x\nend\n"
+    r = t.run_game(boom, frames=10, debug=True)
+    expect_error("a runtime error stops the game and says where", r, "main.lua:3:", "local 't'", "stack traceback",
+                 "0 of 10 frames")
+    # Debug information (SPEC §10): dropped unless asked for; asked for by the
+    # developer (--debug) or the manifest (debug = true).
+    r = t.run_game(boom, frames=10)
+    t.check("without debug information an error names its file but not the line",
+            r.code == 1 and "error: main.lua: attempt to index a nil value" in r.err and "main.lua:3" not in r.err, r.err)
+    r = t.run_game(boom, manifest=manifest(debug="true"), frames=10)
+    t.check("the manifest's debug = true keeps the line numbers", r.code == 1 and "main.lua:3:" in r.err, r.err)
+    r = t.run_game("x = 1", manifest=manifest(debug="'yes'"))
+    expect_error("debug must be true or false", r, "'debug' must be true or false")
+    # A debug build counts the heap as a release build does (its line
+    # numbers left out), and loading a module again and again leaks nothing.
+    many = ("local n = 0 function update() n = n + 1 unrequire('m') require('m') "
+            "if n == 50 or n == 250 then collectgarbage() collectgarbage() dbg(n, stat('mem')) end end")
+    module = {"m.lua": "local t = {} " + " ".join("function t.f%d(a, b) local c = a + b return c * %d end" % (k, k)
+                                                   for k in range(40)) + " return t"}
+    mem = {}
+    for debug in (False, True):
+        r = t.run_game(many, extra=module, frames=260, debug=debug)
+        mem[debug] = {l.split("\t")[0]: float(l.split("\t")[1]) for l in r.lines if "\t" in l}
+    t.check("a debug build counts the heap within a few KB of a release build; loading a module again leaks nothing",
+            all(abs(mem[True][n] - mem[False][n]) < 2.5 and mem[d]["250"] - mem[d]["50"] < 0.5
+                for n in ("50", "250") for d in (False, True)), mem)
     expect_error("a syntax error is reported with its line", t.run_game("function draw(\n  cls(\nend\n"), "main.lua:")
     expect_error("an error in init() stops the boot", t.run_game("function init() error('no cartridge') end"),
                  "no cartridge")

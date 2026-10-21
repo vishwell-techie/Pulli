@@ -7,6 +7,9 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+/* A chunk just compiled: its debug information dropped, or kept (engine.c). */
+void pulli_lua_loaded(pulli_engine *e, lua_State *L);
+
 /* The number model is part of the platform contract: 32-bit integers and
  * 32-bit floats, on the desktop and on the device alike. A game that fits
  * and behaves one way on a laptop must do the same in the hand. */

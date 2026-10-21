@@ -1065,3 +1065,20 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    swapped); `backdrop()` lets it go. On a two-chip console it is sent to
    the graphics chip once, so a still background costs a copy each frame,
    not a full-screen sprite.
+31. **Debug information, and the heap counted as the console counts it**
+   (§0.3, §1, §2, §3), awaiting approval. A game's Lua runs without its
+   debug information: line numbers and the names of locals and upvalues
+   are dropped as each file is compiled, which saves about a quarter of
+   the memory its code takes (16% of the whole heap in a large game on a
+   Pico 2). An error then names the file but not the line
+   (`main.lua: attempt to index a nil value`). A debug build keeps it:
+   `debug = true` in the manifest, `--debug` to the desktop host (`pulli
+   run`, `pulli check`), or the firmware's `PULLI_DEBUG` build option. A
+   debug build counts the heap as a release build would (the line numbers
+   are left out of the count; local names, a few KB in a large game, are
+   not), so it runs out of memory at about the same point. A desktop with
+   8-byte pointers counts the same Lua objects about 1.47 times bigger
+   than the console does; it scales its count, so `stat("mem")` and the
+   `lua_heap` cap are in the console's bytes, within about 1% of a Pico 2
+   for whole games and never under it. Lua's own
+   `collectgarbage("count")` is not scaled.

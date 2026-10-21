@@ -14,7 +14,7 @@ FetchContent_Declare(lua
     URL_HASH SHA256=4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae
     # PATCH_LEVEL only makes CMake run the patch again on a tree it has
     # already patched; raise it whenever patch_lua.cmake gains a step.
-    PATCH_COMMAND ${CMAKE_COMMAND} -DPATCH_LEVEL=2 -P ${CMAKE_CURRENT_LIST_DIR}/patch_lua.cmake
+    PATCH_COMMAND ${CMAKE_COMMAND} -DPATCH_LEVEL=3 -P ${CMAKE_CURRENT_LIST_DIR}/patch_lua.cmake
 )
 FetchContent_MakeAvailable(lua)
 
