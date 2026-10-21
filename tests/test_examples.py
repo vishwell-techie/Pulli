@@ -1043,6 +1043,102 @@ def main():
         t.check("nizhalattam: as Aattakkaari, a dodge leaves a ring that strikes; coming in, she whirls, striking both sides",
                 got.get("ring") == ["12"] and got2.get("whirl") == ["8", "8", "Aattakkaari"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
 
+        # Step 5d: the Battlefield of Flags. Its own shadows, in its rooms only.
+        r, got = story('rooms.enter("b2.ooru", "b1.ooru", body)', "",
+                       'if f == 3 then dbg("field", tostring(shadows.kinds.archer ~= nil), tostring(shadows.kinds.drum ~= nil)) '
+                       '  rooms.enter("b4.ooru", "b3.ooru", body) dbg("stall", tostring(shadows.kinds.flag ~= nil), tostring(rooms.shop ~= nil)) '
+                       '  rooms.enter("bboss.ooru", "b6.ooru", body) dbg("boss", tostring(shadows.kinds.flag ~= nil), tostring(shadows.kinds.yaanai ~= nil)) '
+                       '  rooms.enter("map.ooru", nil, body) dbg("hub", tostring(shadows.kinds.flag ~= nil), tostring(shadows.kinds.yaanai ~= nil)) end', frames=5)
+        t.check("nizhalattam: the battlefield's shadows' code is there in its rooms only",
+                got.get("field") == ["true", "true"] and got.get("stall") == ["false", "true"]
+                and got.get("boss") == ["false", "true"] and got.get("hub") == ["false", "false"], f"{got} {r.err[-300:]}")
+
+        # the flag-bearer rallies the shadows near it: they take half a blow
+        r, got = story('rooms.enter("b2.ooru", "b1.ooru", body) at(4, 208)', "",
+                       'if f == 3 then for _, s in ipairs(shadows.list) do if s.kind == "flag" then st.fl = s elseif s.kind == "soldier" and not st.so then st.so = s end end '
+                       '  for _, s in ipairs(shadows.list) do s.on = s == st.fl or s == st.so end '
+                       '  st.so.x, st.so.y = st.fl.x - 24, st.fl.y '
+                       '  dbg("rallied", shadows.strike(st.so, 10, 1, true), st.so.hp) '
+                       '  st.fl.hp = 1 dbg("flag", shadows.strike(st.fl, 5, 1, true)) '
+                       '  dbg("alone", shadows.strike(st.so, 10, 1, true), st.so.hp) end', frames=5)
+        t.check("nizhalattam: a shadow near a flag-bearer takes half a blow (5 of 10); the flag torn, the whole",
+                got.get("rallied") == ["hit", "35"] and got.get("flag") == ["torn"] and got.get("alone") == ["hit", "25"],
+                f"{got} {r.err[-300:]}")
+
+        # the archer line draws together and looses together; one struck while
+        # drawing misses the volley
+        volleys = {}
+        for strike in (False, True):
+            r, got = story('rooms.enter("b5.ooru", "b4.ooru", body) at(40, 208)', "",
+                           'if f == 2 then for _, s in ipairs(shadows.list) do s.on = s.kind == "archer" end end '
+                           'if f == 135 then local n = 0 for _, s in ipairs(shadows.list) do if s.on and s.state == "wind" then n = n + 1 st.a = s end end dbg("drawing", n) '
+                           + ('  shadows.strike(st.a, 2, 1, false) ' if strike else '') + 'end '
+                           'if f == 150 then dbg("loosed", fight.shots.count()) end '
+                           'if f == 260 then dbg("hurt", k.health) end', frames=265)
+            volleys[strike] = (got.get("drawing"), got.get("loosed"), got.get("hurt"))
+        t.check("nizhalattam: an archer line draws together, then looses together (8); one struck while drawing misses",
+                volleys[False] == (["3"], ["3"], ["92"]) and volleys[True] == (["3"], ["2"], ["92"]), f"{volleys} {r.err[-300:]}")
+
+        # the war drum's shockwave reaches feet on the ground, not on a plank
+        drums = {}
+        for where, feet in (("ground", "at(40, 208)"), ("plank", "at(42, 176)")):
+            r, got = story(f'rooms.enter("b3.ooru", "b2.ooru", body) {feet}', "",
+                           'if f == 2 then for _, s in ipairs(shadows.list) do s.on = s.kind == "drum" and s.x < 400 end end '
+                           'if f == 200 then dbg("drum", k.health) end', frames=205)
+            drums[where] = got.get("drum")
+        t.check("nizhalattam: the war drum's beat sends a shockwave along the ground (10); on a plank it passes under",
+                drums == {"ground": ["90"], "plank": ["100"]}, f"{drums} {r.err[-300:]}")
+
+        # the Elephant: each move shown first; his charge hurts (16) and ends at a
+        # wall, where he stands dizzy; his pound's shockwave hurts (12) on the ground
+        r, got = story('rooms.enter("bboss.ooru", "b6.ooru", body) at(8, 208)', "",
+                       'local b = shadows.boss if k.health < 100 and not st.h then st.h = true dbg("charged", k.health, b.state) end k.health = 100 '
+                       'if b.state == "rest" and b.move == "charge" and not st.d then st.d = true dbg("dizzy", tostring(b.x < 40 or b.x + b.w > rooms.w - 40)) end '
+                       'if b.state == "wind" and not st.w then st.w = true st.seen = st.seen or {} '
+                       '  local m = b.move st.seen[m] = (st.seen[m] or 0) + 1 dbg(m .. st.seen[m], b.t) '
+                       'elseif b.state ~= "wind" then st.w = false end', frames=1500)
+        firsts = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("1")}
+        seconds = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("2")}
+        wind = {"charge": 34, "pound": 30}                 # yaanai.lua's B.wind
+        t.check("nizhalattam: the Elephant shows each move first, with a warning twice as long; his charge (16) ends dizzy at a wall",
+                r.code == 0 and set(wind) <= set(firsts) and all(v == 2 * wind[m] for m, v in firsts.items())
+                and len(seconds) >= 1 and all(seconds[m] == wind[m] for m in seconds)
+                and got.get("charged") == ["84", "charge"] and got.get("dizzy") == ["true"], f"{got} {r.err[-300:]}")
+
+        pounds = {}
+        for where, feet in (("ground", "at(20, 208)"), ("plank", "at(18, 144)")):
+            r, got = story(f'rooms.enter("bboss.ooru", "b6.ooru", body) {feet}', "",
+                           'local b = shadows.boss if f == 2 then b.shown.pound, b.move, b.state, b.t = true, "pound", "wind", 1 end '
+                           'if f == 120 then dbg("pound", k.health) end', frames=125)
+            pounds[where] = got.get("pound")
+        t.check("nizhalattam: the Elephant's pound sends a shockwave along the ground (12); on a plank it passes under",
+                pounds == {"ground": ["88"], "plank": ["100"]}, f"{pounds} {r.err[-300:]}")
+
+        r, got = story('run.start(body, { "flags" }) rooms.enter("bboss.ooru", "b6.ooru", body)', "",
+                       'if f == 3 then st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                       'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) end', frames=12)
+        t.check("nizhalattam: the Elephant torn lends his role and 12 oil",
+                got.get("lent") == ["2", "Yaanai", "12"], f"{got} {r.err[-300:]}")
+
+        # The elephant's role
+        def trunk(read, report, frames=120, wear='"yaanai"', room="s2.ooru", cell=14):
+            return story(f'rooms.enter("{room}", "s1.ooru", body) fight.wear({{ {wear} }}) at({cell}, 208)', read,
+                         'local d1, d2 = shadows.list[1], shadows.list[2] ' + report, frames)
+
+        r, got = trunk("if f == 10 then i.attack = true end",
+                       'if f == 2 then d1.x = k.x + k.w + 20 end if f == 40 then dbg("sweep", d1.hp) end')
+        r2, got2 = trunk("", 'if f == 10 then k.vx = 0 body.hurt(10, k.x + 20) dbg("steady", k.vx, k.health) end')
+        t.check("nizhalattam: as the Elephant, B sweeps wide (12 at 20 px); no blow throws him back",
+                got.get("sweep") == ["6"] and got2.get("steady") == ["0", "90"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
+        r, got = trunk("if f == 10 then i.skill = true end",
+                       'if f == 2 then st.w = rooms.w at(math.floor(rooms.w / 8) - 12, 208) d1.x = k.x + 16 d2.on = false end '
+                       'if f == 60 then dbg("wall", tostring(d1.on), tostring(d1.x > st.w - 60)) end')
+        r2, got2 = trunk("if f == 10 then i.skill = true end",
+                         'if f == 2 then d1.x = k.x + 16 d2.on = false end if f == 60 then dbg("open", d1.hp, tostring(d1.x > k.x)) end')
+        t.check("nizhalattam: as the Elephant, X charges a shadow before him to the wall (20, tearing a dummy); short of one, 10",
+                got.get("wall") == ["false", "true"] and got2.get("open") == ["8", "true"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
         # The run: a seed when Komali steps into the Screen; the stories
         # between the first and the last in an order from it; the halfway
         # tear after the middle one.
@@ -1053,7 +1149,7 @@ def main():
         begun = got.get("begun", [""] * 5)
         t.check("nizhalattam: a run begins as Komali steps into the Screen: a seed, the stories in order, counted",
                 got.get("before") == ["nil"] and begun[:2] == ["s1.ooru", "true"] and begun[3:] == ["1", "false"]
-                and begun[2] in ("screen,forest,sea", "screen,sea,forest"), got)
+                and begun[2].startswith("screen,") and sorted(begun[2].split(",")[1:]) == ["flags", "forest", "sea"], got)
 
         r, got = story("", "",
                        'if f == 3 then local m = { "forest", "sea", "flags", "masks" } local seen = {} '
@@ -1262,13 +1358,16 @@ def main():
                        'if f == 120 then collectgarbage() dbg("vil", stat("mem")) fight.lend("vil") rooms.enter("k6.ooru", "k5.ooru", body) end '
                        'if f == 150 then collectgarbage() dbg("sea", stat("mem")) rooms.enter("kboss.ooru", "k6.ooru", body) end '
                        'if f == 180 then collectgarbage() dbg("aatta", stat("mem")) fight.give_up("veeran", "aattakkaari") '
+                       '  rooms.enter("b6.ooru", "b5.ooru", body) end '
+                       'if f == 210 then collectgarbage() dbg("field", stat("mem")) rooms.enter("bboss.ooru", "b6.ooru", body) end '
+                       'if f == 240 then collectgarbage() dbg("elephant", stat("mem")) fight.give_up("vil", "yaanai") '
                        '  run.begin(body) rooms.enter("map.ooru", nil, body) end '
-                       'if f == 210 then collectgarbage() dbg("after", stat("mem")) end', frames=220)
-        hub, bossroom, forestroom, vilroom, searoom, aattaroom, after = (float(got.get(k, ["999"])[0]) for k in
-                                                                       ("hub", "boss", "forest", "vil", "sea", "aatta", "after"))
+                       'if f == 270 then collectgarbage() dbg("after", stat("mem")) end', frames=280)
+        hub, bossroom, forestroom, vilroom, searoom, aattaroom, fieldroom, elephantroom, after = (
+            float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 120 and bossroom < 122 and forestroom < 128 and vilroom < 135 and searoom < 142 and aattaroom < 135
-                and after < forestroom - 4, got)
+                hub < 125 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
+                and fieldroom < 145 and elephantroom < 141 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

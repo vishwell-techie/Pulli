@@ -64,7 +64,8 @@ local SOLID, THIN = 1, 2
 local IDLE, RUN, JUMP, FALL, DODGE, WALL, HURT = 0, 2, 8, 9, 10, 12, 13
 body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9,
                aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19,
-               kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19 }
+               kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19,
+               sweep1 = 14, sweep2 = 15, t_air = 16, charge = 17, pound = 18, stomp = 19 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
@@ -80,6 +81,7 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             double = false,
             held = 0,           -- frames a shadow holds him still
             untouch = 0,        -- frames no blow reaches him
+            steady = false,     -- no blow throws him back (set by fight.lua: the elephant)
             on = nil }          -- the moving floor he stands on, if any
 body.k = k
 
@@ -275,7 +277,7 @@ function body.hurt(n, from_x)
   n = math.max(1, math.floor(n * (1 - math.max(0, k.guard)) + 0.5))
   k.health = math.max(0, k.health - n)
   k.struck, k.dodge = T.struck, 0
-  k.vx, k.vy, k.ground = -side * T.thrown, -1.6, false
+  if not k.steady then k.vx, k.vy, k.ground = -side * T.thrown, -1.6, false end   -- (the elephant stands)
   return n
 end
 

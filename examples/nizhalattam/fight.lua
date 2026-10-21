@@ -83,11 +83,12 @@ function fight.role() return fight.carried[fight.worn] end
 -- The frame Komali shows for what he is doing (body.FRAME), or nil.
 function fight.pose(body)
   local role = fight.role()
-  if role.moves then                         -- the dancer
-    if skill_t > 0 then return "dash" end
-    if atk == role.swap then return "whirl" end
-    if atk == role.air then return "kick_air" end
-    if atk then return step == 2 and "kick2" or step == 3 and "kick3" or "kick1" end
+  local p = role.poses                       -- a role with frames for its blows alone
+  if p then
+    if skill_t > 0 then return p.skill end
+    if atk == role.swap then return p.swap end
+    if atk == role.air then return p.air end
+    if atk then return p[step] or p[1] end
     return nil
   end
   if role.bow then
@@ -171,7 +172,7 @@ function fight.update(i, body, shadows)
   local k, role = body.k, fight.role()
   if fight.shake_t > 0 then fight.shake_t = fight.shake_t - 1 else fight.shake_px = 0 end
   if cool > 0 then cool = cool - 1 end
-  k.dodge_wait, k.guard = role.dodge_wait, role.guard
+  k.dodge_wait, k.guard, k.steady = role.dodge_wait, role.guard, role.steady or false
 
   -- a dodge or a blow taken ends any blow
   if k.dodge > 0 or k.struck > body.T.struck - 12 then atk, charge, skill_t = nil, 0, 0 end
@@ -220,7 +221,7 @@ function fight.update(i, body, shadows)
   end
   if skill_t > 0 then
     skill_t = skill_t - 1
-    if role.tick_skill then role.tick_skill(skill_t, role, k) end
+    if role.tick_skill and role.tick_skill(skill_t, role, k) == false then skill_t = 0 end   -- ended early
     if role.skill == "bash" then
       k.guard = -1                             -- the shield: nothing from the front
       move.by(k, k.face * 1.4, 0)

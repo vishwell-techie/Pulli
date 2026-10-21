@@ -80,4 +80,10 @@ return {
   role_Mandhiri = "Minister",
   role_Rani = "Queen",
   role_King = "Puppet King",
+  h_flags = "The Battlefield of Flags. The Elephant is held here",
+  h_bearer = "Shadows near a flag-bearer take half a blow. Tear the flag first",
+  h_drum = "The war drum beats: jump its shockwave",
+  h_archers = "Archers draw together, then loose: roll through",
+  h_yaanai = "The Elephant! His charge ends at a wall: strike him then",
+  h_trunk = "The Elephant's role: %s sweeps wide, %s charges them to the wall",
 }

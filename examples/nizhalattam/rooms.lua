@@ -63,6 +63,9 @@ local S = function(def) return setmetatable(def, SCREEN) end
 local F = function(def) return setmetatable(def, FOREST) end
 local F0 = function(def) return setmetatable(def, NONE) end      -- a forest room with none of its shadows
 local K = function(def) return setmetatable(def, SEA) end        -- (kadal, the sea)
+local FLAGS = { __index = { place = "flags", sheet = "flags.kolam", bg = "bg_flags.kolam", story = "flags",
+                            cast = "flags" } }
+local B = function(def) return setmetatable(def, FLAGS) end      -- (the battlefield)
 local ROOMS = {
   ["map.ooru"]   = S{ place = "court", sheet = "court.kolam", bg = "bg_court.kolam", doors = { "test.ooru", "s1.ooru" },
                       hidden = 2,                -- the booth's glowing screen in the backdrop is the door
@@ -97,6 +100,15 @@ local ROOMS = {
   ["k6.ooru"]    = K{ doors = { "kboss.ooru" } },
   ["kboss.ooru"] = K{ doors = { "next" }, fight = true, hint = "h_aatta", pick = true, boss = "aattakkaari",
                       boss_sheet = "aatta.kolam", cast = false, taught = "h_dance", tkeys = "b x" },
+  -- the Battlefield of Flags, the fourth (its archers want arrows)
+  ["b1.ooru"]    = B{ doors = { "b2.ooru" }, hint = "h_flags" },
+  ["b2.ooru"]    = B{ doors = { "b3.ooru" }, fight = true, hint = "h_bearer" },
+  ["b3.ooru"]    = B{ doors = { "b4.ooru" }, hint = "h_drum" },
+  ["b4.ooru"]    = B{ doors = { "b5.ooru" }, shop = "stall", cast = false },
+  ["b5.ooru"]    = B{ doors = { "b6.ooru" }, fight = true, hint = "h_archers", arrows = true },
+  ["b6.ooru"]    = B{ doors = { "bboss.ooru" }, arrows = true },
+  ["bboss.ooru"] = B{ doors = { "next" }, fight = true, hint = "h_yaanai", pick = true, boss = "yaanai",
+                      boss_sheet = "yaanai.kolam", cast = false, taught = "h_trunk", tkeys = "b x" },
   -- the halfway tear, after the middle story: the roles carried may be
   -- changed here, once a run
   ["tear.ooru"]  = S{ doors = { "next" }, story = "tear", shop = "pick", pick = true, hint = "h_tear", keys = "up" },
@@ -105,17 +117,18 @@ local ROOMS = {
   ["climb.ooru"] = S{ doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = S{ doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
-rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru", sea = "k1.ooru" }      -- each story's first room
-rooms.MIDDLE = { "forest", "sea" }   -- made so far; the Battlefield and the Market to come
+rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru", sea = "k1.ooru", flags = "b1.ooru" }   -- first rooms
+rooms.MIDDLE = { "forest", "sea", "flags" }      -- made so far; the Market to come
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, LAST = 1012, 1017
+local TEAR, LAST = 1012, 1020
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
                [1009] = "vine", [1010] = "moth", [1011] = "wisp",
-               [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry" }
+               [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry",
+               [1018] = "archer", [1019] = "flag", [1020] = "drum" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to

@@ -20,6 +20,7 @@ local dancer = {
               C.saffron, C.vermil, C.saffron + 32, C.vermil + 32 },          -- red breeches
   frames = 0,                                      -- his own frames,
   moves = 500,                                     -- and the dancer's blows (body.FRAME 14-19)
+  poses = { "kick1", "kick2", "kick3", air = "kick_air", swap = "whirl", skill = "dash" },
   combo = { { s = 3, a = 4, r = 8, n = 8, w = 16, h = 16, push = 1.6 },
             { s = 3, a = 4, r = 8, n = 8, w = 16, h = 16, push = 1.6 },
             { s = 4, a = 6, r = 12, n = 14, w = 14, h = 22, around = true, push = 1.2 } },

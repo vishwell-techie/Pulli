@@ -10,6 +10,8 @@
 --   shadows.kinds[kind]       { add, update, draw, strike, torn } for a kind
 --                             made elsewhere (a story's shadows, its boss);
 --                             one with fly set moves itself: no gravity
+--   s.rally                   set on a shadow (the flag-bearer): the others
+--                             within that many pixels take half of a blow
 --
 -- The cut-paper soldier walks up holding his guard to the front, so a
 -- light blow from the front is turned aside; one from behind lands, and
@@ -84,6 +86,16 @@ end
 function shadows.clear()
   for n = #shadows.list, 1, -1 do shadows.list[n] = nil end
 end
+
+-- is a shadow near a rallying one (not one itself)?
+local function rallied(s)
+  if s.rally then return false end
+  for _, o in ipairs(shadows.list) do
+    if o.on and o.rally and math.abs(o.x - s.x) < o.rally and math.abs(o.y - s.y) < 48 then return true end
+  end
+  return false
+end
+shadows.rallied = rallied
 
 local function overlap(ax, ay, aw, ah, b)
   return ax < b.x + b.w and b.x < ax + aw and ay < b.y + b.h and b.y < ay + ah
@@ -224,6 +236,7 @@ function shadows.strike(s, n, dir, heavy)
     s.vx = -s.face * 0.8
     return "blocked"
   end
+  if rallied(s) then n = math.max(1, n // 2) end
   s.hp = s.hp - n
   if s.hp <= 0 then return tear(s, s.kind == "soldier" and S.mai or (K[s.kind] or custom).mai) end
   if s.kind == "soldier" then
