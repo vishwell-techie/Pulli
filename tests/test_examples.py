@@ -1130,7 +1130,7 @@ def main():
         ta = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_ta.lua")).read(), re.M))
         t.check("nizhalattam: every line is there in Tamil and in English", en == ta and len(en) > 30, en ^ ta)
 
-        # Desktop (64-bit) sizes, about 1.4 times the console's; the heap is 256 KB.
+        # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",
                        'if f == 30 then collectgarbage() dbg("hub", stat("mem")) rooms.enter("boss.ooru", "s7.ooru", body) end '
                        'if f == 60 then collectgarbage() dbg("boss", stat("mem")) fight.lend("veeran") rooms.enter("f5.ooru", "f4.ooru", body) end '
@@ -1139,7 +1139,7 @@ def main():
                        'if f == 150 then collectgarbage() dbg("after", stat("mem")) end', frames=160)
         hub, bossroom, forestroom, vilroom, after = (float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 190 and bossroom < 192 and forestroom < 200 and vilroom < 207 and after < forestroom - 6, got)
+                hub < 120 and bossroom < 122 and forestroom < 128 and vilroom < 135 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

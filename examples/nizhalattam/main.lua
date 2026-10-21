@@ -55,7 +55,7 @@ end
 function init()
   -- collect sooner than Lua's default (when the heap has doubled): the game
   -- keeps little garbage, and the room it leaves is the 256 KB heap's
-  collectgarbage("incremental", 110, 200)
+  collectgarbage("incremental", 120, 200)
   run.load()
   preload(rooms.ACTORS)
   home()
