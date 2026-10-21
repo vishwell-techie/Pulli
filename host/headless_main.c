@@ -8,6 +8,7 @@
  *     --caps wifi,cart  optional hardware reported through sys.has()
  *     --link PORT       link to another host started with the same port
  *     --saves DIR       keep save data in DIR (default: discarded on exit)
+ *     --debug           keep the game's debug information: errors say where
  *     --dump-fb FILE    write the final indexed framebuffer, 76800 bytes
  *     --dump-rgb FILE   write the final screen as RGB565, little-endian
  *     --dump-wav FILE   write everything the game played, as a WAV file
@@ -106,7 +107,7 @@ static int usage(void) {
         "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME[-FRAME],...]\n"
         "                      [--caps CAPS] [--link PORT]\n"
         "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE] [--dump-wav FILE]\n"
-        "                      [--clock-step US] [--mapped] [--cart IMAGE] [--cart-cut BYTES]\n");
+        "                      [--clock-step US] [--mapped] [--cart IMAGE] [--cart-cut BYTES] [--debug]\n");
     return 2;
 }
 
@@ -133,6 +134,7 @@ int main(int argc, char **argv) {
         const char *v = i + 1 < argc ? argv[i + 1] : NULL;
         if (a[0] != '-') { if (game) return usage(); game = a; continue; }
         if (!strcmp(a, "--mapped")) { mapped = true; continue; }   /* the whole package in memory */
+        if (!strcmp(a, "--debug")) { backend.debug = true; continue; }
         if (!v) return usage();
         i++;
         if      (!strcmp(a, "--frames"))   frames = atol(v);
@@ -206,7 +208,7 @@ int main(int argc, char **argv) {
     if (engine.error[0]) fprintf(stderr, "error: %s\n", engine.error);
     fprintf(stderr, "%s: %ld of %ld frames, Lua heap %.1f KB, peak %.1f of %d KB\n",
             engine.manifest.title[0] ? engine.manifest.title : game, done, frames,
-            engine.heap_used / 1024.0, engine.heap_peak / 1024.0, engine.manifest.lua_heap_kb);
+            pulli_heap_used(&engine) / 1024.0, pulli_heap_peak(&engine) / 1024.0, engine.manifest.lua_heap_kb);
     pulli_shutdown(&engine);
     host_link_close();
     free(data);

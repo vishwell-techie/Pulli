@@ -41,3 +41,23 @@ if(NOT text MATCHES "lua_math.h")
     string(REPLACE "${seed}" "${seed}#include \"lua_math.h\"\n" text "${text}")
     file(WRITE "${conf}" "${text}")
 endif()
+
+# A game runs without its line numbers unless it is a debug build (SPEC
+# §10, runtime/luadebug.c). An error without one says "main.lua: ...", not
+# "main.lua:-1: ...".
+set(dbg "${CMAKE_CURRENT_SOURCE_DIR}/src/ldebug.c")
+if(NOT EXISTS "${dbg}")
+    set(dbg "src/ldebug.c")
+endif()
+file(READ "${dbg}" text)
+if(NOT text MATCHES "no line known")
+    set(old "  return luaO_pushfstring(L, \"%s:%d: %s\", buff, line, msg);")
+    string(FIND "${text}" "${old}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "patch_lua: luaG_addinfo not found in ${dbg}; has the Lua version changed?")
+    endif()
+    string(REPLACE "${old}"
+        "  if (line < 0)  /* no line known: the game's debug information was dropped */\n    return luaO_pushfstring(L, \"%s: %s\", buff, msg);\n${old}"
+        text "${text}")
+    file(WRITE "${dbg}" "${text}")
+endif()

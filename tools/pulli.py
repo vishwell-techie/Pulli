@@ -5,10 +5,12 @@
     python3 tools/pulli.py pack   <dir> [out.pulli]        build a package
     python3 tools/pulli.py list   <game.pulli>             show what is inside
     python3 tools/pulli.py unpack <game.pulli> <dir>       extract the files
-    python3 tools/pulli.py run    <dir|game.pulli> [scale] [--link PORT]
+    python3 tools/pulli.py run    <dir|game.pulli> [scale] [--link PORT] [--debug]
                                                            play it in a window, scale 3
                                                            when left out
-    python3 tools/pulli.py check  <dir|game.pulli> [frames] run it with no window
+    python3 tools/pulli.py check  <dir|game.pulli> [frames] [--debug]
+                                                           run it with no window
+    (--debug keeps the game's line numbers, so an error says where it happened)
     python3 tools/pulli.py palette [<dir|game.pulli>] <out.gpl|out.hex|out.png>
                                                            the 64 colours, standard or a
                                                            game's own, for a paint program
@@ -974,13 +976,17 @@ def cmd_run(target, *options):
     return _launch("pulli-host", target, list(options))
 
 
-def cmd_check(target, frames="600"):
-    return _launch("pulli-headless", target, ["--frames", frames])
+def cmd_check(target, *options):
+    frames = next((o for o in options if o.isdigit()), "600")
+    debug = ["--debug"] if "--debug" in options else []
+    if any(o != frames and o != "--debug" for o in options):
+        raise PackageError("check takes a number of frames and --debug")
+    return _launch("pulli-headless", target, ["--frames", frames] + debug)
 
 
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
-    "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 4), "check": (cmd_check, 1, 2),
+    "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 5), "check": (cmd_check, 1, 3),
     "palette": (cmd_palette, 1, 2), "add": (cmd_add, 0, 9), "cart": (cmd_cart, 2, 3),
 }
 

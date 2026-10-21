@@ -112,9 +112,17 @@ quickest way to see what a value is:
 dbg("score", score, "lives", lives)
 ```
 
-When the game has an error, it stops and the message says which file and
-line. `print()` draws text on the game screen; it does not reach the
-terminal.
+When the game has an error, it stops and the message says which file it
+was in. To learn the line too, run it as a debug build, which keeps the
+line numbers that a game normally drops to save memory:
+
+```bash
+python3 tools/pulli.py run mygame --debug
+python3 tools/pulli.py check mygame --debug
+```
+
+or put `debug = true` in the manifest while you work on it. `print()`
+draws text on the game screen; it does not reach the terminal.
 
 ## Checking without a window
 
@@ -169,7 +177,8 @@ shortest interval allowed is 10 seconds, and a game should call
 ## Limits worth knowing
 
 - **Memory:** your Lua code and data get up to 256 KB. `stat("mem")` says
-  how much is in use, in KB. Making new tables every frame fills memory
+  how much is in use, in KB, counted as the console counts it, on every
+  machine. Making new tables every frame fills memory
   with garbage; make them once and reuse them (the `pool` helper helps).
 - **Lua:** Lua 5.4 with 32-bit numbers. Whole numbers run from about −2.1
   billion to 2.1 billion and wrap around past that. Fractions have about
