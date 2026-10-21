@@ -10,6 +10,7 @@ add_library(pulli_runtime STATIC
     parts.c
     cart.c
     gfx.c
+    luadebug.c
     map.c
     pkg.c
     save.c

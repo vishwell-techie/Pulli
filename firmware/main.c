@@ -65,6 +65,7 @@ static const pulli_backend backend = {
     .log = log_line,
     .micros = time_us_32,
     .halves = halves,
+    .debug = PULLI_DEBUG,           /* a build option: keep line numbers for errors */
     /* no audio, no save storage, no optional hardware yet */
 };
 
@@ -106,7 +107,7 @@ static void run_game(void) {
                    "late %u/%u; heap %u KB, peak %u KB\n",
                    (unsigned)(update_us / frames), (unsigned)(draw_us / frames),
                    (unsigned)(scanout_us / frames), (unsigned)worst_us, (unsigned)FRAME_US,
-                   late, frames, (unsigned)(engine.heap_used / 1024), (unsigned)(engine.heap_peak / 1024));
+                   late, frames, (unsigned)(pulli_heap_used(&engine) / 1024), (unsigned)(pulli_heap_peak(&engine) / 1024));
             update_us = draw_us = scanout_us = worst_us = 0;
             frames = late = 0;
         }

@@ -299,6 +299,9 @@ typedef struct {
     /* A package not held in memory is read through this (pulli_boot with
      * no data): a file, an SD card, a cartridge. */
     pulli_read_fn pkg_read;
+    /* Keep the game's debug information (line numbers in errors), as the
+     * manifest's debug = true does: the developer's --debug (SPEC §10). */
+    bool debug;
 } pulli_backend;
 
 /* ---- save data in a cartridge's flash (SPEC §2 "Cartridges") --------- */
@@ -338,6 +341,7 @@ typedef struct {
     pulli_save_target save_target;
     pulli_save_mode   save_mode;
     int               save_interval;     /* seconds between automatic writes */
+    bool              debug;             /* keep debug information (SPEC §10) */
 } pulli_manifest;
 
 struct lua_State;
@@ -360,7 +364,11 @@ typedef struct {
     pulli_manifest       manifest;
     const pulli_backend *backend;
     struct lua_State    *L;
-    size_t   heap_used, heap_peak, heap_limit;   /* Lua heap, bytes */
+    /* The Lua heap, in this machine's bytes, less the debug information
+     * kept in a debug build; see pulli_heap_used for the console's count. */
+    size_t   heap_used, heap_peak, heap_limit;
+    bool     debug;                              /* debug information kept */
+    struct pulli_debug_set *debug_blocks;        /* where it lies, when kept */
     uint8_t *save;                               /* save blob, save_size bytes */
     uint32_t save_len;
     bool     save_dirty;
@@ -393,5 +401,11 @@ bool pulli_update  (pulli_engine *e, uint32_t buttons);   /* one fixed 1/60 s st
 bool pulli_draw    (pulli_engine *e);
 void pulli_present (pulli_engine *e);                     /* scanout to backend->present */
 void pulli_shutdown(pulli_engine *e);                     /* commits save data */
+/* The Lua heap in use and at its peak, in bytes, as the console counts
+ * them: a desktop with 8-byte pointers counts the same objects about 1.47
+ * times bigger, and scales its count to match (SPEC §10). stat("mem") and
+ * the manifest's lua_heap are in these bytes. */
+size_t pulli_heap_used(const pulli_engine *e);
+size_t pulli_heap_peak(const pulli_engine *e);
 
 #endif /* PULLI_RUNTIME_H */

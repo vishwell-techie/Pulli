@@ -231,7 +231,7 @@ static int l_dbg(lua_State *L) {
 }
 static int l_stat(lua_State *L) {
     const char *what = luaL_optstring(L, 1, "");
-    if      (!strcmp(what, "mem"))   lua_pushnumber(L, (lua_Number)E->heap_used / 1024);
+    if      (!strcmp(what, "mem"))   lua_pushnumber(L, (lua_Number)pulli_heap_used(E) / 1024);
     else if (!strcmp(what, "active")) lua_pushnumber(L, (lua_Number)E->active / 1024);
     else if (!strcmp(what, "frame")) lua_pushinteger(L, (lua_Integer)E->ctx.frame);
     /* These two need a clock, which a port may not have. They are for
@@ -483,6 +483,7 @@ static int l_require(lua_State *L) {
         lua_setfield(L, -4, name);
         return lua_error(L);
     }
+    pulli_lua_loaded(E, L);
     lua_pushvalue(L, 1);
     lua_call(L, 1, 1);
     if (lua_isnil(L, -1)) {                                    /* a module that returns nothing gives true */

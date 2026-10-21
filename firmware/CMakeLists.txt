@@ -23,6 +23,7 @@ set(PULLI_AUTO_A_SECONDS ${auto_a_default} CACHE STRING
     "Tap the A button every this many seconds; 0 for never")
 set(PULLI_GAME "${CMAKE_CURRENT_LIST_DIR}/../examples/pong" CACHE PATH
     "Game directory linked into the firmware")
+option(PULLI_DEBUG "Keep the game's debug information, so errors say where (SPEC §10)" OFF)
 
 # The Pico SDK, pinned like Lua is (cmake/lua.cmake): one exact release, so
 # everyone builds the same firmware. A copy of your own is used when
@@ -110,6 +111,7 @@ target_compile_definitions(pulli PRIVATE
     # 4 KB SCRATCH_X region.
     PICO_CORE1_STACK_SIZE=0x1000
     PULLI_AUTO_A_SECONDS=${PULLI_AUTO_A_SECONDS}
+    PULLI_DEBUG=$<BOOL:${PULLI_DEBUG}>
 )
 # The SDK keeps the stack in a 4 KB region at the very top of RAM, which a
 # 16 KB stack does not fit. Move the boundaries down so that region is 16 KB:

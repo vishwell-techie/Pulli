@@ -29,7 +29,7 @@ def main():
         t.check(name, r.code == 0 and r.lines == lines, f"stdout: {r.lines}\nwanted: {lines}\nstderr: {r.err}")
 
     def fails(name, lua, uses, *needles):
-        r = t.run_game(lua, extra=helper(*uses))
+        r = t.run_game(lua, extra=helper(*uses), debug=True)        # (with its line numbers)
         t.check(name, r.code == 1 and all(n in r.err for n in needles), f"exit {r.code}\n{r.err}")
 
     R = "local function r(v) return math.floor(v * 100 + 0.5) / 100 end "       # two decimal places

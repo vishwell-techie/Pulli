@@ -50,10 +50,12 @@ static const SDL_Scancode KEYMAP[PULLI_BTN_COUNT] = {
 int main(int argc, char **argv) {
     const char *game = NULL, *link_port = NULL;
     int scale = SCALE_DEFAULT;
-    bool bad = false;
+    bool bad = false, debug = false;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--link")) {
             if (++i < argc) link_port = argv[i]; else bad = true;
+        } else if (!strcmp(argv[i], "--debug")) {
+            debug = true;                       /* keep line numbers for errors */
         } else if (!game) {
             game = argv[i];
         } else if (atoi(argv[i]) >= 1) {
@@ -63,7 +65,7 @@ int main(int argc, char **argv) {
         }
     }
     if (!game || bad) {
-        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT]\n");
+        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT] [--debug]\n");
         return 2;
     }
 
@@ -89,6 +91,7 @@ int main(int argc, char **argv) {
     backend.halves = host_halves;
     backend.micros = micros;
     backend.pkg_read = host_pkg_read;
+    backend.debug = debug;
     /* No sound card is not an error: the game runs silently. */
     SDL_AudioSpec want = { 0 };
     want.freq = PULLI_AUDIO_RATE;
