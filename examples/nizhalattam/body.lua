@@ -94,6 +94,7 @@ function body.read()
   I.swap = (pressed("r") and 1 or 0) - (pressed("l") and 1 or 0)
   I.door = pressed("up")                -- up at a door goes through it
   I.down_p = pressed("down")
+  I.left_p, I.right_p = pressed("left"), pressed("right")
   I.pause = pressed("start")
   return I
 end

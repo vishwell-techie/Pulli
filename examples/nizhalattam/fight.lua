@@ -119,6 +119,16 @@ function fight.arrows(wanted)
   elseif not need and fight.shots then fight.shots = nil unrequire("shots") end
 end
 
+-- Both places full, a lent role taken in place of one carried: that one
+-- is let go.
+function fight.give_up(old, new)
+  local c, was = fight.carried, rawget(ROLES, old)
+  for n = 2, #c do if c[n] == was then c[n] = ROLES[new] end end
+  ROLES[old] = nil
+  unrequire(FILE .. old)
+  fight.arrows(ROLES[new].bow)
+end
+
 local function has(charm)
   for _, c in ipairs(fight.charms) do if c == charm then return true end end
   return false

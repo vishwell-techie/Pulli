@@ -10,7 +10,19 @@
 --   rooms.ended               set when Komali goes through the last door of
 --                             the stories ("end"): main.lua ends the run
 --   rooms.shop, rooms.shop_x  the room's stall or box (stall.lua, box.lua),
---                             and where it stands; nil in other rooms
+--                             or the halfway tear (pick.lua), and where it
+--                             stands; nil in other rooms
+--   rooms.want(name)          a module wanted in this room after all (the
+--                             role picker, pick.lua): let go with the room
+--   rooms.pick                the role picker, once wanted (or at the tear)
+--   rooms.started             set when Komali steps from the Courtyard into
+--                             the first story: main.lua begins the run
+--   rooms.STORIES, MIDDLE     the stories: their first rooms; those made so
+--                             far that come between the first and the last
+--
+-- A story's last door leads "next": into the next story in the run's order
+-- (run.order), or to the halfway tear after the middle one, or out ("end")
+-- after the last.
 --
 -- A room is a map of its own, drawn with its own tile sheet. Its doors are
 -- markers on layer 1, taken in the order the map is read (row by row), and
@@ -24,6 +36,7 @@
 
 local shadows = require("shadows")
 local fight   = require("fight")
+local run     = require("run")
 local fx      = require("fx")
 local C       = require("colours")
 local PLACES  = require("places")
@@ -48,10 +61,10 @@ end
 local ROOMS = {
   ["map.ooru"]   = { place = "court", sheet = "court.kolam", bg = COURT, doors = { "test.ooru", "s1.ooru" },
                      hidden = 2,                -- the booth's glowing screen in the backdrop is the door
-                     name = "hub", shop = "box",
+                     name = "hub", shop = "box", pick = true,     -- (pick: read ahead, wanted later)
                      hint = "h_door", keys = { "up" } },
   -- the Screen, the first story: a lesson a room, then the boss
-  ["s1.ooru"]    = { sheet = "screen.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" },
+  ["s1.ooru"]    = { sheet = "screen.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" }, start = true,
                      hint2 = "h_high", keys2 = { "a" } },
   ["s2.ooru"]    = { sheet = "screen.kolam", doors = { "s3.ooru" }, fight = true, soft = true,
                      hint = "h_strike", keys = { "b" } },
@@ -62,8 +75,8 @@ local ROOMS = {
   ["s5.ooru"]    = { sheet = "screen.kolam", doors = { "s6.ooru" }, fight = true, hint = "h_fight", keys = {} },
   ["s6.ooru"]    = { sheet = "screen.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" }, shop = "stall" },
   ["s7.ooru"]    = { sheet = "screen.kolam", doors = { "boss.ooru" }, hint = "h_pit", keys = {} },
-  ["boss.ooru"]  = { sheet = "screen.kolam", doors = { "f1.ooru" }, fight = true, hint = "h_boss", keys = {},
-                     boss = "veeran", taught = "h_swap", tkeys = { "l", "r" } },
+  ["boss.ooru"]  = { sheet = "screen.kolam", doors = { "next" }, fight = true, hint = "h_boss", keys = {},
+                     boss = "veeran", pick = true, taught = "h_swap", tkeys = { "l", "r" } },
   -- the Painted Forest, the second story
   ["f1.ooru"]    = forest({ doors = { "f2.ooru" }, hint = "h_forest", keys = {} }),
   ["f2.ooru"]    = forest({ doors = { "f3.ooru" }, fight = true, hint = "h_vine", keys = { "a" } }),
@@ -71,13 +84,19 @@ local ROOMS = {
   ["f4.ooru"]    = forest({ doors = { "f5.ooru" }, shop = "stall", cast = false }),
   ["f5.ooru"]    = forest({ doors = { "f6.ooru" }, fight = true }),
   ["f6.ooru"]    = forest({ doors = { "fboss.ooru" } }),
-  ["fboss.ooru"] = forest({ doors = { "end" }, fight = true, hint = "h_vil", keys = {}, cast = false,
+  ["fboss.ooru"] = forest({ doors = { "next" }, fight = true, hint = "h_vil", keys = {}, cast = false, pick = true,
                             boss = "vil", boss_sheet = "vil.kolam", arrows = true, taught = "h_aim", tkeys = { "up", "down", "b" } }),
+  -- the halfway tear, after the middle story: the roles carried may be
+  -- changed here, once a run
+  ["tear.ooru"]  = { sheet = "screen.kolam", doors = { "next" }, story = "tear", shop = "pick", pick = true,
+                     hint = "h_tear", keys = { "up" } },
   -- the test rooms, off the Courtyard's side door
   ["test.ooru"]  = { sheet = "sprites.kolam", doors = { "climb.ooru" } },
   ["climb.ooru"] = { sheet = "screen.kolam", doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = { sheet = "screen.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
+rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru" }      -- each story's first room
+rooms.MIDDLE = { "forest" }          -- made so far; the Leather Sea, the Battlefield and the Market to come
 for _, def in pairs(ROOMS) do
   def.bg, def.place, def.story = def.bg or SCREEN, def.place or "screen", def.story or "screen"
 end
@@ -86,7 +105,7 @@ rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own she
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local LAST = 1011
+local TEAR, LAST = 1012, 1012
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
                [1009] = "vine", [1010] = "moth", [1011] = "wisp" }
 local FADE = 12                                 -- frames out, and as many in
@@ -105,6 +124,26 @@ function rooms.locked()
 end
 
 local code = {}                                 -- the modules loaded for this room, by name
+
+function rooms.want(name)
+  if not code[name] then code[name] = require(name) end
+  if name == "pick" then rooms.pick = code.pick end
+  return code[name]
+end
+
+-- Where a story's last door leads, by the run's order.
+function rooms.after(story)
+  local order = run.order
+  if story == "tear" then return rooms.STORIES[order[run.half + 1]] or "end" end
+  for n, s in ipairs(order) do
+    if s == story then
+      if n == #order then return "end" end
+      if n == run.half then return "tear.ooru" end
+      return rooms.STORIES[order[n + 1]]
+    end
+  end
+  return "end"
+end
 local backdrop_now                              -- the place's background, set once
 local place_now                                 -- the place whose colours are set
 
@@ -137,7 +176,8 @@ function rooms.enter(name, from, body)
   local def = ROOMS[name]
   shadows.boss, shadows.beaten = nil, false
   needs(def)
-  rooms.shop = def.shop and code[def.shop]
+  rooms.shop, rooms.pick = def.shop and code[def.shop], code.pick
+  if def.start and from == "map.ooru" then rooms.started = true end
   map.load(name)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
@@ -150,7 +190,7 @@ function rooms.enter(name, from, body)
   shadows.soft = def.soft and 0.33 or 1
   fx.clear()
   fight.arrows(def.arrows)                      -- (and clears those in flight)
-  rooms.stall_x, rooms.box_x = nil, nil
+  rooms.stall_x, rooms.box_x, rooms.tear_x = nil, nil, nil
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
   local sx, sy = 40, 200
   for cy = 0, h - 1 do
@@ -162,9 +202,10 @@ function rooms.enter(name, from, body)
       elseif m == BOSS then shadows.add(x, y, def.boss)
       elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
       elseif m == BOX then rooms.box_x, rooms.floor_y = x, y
+      elseif m == TEAR then rooms.tear_x, rooms.floor_y = x, y
       elseif m == DOOR then
         local n = #dx + 1
-        dx[n], dy[n], dto[n] = cx, cy, def.doors[n]
+        dx[n], dy[n], dto[n] = cx, cy, def.doors[n] == "next" and rooms.after(def.story) or def.doors[n]
       end
       if m >= START and m <= LAST then map.set(1, cx, cy, 0) end
     end
@@ -173,7 +214,7 @@ function rooms.enter(name, from, body)
   for n = 1, #dx do
     if from and dto[n] == from then sx, sy = dx[n] * 8 + 4, dy[n] * 8 + 8 end
   end
-  rooms.shop_x = rooms.stall_x or rooms.box_x
+  rooms.shop_x = rooms.stall_x or rooms.box_x or rooms.tear_x
   body.place(sx, sy)
   -- the rooms beyond this one's doors, their sheets and their code, read
   -- ahead (past the last door, the Courtyard)
@@ -181,7 +222,7 @@ function rooms.enter(name, from, body)
     local to = dto[n] == "end" and "map.ooru" or dto[n]
     local d = ROOMS[to]
     preload(to, d.sheet, d.bg)
-    for _, m in pairs({ d.cast, d.boss, d.shop }) do preload(m .. ".lua") end
+    for _, m in pairs({ d.cast, d.boss, d.shop, d.pick and "pick" }) do preload(m .. ".lua") end
     if d.boss then preload("role_" .. d.boss .. ".lua") end      -- the role he lends
     if d.boss_sheet then preload(d.boss_sheet) end
     if d.arrows then preload("shots.lua") end
@@ -241,8 +282,19 @@ function rooms.draw_doors()
   end end
 end
 
--- the stall and the Aasaan's box, drawn from the actors' sheet
+-- the stall and the Aasaan's box, drawn from the actors' sheet; the tear,
+-- a rip in the cloth with the lamp blazing through
 function rooms.draw_things()
+  if rooms.tear_x then
+    local x, y, f = rooms.tear_x, rooms.floor_y, stat("frame")
+    for n = 0, 11 do
+      local y0, y1 = y - 64 + n * 5, y - 59 + n * 5
+      local x0 = x + ((n * 5) % 7 - 3) * 2
+      local x1 = x + (((n + 1) * 5) % 7 - 3) * 2
+      local w = 6 - math.abs(n - 6) // 2 + (f // 8 + n) % 2
+      for d = -w, w do line(x0 + d, y0, x1 + d, y1, math.abs(d) < w - 2 and C.glow or math.abs(d) < w and C.lamp or C.ink) end
+    end
+  end
   if rooms.stall_x then spr(774, rooms.stall_x - 16, rooms.floor_y - 32, 4, 4) end
   if rooms.box_x then
     spr(771, rooms.box_x - 12, rooms.floor_y - 16, 3, 2)

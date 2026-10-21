@@ -15,6 +15,8 @@
 --   vil.lua       Vil, the forest's boss (loaded in his room only)
 --   rooms.lua     rooms and the doors between them; reading ahead
 --   stall.lua     the stall, where mai is spent (loaded in its rooms only)
+--   box.lua       the Aasaan's box: repairs, the roles to carry, a seed
+--   pick.lua      choosing roles: at the box, the halfway tear, a role lent
 --   run.lua       what is kept between runs, and what a run carries
 --   lines.lua     every word, in Tamil and English
 --   fx.lua        scraps, sparks, and the drops of ink (mai)
@@ -53,23 +55,33 @@ end
 function init()
   -- collect sooner than Lua's default (when the heap has doubled): the game
   -- keeps little garbage, and the room it leaves is the 256 KB heap's
-  collectgarbage("incremental", 120, 200)
+  collectgarbage("incremental", 110, 200)
   run.load()
   preload(rooms.ACTORS)
   home()
 end
 
-local function show_card(a, b, after)
-  -- broken into lines that fit: the first line large, the second small
+local function show_card(a, b, after, c)
+  -- broken into lines that fit: the first line large, the rest small
   font()
   a = table.concat(text.wrap(a, 34), "\n")
   font("small")
   b = b and table.concat(text.wrap(b, 36), "\n")
+  if c then b = (b and b .. "\n" or "") .. c end
   font()
   mode, card, card2, card_t, card_then = "card", a, b, CARD, after
 end
 
-local function say(s) toast, toast_t = s, 180 end
+local function say(s)                  -- broken into lines that fit, in the small size
+  font("small")
+  toast, toast_t = table.concat(text.wrap(s, 36), "\n"), 180
+  font()
+end
+
+-- how the run went: its seed, its time, the stories cleared
+local function summary()
+  return lines.t("summary", string.format("%05d", run.seed or 0), run.clock(), run.cleared, #run.order)
+end
 
 -- The camera leads the way he faces, and follows up and down more slowly,
 -- catching up at once when he lands.
@@ -131,8 +143,9 @@ function update(dt)
     end
     return
   end
-  local shop = rooms.shop
+  local shop, pk = rooms.shop, rooms.pick
   if shop and shop.update(i, body) then return end
+  if pk and pk ~= shop and pk.update(i, body) then return end
   if select_p then show = not show end
 
   if fight.freeze > 0 then
@@ -148,12 +161,17 @@ function update(dt)
   held_jump, held_dodge, held_attack, held_skill, held_swap = false, false, false, false, 0
 
   if i.pause then mode = "pause" return end
+  run.time = run.time + 1
   if rooms.update(i, body) then          -- through a door: the world waits
+    if rooms.started then                -- into the first story: the run begins
+      rooms.started = false
+      run.start(body, rooms.MIDDLE)
+      if run.typed then say(lines.t("seeded")) end
+    end
     if rooms.ended then
       rooms.ended = false
-      run.data.played = run.data.played + 1
-      run.keep()
-      show_card(lines.t("done"), nil, home)
+      if not run.typed then run.data.played = run.data.played + 1 run.keep() end
+      show_card(lines.t("done"), nil, home, summary())
       return
     end
     cam.x, cam.y = body.k.x + 5 - 160, body.k.y + 10 - 140
@@ -187,9 +205,13 @@ function update(dt)
   local b = shadows.boss
   if shadows.beaten and b then
     shadows.beaten = false
-    fight.lend(b.role)
+    run.cleared = run.cleared + 1
+    -- both places full: which role to give up for his, if any
+    local full = #fight.carried >= 3
+    for _, r in ipairs(fight.carried) do if r.name:lower() == b.role then full = false end end
+    if full then rooms.want("pick").open("lend", b.role) else fight.lend(b.role) end
     run.add_oil(b.oil)
-    say(lines.t("lent", lines.role(fight.ROLES[b.role].name)) .. "   " .. lines.t("oil", b.oil))
+    say(full and lines.t("oil", b.oil) or lines.t("lent", lines.role(fight.ROLES[b.role].name)) .. "   " .. lines.t("oil", b.oil))
     -- what his role does, in place of the room's hint
     local def = rooms.def()
     local keys = {}
@@ -200,9 +222,8 @@ function update(dt)
   end
   -- fallen: the run ends; he wakes on the Aasaan's box
   if body.k.health <= 0 then
-    run.data.falls = run.data.falls + 1
-    run.keep()
-    show_card(lines.t("fallen"), lines.t("woke"), home)
+    if not run.typed then run.data.falls = run.data.falls + 1 run.keep() end
+    show_card(lines.t("fallen"), lines.t("woke"), home, run.seed and summary())
   end
 end
 
@@ -218,12 +239,9 @@ local function hud()
   rectfill(6, 7, 60 * k.health // k.max, 4, k.health > 30 and C.saffron or C.red)
   line(6, 7, 5 + 60 * k.health // k.max, 7, k.health > 30 and C.lamp or C.vermil)
   print(k.health, 72, 4, C.cloth)
-  local x = 100
-  for n, r in ipairs(fight.carried) do
-    local name = lines.role(r.name)
-    print(name, x, 4, n == fight.worn and C.lamp or C.tan)
-    x = x + text.width(name) + 10
-  end
+  -- the role worn, by name; a bead for each carried, the worn one lit
+  print(lines.role(role.name), 100, 4, C.lamp)
+  for n = 1, #fight.carried do circfill(186 + n * 9, 9, 2, n == fight.worn and C.lamp or C.tan) end
   local wait = fight.cooldown()
   if wait > 0 then rectfill(100, 15, 40 * wait // role.wait, 2, C.sky) end
   spr(790, 232, 5)
@@ -255,11 +273,11 @@ end
 
 local function overlay()
   font("small")
-  if hint and mode == "play" and not (rooms.shop and rooms.shop.is_open()) then
+  if hint and mode == "play" and not (rooms.shop and rooms.shop.is_open()) and not (rooms.pick and rooms.pick.is_open()) then
     local y = say_at(hint, 28, C.glow)
     if hint2 then say_at(hint2, y + 2, C.cloth) end
   end
-  if toast_t > 0 then say_at(toast, 196, C.lamp) end
+  if toast_t > 0 then say_at(toast, toast:find("\n") and 184 or 196, C.lamp) end
   if mode == "pause" then
     rectfill(30, 30, 260, 180, C.deep)
     rect(30, 30, 260, 180, C.marigold)
@@ -277,6 +295,11 @@ local function overlay()
     print(lines.t("charms") .. ": " .. (cs == "" and "-" or cs), 44, y, C.cloth)
     y = y + 20
     print(lines.t("mai") .. ": " .. fight.mai .. "    " .. lines.t("oil_k") .. ": " .. run.data.oil, 44, y, C.cloth)
+    if run.seed then
+      y = y + 20
+      print(summary(), 44, y, C.cloth)
+      if run.typed then print(lines.t("seeded"), 44, y + 16, C.vermil) end
+    end
     text.center(lines.t("resume", buttons.start, buttons.select), 186, C.tan)
   end
   if mode == "card" then
@@ -321,6 +344,7 @@ function draw()
   camera()
   hud()
   if rooms.shop then rooms.shop.draw(body) end
+  if rooms.pick and rooms.pick ~= rooms.shop then rooms.pick.draw() end
   overlay()
   if show then
     local k = body.k

@@ -838,14 +838,17 @@ def main():
                 r.code == 0 and len(firsts) >= 2 and all(v == 2 * wind[m] for m, v in firsts.items())
                 and len(shown) >= 1 and all(seconds[m] == wind[m] for m in seconds), got)
 
-        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body)', "if f == 140 then i.door = true end",
+        # (a run of two stories: the halfway tear comes after the first)
+        r, got = story('run.start(body, rooms.MIDDLE) rooms.enter("boss.ooru", "s7.ooru", body)',
+                       "if f == 140 or f == 240 then i.door = true end",
                        'if f == 3 then st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
                        'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) '
                        '  at(54, 208) end '
-                       'if f == 200 then dbg("on", rooms.name, #fight.carried, palette(25)) end', frames=210)
-        t.check("nizhalattam: Veeran torn lends his role and 8 oil; the door on leads into the Painted Forest, in its colours",
-                got.get("lent") == ["2", "Veeran", "8"] and got.get("on", [""])[:2] == ["f1.ooru", "2"]
-                and got.get("on", ["", "", "x"])[2] != "255", got)
+                       'if f == 200 then dbg("tear", rooms.name) at(34, 208) end '
+                       'if f == 300 then dbg("on", rooms.name, #fight.carried, palette(25)) end', frames=310)
+        t.check("nizhalattam: Veeran torn lends his role and 8 oil; on through the halfway tear into the Painted Forest, in its colours",
+                got.get("lent") == ["2", "Veeran", "8"] and got.get("tear") == ["tear.ooru"]
+                and got.get("on", [""])[:2] == ["f1.ooru", "2"] and got.get("on", ["", "", "x"])[2] != "255", got)
 
         # Step 5: the Painted Forest. Its own shadows, in its rooms only.
         r, got = story('rooms.enter("f2.ooru", "f1.ooru", body)', "",
@@ -908,7 +911,7 @@ def main():
         t.check("nizhalattam: come close and Vil leaps away",
                 got.get("leapt") == ["true", "true"], got)
 
-        r, got = story('rooms.enter("fboss.ooru", "f6.ooru", body)', "if f == 140 then i.door = true end",
+        r, got = story('run.start(body, rooms.MIDDLE) rooms.enter("fboss.ooru", "f6.ooru", body)', "if f == 140 then i.door = true end",
                        'if f == 3 then st.oil, st.p = run.data.oil, run.data.played local b = shadows.boss b.hp = 1 '
                        '  shadows.strike(b, 5, -1, true) end '
                        'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) '
@@ -917,6 +920,92 @@ def main():
                        '  tostring(rawget(fight.ROLES, "vil") ~= nil)) end', frames=390)
         t.check("nizhalattam: Vil torn lends his role and 9 oil; the door on ends the run, back in the Courtyard; his role let go",
                 got.get("lent") == ["2", "Vil", "9"] and got.get("home") == ["map.ooru", "1", "1", "0", "false"], got)
+
+        # The run: a seed when Komali steps into the Screen; the stories
+        # between the first and the last in an order from it; the halfway
+        # tear after the middle one.
+        r, got = story("at(34, 208)", "if f == 10 then i.door = true end",
+                       'if f == 2 then st.runs = run.data.runs dbg("before", tostring(run.seed)) end '
+                       'if f == 60 then dbg("begun", rooms.name, tostring(run.seed ~= nil), table.concat(run.order, ","), '
+                       '  run.data.runs - st.runs, tostring(run.typed)) end', frames=70)
+        t.check("nizhalattam: a run begins as Komali steps into the Screen: a seed, the stories in order, counted",
+                got.get("before") == ["nil"] and got.get("begun") == ["s1.ooru", "true", "screen,forest", "1", "false"], got)
+
+        r, got = story("", "",
+                       'if f == 3 then local m = { "forest", "sea", "flags", "masks" } local seen = {} '
+                       '  for _, seed in ipairs({ 12345, 12345, 777, 4242 }) do run.next_seed = seed run.start(body, m, "palace") '
+                       '    seen[#seen + 1] = table.concat(run.order, ",") end '
+                       '  dbg("orders", table.unpack(seen)) dbg("half", run.half, tostring(run.typed)) '
+                       '  run.order, run.half = { "screen", "forest" }, 1 '
+                       '  dbg("after", rooms.after("screen"), rooms.after("tear"), rooms.after("forest")) end', frames=5)
+        orders = got.get("orders", [])
+        t.check("nizhalattam: the same seed, the same order of stories; the Screen first, the Palace last; the tear halfway",
+                len(orders) == 4 and orders[0] == orders[1] and len(set(orders)) >= 3
+                and all(o.startswith("screen,") and o.endswith(",palace") and len(o.split(",")) == 6 for o in orders)
+                and got.get("half") == ["3", "true"] and got.get("after") == ["tear.ooru", "f1.ooru", "end"], got)
+
+        r, got = story('run.next_seed = 4242 run.start(body, rooms.MIDDLE) rooms.enter("fboss.ooru", "f6.ooru", body)',
+                       "if f == 140 then i.door = true end",
+                       'if f == 3 then st.oil, st.p, st.runs = run.data.oil, run.data.played, run.data.runs local b = shadows.boss b.hp = 1 '
+                       '  shadows.strike(b, 5, -1, true) end '
+                       'if f == 10 then at(58, 208) end '
+                       'if f == 145 then dbg("end", string.format("%05d", run.seed), run.clock(), run.cleared) end '
+                       'if f == 380 then dbg("kept", run.data.oil - st.oil, run.data.played - st.p, run.data.runs - st.runs) end', frames=390)
+        t.check("nizhalattam: a run from a typed seed keeps nothing: no oil, not counted; its seed and time are shown",
+                got.get("end") == ["04242", "0:02", "1"] and got.get("kept") == ["0", "0", "0"], got)
+
+        # The Aasaan's box: the saved puppets' roles to carry, and a seed.
+        r, got = story('run.data.saved = { "veeran", "vil" } at(7, 208)',
+                       'if f == 10 then i.door = true end if f == 14 or f == 16 or f == 18 then i.down_p = true end '
+                       'if f == 20 then i.jump = true end '                               # Roles to carry
+                       'if f == 24 or f == 28 or f == 34 then i.jump = true end if f == 26 or f == 30 then i.down_p = true end',
+                       'if f == 40 then dbg("chosen", table.concat(run.data.chosen, ","), tostring(rooms.pick.is_open())) '
+                       '  run.start(body, rooms.MIDDLE) local n = {} for _, r in ipairs(fight.carried) do n[#n + 1] = r.name end '
+                       '  dbg("wears", table.concat(n, ",")) '
+                       '  run.data.saved = { "veeran" } run.start(body, rooms.MIDDLE) dbg("unsaved", #fight.carried) end', frames=45)
+        t.check("nizhalattam: at the box, saved puppets' roles are chosen to carry from the start of each run; only saved ones",
+                got.get("chosen") == ["veeran,vil", "false"] and got.get("wears") == ["Komali,Veeran,Vil"]
+                and got.get("unsaved") == ["2"], got)
+
+        r, got = story("at(7, 208)",
+                       'if f == 10 then i.door = true end if f >= 12 and f <= 18 and f % 2 == 0 then i.down_p = true end '
+                       'if f == 22 then i.jump = true end '                               # Seed
+                       'if f == 24 or f == 26 or f == 28 then i.door = true end if f == 30 then i.right_p = true end '
+                       'if f == 32 then i.door = true end if f == 34 then i.jump = true end',
+                       'if f == 40 then dbg("seed", tostring(run.next_seed)) run.start(body, rooms.MIDDLE) '
+                       '  dbg("typed", run.seed, tostring(run.typed), tostring(run.next_seed)) end', frames=45)
+        t.check("nizhalattam: at the box a seed is typed digit by digit, for the next run only, which keeps nothing",
+                got.get("seed") == ["31000"] and got.get("typed") == ["31000", "true", "nil"], got)
+
+        # The halfway tear: the roles carried change, once a run.
+        r, got = story('run.data.saved = { "vil" } fight.wear({ "komali", "veeran" }) rooms.enter("tear.ooru", "boss.ooru", body) at(20, 208)',
+                       'if f == 10 or f == 40 then i.door = true end '
+                       'if f == 14 or f == 18 or f == 22 or f == 44 then i.jump = true end if f == 16 or f == 20 then i.down_p = true end',
+                       'local function names() local n = {} for _, r in ipairs(fight.carried) do n[#n + 1] = r.name end return table.concat(n, ",") end '
+                       'if f == 30 then dbg("changed", names(), tostring(run.torn)) end '
+                       'if f == 42 then dbg("again", tostring(rooms.pick.is_open())) end '
+                       'if f == 50 then dbg("once", names(), tostring(rooms.pick.is_open())) end', frames=55)
+        t.check("nizhalattam: at the halfway tear the roles carried change, once a run",
+                got.get("changed") == ["Komali,Vil", "true"] and got.get("again") == ["true"]
+                and got.get("once") == ["Komali,Vil", "false"], got)
+
+        # Lent a role with both places full: give one up for it, or keep them.
+        full = ('rawset(fight.ROLES, "aattakkaari", { name = "Aattakkaari", combo = fight.ROLES.komali.combo, '
+                'air = fight.ROLES.komali.air, swap = fight.ROLES.komali.swap, skill = "pratfall", wait = 240, '
+                'slow = 0.5, dodge_wait = 1, guard = 0 }) fight.wear({ "komali", "vil", "aattakkaari" }) '
+                'rooms.enter("boss.ooru", "s7.ooru", body) ')
+        given = {}
+        for name, read in (("give", "if f == 12 then i.down_p = true end if f == 14 then i.jump = true end"),
+                           ("keep", "if f == 12 or f == 14 then i.down_p = true end if f == 16 then i.jump = true end")):
+            r, got = story(full, read,
+                           'if f == 3 then local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                           'if f == 10 then dbg("asks", tostring(rooms.pick.is_open())) end '
+                           'if f == 30 then local n = {} for _, r in ipairs(fight.carried) do n[#n + 1] = r.name end '
+                           '  dbg("carried", table.concat(n, ","), tostring(rooms.pick.is_open())) end', frames=35)
+            given[name] = (got.get("asks"), got.get("carried"))
+        t.check("nizhalattam: lent a role with both places full, Komali gives one up for it, or keeps those he carries",
+                given["give"] == (["true"], ["Komali,Vil,Veeran", "false"])
+                and given["keep"] == (["true"], ["Komali,Vil,Aattakkaari", "false"]), given)
 
         # Vil's role, among the striking lesson's dummies (cells 18, 26, 34)
         def archer(read, report, frames=120, wear='"vil"'):
@@ -1026,7 +1115,7 @@ def main():
                        'if f == 150 then collectgarbage() dbg("after", stat("mem")) end', frames=160)
         hub, bossroom, forestroom, vilroom, after = (float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 180 and bossroom < 186 and forestroom < 194 and vilroom < 200 and after < forestroom - 6, got)
+                hub < 190 and bossroom < 192 and forestroom < 200 and vilroom < 207 and after < forestroom - 6, got)
 
         if t.update:
             with open(path, "w") as f:
