@@ -104,7 +104,7 @@ local function hints()
   local function make(h, keys)
     if not h then return nil end
     local b = {}
-    for n, name in ipairs(keys or {}) do b[n] = buttons[name] end
+    for name in (keys or ""):gmatch("%S+") do b[#b + 1] = buttons[name] end
     return lines.t(h, table.unpack(b))
   end
   hint, hint2 = make(def.hint, def.keys), make(def.hint2, def.keys2)
@@ -209,13 +209,14 @@ function update(dt)
     -- both places full: which role to give up for his, if any
     local full = #fight.carried >= 3
     for _, r in ipairs(fight.carried) do if r.name:lower() == b.role then full = false end end
+    run.lent[b.role] = true
     if full then rooms.want("pick").open("lend", b.role) else fight.lend(b.role) end
     run.add_oil(b.oil)
     say(full and lines.t("oil", b.oil) or lines.t("lent", lines.role(fight.ROLES[b.role].name)) .. "   " .. lines.t("oil", b.oil))
     -- what his role does, in place of the room's hint
     local def = rooms.def()
     local keys = {}
-    for n, key in ipairs(def.tkeys) do keys[n] = buttons[key] end
+    for key in def.tkeys:gmatch("%S+") do keys[#keys + 1] = buttons[key] end
     font("small")
     hint, hint2 = table.concat(text.wrap(lines.t(def.taught, table.unpack(keys)), 36), "\n"), nil
     font()

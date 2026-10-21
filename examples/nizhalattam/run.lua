@@ -6,6 +6,7 @@
 --   run.begin(body)       back at the Aasaan's box: the next run not begun
 --   run.start(body, middle)  a run begins (through the booth's screen): its
 --                         seed, the order of its stories, its roles
+--   run.lent[name]        the roles lent in this run (they need no place bought)
 --   run.charm(name)       does Komali carry this charm?
 --   run.add_oil(n)        oil, kept at once (not in a seeded run)
 --   run.clock()           the run's time, as m:ss
@@ -23,7 +24,7 @@
 local lines = require("lines")
 local fight = require("fight")
 
-local run = { charms = {}, sharp = {}, seed = nil, typed = false, next_seed = nil,
+local run = { charms = {}, sharp = {}, seed = nil, typed = false, next_seed = nil, lent = {},
               order = { "screen" }, half = 0, torn = false, cleared = 0, time = 0 }
 local KEY, VERSION = "progress", 1
 run.SEEDS = 100000                      -- seeds are five digits
@@ -69,6 +70,7 @@ function run.begin(body)
   fight.sharp, fight.charms = run.sharp, run.charms
   run.seed, run.typed, run.order, run.half, run.torn = nil, false, { "screen" }, 0, false
   run.cleared, run.time = 0, 0
+  for k in pairs(run.lent) do run.lent[k] = nil end
 end
 
 -- The run's own random numbers, from its seed (math.random is the
@@ -83,7 +85,7 @@ end
 
 -- A run begins: its seed (typed at the box, or from this moment), the
 -- order of the stories between the first and the last, where the halfway
--- tear falls, and the roles chosen at the box.
+-- tear falls, and the roles chosen at the box (as many as places bought).
 function run.start(body, middle, last)
   if run.next_seed then run.seed, run.typed, run.next_seed = run.next_seed, true, nil
   else run.seed, run.typed = (stat("frame") * 7919 + run.data.runs * 104729) % run.SEEDS, false end
@@ -94,9 +96,10 @@ function run.start(body, middle, last)
   for _, s in ipairs(middle) do table.insert(order, rand(#order) + 1, s) end
   if last then order[#order + 1] = last end
   run.order, run.half, run.torn, run.cleared, run.time = order, #order // 2, false, 0, 0
-  local wear = { "komali" }
+  for k in pairs(run.lent) do run.lent[k] = nil end
+  local wear, places = { "komali" }, run.data.repairs.r_slot or 0
   for _, r in ipairs(run.data.chosen) do
-    if run.saved(r) and #wear < 3 then wear[#wear + 1] = r end
+    if run.saved(r) and #wear <= places then wear[#wear + 1] = r end
   end
   fight.wear(wear)
 end

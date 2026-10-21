@@ -51,55 +51,51 @@ local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = 
 -- and the code it needs: its story's shadows (cast), its boss (and his
 -- sheet), its stall or box (shop), arrows (shots.lua). A boss's room says
 -- which hint follows his fall (taught).
-local SCREEN, COURT = "bg_screen.kolam", "bg_court.kolam"
-local FOREST = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", cast = "forest", story = "forest" }
-local function forest(def)
-  for key, v in pairs(FOREST) do if def[key] == nil then def[key] = v end end
-  if not def.cast then def.cast = nil end           -- no shadows of the forest's here
-  return def
-end
+-- (A room takes what it does not say from its story's defaults, through a
+-- metatable, so each room's own table stays small; the buttons a hint names
+-- are a string, "left right a".)
+local SCREEN = { __index = { place = "screen", sheet = "screen.kolam", bg = "bg_screen.kolam", story = "screen" } }
+local FOREST = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest",
+                             cast = "forest" } }
+local NONE = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest" } }
+local S = function(def) return setmetatable(def, SCREEN) end
+local F = function(def) return setmetatable(def, FOREST) end
+local F0 = function(def) return setmetatable(def, NONE) end      -- a forest room with none of its shadows
 local ROOMS = {
-  ["map.ooru"]   = { place = "court", sheet = "court.kolam", bg = COURT, doors = { "test.ooru", "s1.ooru" },
-                     hidden = 2,                -- the booth's glowing screen in the backdrop is the door
-                     name = "hub", shop = "box", pick = true,     -- (pick: read ahead, wanted later)
-                     hint = "h_door", keys = { "up" } },
+  ["map.ooru"]   = S{ place = "court", sheet = "court.kolam", bg = "bg_court.kolam", doors = { "test.ooru", "s1.ooru" },
+                      hidden = 2,                -- the booth's glowing screen in the backdrop is the door
+                      shop = "box", pick = true, -- (pick: read ahead, wanted later)
+                      hint = "h_door", keys = "up" },
   -- the Screen, the first story: a lesson a room, then the boss
-  ["s1.ooru"]    = { sheet = "screen.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" }, start = true,
-                     hint2 = "h_high", keys2 = { "a" } },
-  ["s2.ooru"]    = { sheet = "screen.kolam", doors = { "s3.ooru" }, fight = true, soft = true,
-                     hint = "h_strike", keys = { "b" } },
-  ["s3.ooru"]    = { sheet = "screen.kolam", doors = { "s4.ooru" }, fight = true, soft = true,
-                     hint = "h_dodge", keys = { "y" } },
-  ["s4.ooru"]    = { sheet = "screen.kolam", doors = { "s5.ooru" }, fight = true, soft = true,
-                     hint = "h_skill", keys = { "x" } },
-  ["s5.ooru"]    = { sheet = "screen.kolam", doors = { "s6.ooru" }, fight = true, hint = "h_fight", keys = {} },
-  ["s6.ooru"]    = { sheet = "screen.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" }, shop = "stall" },
-  ["s7.ooru"]    = { sheet = "screen.kolam", doors = { "boss.ooru" }, hint = "h_pit", keys = {} },
-  ["boss.ooru"]  = { sheet = "screen.kolam", doors = { "next" }, fight = true, hint = "h_boss", keys = {},
-                     boss = "veeran", pick = true, taught = "h_swap", tkeys = { "l", "r" } },
+  ["s1.ooru"]    = S{ doors = { "s2.ooru" }, hint = "h_move", keys = "left right a", start = true,
+                      hint2 = "h_high", keys2 = "a" },
+  ["s2.ooru"]    = S{ doors = { "s3.ooru" }, fight = true, soft = true, hint = "h_strike", keys = "b" },
+  ["s3.ooru"]    = S{ doors = { "s4.ooru" }, fight = true, soft = true, hint = "h_dodge", keys = "y" },
+  ["s4.ooru"]    = S{ doors = { "s5.ooru" }, fight = true, soft = true, hint = "h_skill", keys = "x" },
+  ["s5.ooru"]    = S{ doors = { "s6.ooru" }, fight = true, hint = "h_fight" },
+  ["s6.ooru"]    = S{ doors = { "s7.ooru" }, hint = "h_stall", keys = "up", shop = "stall" },
+  ["s7.ooru"]    = S{ doors = { "boss.ooru" }, hint = "h_pit" },
+  ["boss.ooru"]  = S{ doors = { "next" }, fight = true, hint = "h_boss", boss = "veeran", pick = true,
+                      taught = "h_swap", tkeys = "l r" },
   -- the Painted Forest, the second story
-  ["f1.ooru"]    = forest({ doors = { "f2.ooru" }, hint = "h_forest", keys = {} }),
-  ["f2.ooru"]    = forest({ doors = { "f3.ooru" }, fight = true, hint = "h_vine", keys = { "a" } }),
-  ["f3.ooru"]    = forest({ doors = { "f2.ooru", "f4.ooru" }, hint = "h_wisp", keys = {} }),
-  ["f4.ooru"]    = forest({ doors = { "f5.ooru" }, shop = "stall", cast = false }),
-  ["f5.ooru"]    = forest({ doors = { "f6.ooru" }, fight = true }),
-  ["f6.ooru"]    = forest({ doors = { "fboss.ooru" } }),
-  ["fboss.ooru"] = forest({ doors = { "next" }, fight = true, hint = "h_vil", keys = {}, cast = false, pick = true,
-                            boss = "vil", boss_sheet = "vil.kolam", arrows = true, taught = "h_aim", tkeys = { "up", "down", "b" } }),
+  ["f1.ooru"]    = F{ doors = { "f2.ooru" }, hint = "h_forest" },
+  ["f2.ooru"]    = F{ doors = { "f3.ooru" }, fight = true, hint = "h_vine", keys = "a" },
+  ["f3.ooru"]    = F{ doors = { "f2.ooru", "f4.ooru" }, hint = "h_wisp" },
+  ["f4.ooru"]    = F0{ doors = { "f5.ooru" }, shop = "stall" },
+  ["f5.ooru"]    = F{ doors = { "f6.ooru" }, fight = true },
+  ["f6.ooru"]    = F{ doors = { "fboss.ooru" } },
+  ["fboss.ooru"] = F0{ doors = { "next" }, fight = true, hint = "h_vil", pick = true, boss = "vil",
+                       boss_sheet = "vil.kolam", arrows = true, taught = "h_aim", tkeys = "up down b" },
   -- the halfway tear, after the middle story: the roles carried may be
   -- changed here, once a run
-  ["tear.ooru"]  = { sheet = "screen.kolam", doors = { "next" }, story = "tear", shop = "pick", pick = true,
-                     hint = "h_tear", keys = { "up" } },
+  ["tear.ooru"]  = S{ doors = { "next" }, story = "tear", shop = "pick", pick = true, hint = "h_tear", keys = "up" },
   -- the test rooms, off the Courtyard's side door
-  ["test.ooru"]  = { sheet = "sprites.kolam", doors = { "climb.ooru" } },
-  ["climb.ooru"] = { sheet = "screen.kolam", doors = { "arena.ooru", "test.ooru" } },
-  ["arena.ooru"] = { sheet = "screen.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
+  ["test.ooru"]  = S{ sheet = "sprites.kolam", doors = { "climb.ooru" } },
+  ["climb.ooru"] = S{ doors = { "arena.ooru", "test.ooru" } },
+  ["arena.ooru"] = S{ doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
 rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru" }      -- each story's first room
 rooms.MIDDLE = { "forest" }          -- made so far; the Leather Sea, the Battlefield and the Market to come
-for _, def in pairs(ROOMS) do
-  def.bg, def.place, def.story = def.bg or SCREEN, def.place or "screen", def.story or "screen"
-end
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 

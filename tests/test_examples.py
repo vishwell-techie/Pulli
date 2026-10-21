@@ -954,35 +954,59 @@ def main():
         t.check("nizhalattam: a run from a typed seed keeps nothing: no oil, not counted; its seed and time are shown",
                 got.get("end") == ["04242", "0:02", "1"] and got.get("kept") == ["0", "0", "0"], got)
 
-        # The Aasaan's box: the saved puppets' roles to carry, and a seed.
-        r, got = story('run.data.saved = { "veeran", "vil" } at(7, 208)',
-                       'if f == 10 then i.door = true end if f == 14 or f == 16 or f == 18 then i.down_p = true end '
-                       'if f == 20 then i.jump = true end '                               # Roles to carry
-                       'if f == 24 or f == 28 or f == 34 then i.jump = true end if f == 26 or f == 30 then i.down_p = true end',
-                       'if f == 40 then dbg("chosen", table.concat(run.data.chosen, ","), tostring(rooms.pick.is_open())) '
+        def presses(*steps):
+            """Lua for body.read: each (frame, field) sets that input on that frame."""
+            return " ".join(f"if f == {f} then i.{k} = true end" for f, k in steps)
+
+        # The Aasaan's box: places bought with oil; the saved puppets' roles
+        # to carry in them; a seed. Its cards: health, double jump, mai,
+        # place, roles, seed. The picker's: the six puppets, then Done.
+        r, got = story('run.data.oil = 25 at(7, 208)',
+                       presses((10, "door"), (12, "down_p"), (14, "down_p"), (16, "down_p"), (18, "jump"), (22, "attack")),
+                       'if f == 30 then dbg("place", run.data.oil, run.data.repairs.r_slot) end', frames=35)
+        t.check("nizhalattam: at the box oil buys a place for a role carried from the start (20)",
+                got.get("place") == ["5", "1"], got)
+
+        steps = [(10, "door")] + [(12 + 2 * n, "down_p") for n in range(4)] + [(20, "jump"),     # Roles
+                 (24, "jump"), (26, "right_p"), (28, "jump")] + [(30 + 2 * n, "right_p") for n in range(5)] + [(42, "jump")]
+        r, got = story('run.data.saved = { "veeran", "vil" } run.data.repairs.r_slot = 2 at(7, 208)', presses(*steps),
+                       'if f == 50 then dbg("chosen", table.concat(run.data.chosen, ","), tostring(rooms.pick.is_open())) '
                        '  run.start(body, rooms.MIDDLE) local n = {} for _, r in ipairs(fight.carried) do n[#n + 1] = r.name end '
                        '  dbg("wears", table.concat(n, ",")) '
-                       '  run.data.saved = { "veeran" } run.start(body, rooms.MIDDLE) dbg("unsaved", #fight.carried) end', frames=45)
-        t.check("nizhalattam: at the box, saved puppets' roles are chosen to carry from the start of each run; only saved ones",
+                       '  run.data.repairs.r_slot = 1 run.start(body, rooms.MIDDLE) dbg("one", #fight.carried) '
+                       '  run.data.saved = { "vil" } run.data.repairs.r_slot = 2 run.start(body, rooms.MIDDLE) dbg("unsaved", #fight.carried) end', frames=55)
+        t.check("nizhalattam: at the box saved puppets' roles go in the places bought, to carry from the start of each run",
                 got.get("chosen") == ["veeran,vil", "false"] and got.get("wears") == ["Komali,Veeran,Vil"]
-                and got.get("unsaved") == ["2"], got)
+                and got.get("one") == ["2"] and got.get("unsaved") == ["2"], got)
 
-        r, got = story("at(7, 208)",
-                       'if f == 10 then i.door = true end if f >= 12 and f <= 18 and f % 2 == 0 then i.down_p = true end '
-                       'if f == 22 then i.jump = true end '                               # Seed
-                       'if f == 24 or f == 26 or f == 28 then i.door = true end if f == 30 then i.right_p = true end '
-                       'if f == 32 then i.door = true end if f == 34 then i.jump = true end',
+        steps = [(10, "door")] + [(12 + 2 * n, "down_p") for n in range(4)] + [(20, "jump"),
+                 (24, "jump"), (26, "right_p"), (28, "right_p"), (30, "jump")]       # Veeran; then Aattakkaari, not saved
+        r, got = story('run.data.saved = { "veeran", "vil" } run.data.repairs.r_slot = 0 at(7, 208)', presses(*steps),
+                       'if f == 25 then dbg("locked", #require("pick").PUPPETS) end '
+                       'if f == 32 then dbg("none", tostring(rooms.pick.is_open())) end', frames=35)
+        r2, got2 = story('run.data.saved = { "veeran" } run.data.repairs.r_slot = 2 at(7, 208)',
+                         presses(*(steps[:7] + [(26, "right_p"), (28, "jump")] + [(30 + 2 * n, "right_p") for n in range(5)] + [(42, "jump")])),
+                         'if f == 50 then dbg("chosen", table.concat(run.data.chosen, ",")) end', frames=55)
+        t.check("nizhalattam: no place bought, or a puppet not saved, and nothing is chosen",
+                got2.get("chosen") == ["veeran"] and got.get("none") == ["true"], (got, got2))
+
+        steps = [(10, "door")] + [(12 + 2 * n, "down_p") for n in range(5)] + [(22, "jump"),     # Seed
+                 (24, "door"), (26, "door"), (28, "door"), (30, "right_p"), (32, "door"), (34, "jump")]
+        r, got = story("at(7, 208)", presses(*steps),
                        'if f == 40 then dbg("seed", tostring(run.next_seed)) run.start(body, rooms.MIDDLE) '
                        '  dbg("typed", run.seed, tostring(run.typed), tostring(run.next_seed)) end', frames=45)
         t.check("nizhalattam: at the box a seed is typed digit by digit, for the next run only, which keeps nothing",
                 got.get("seed") == ["31000"] and got.get("typed") == ["31000", "true", "nil"], got)
 
-        # The halfway tear: the roles carried change, once a run.
-        r, got = story('run.data.saved = { "vil" } fight.wear({ "komali", "veeran" }) rooms.enter("tear.ooru", "boss.ooru", body) at(20, 208)',
-                       'if f == 10 or f == 40 then i.door = true end '
-                       'if f == 14 or f == 18 or f == 22 or f == 44 then i.jump = true end if f == 16 or f == 20 then i.down_p = true end',
+        # The halfway tear: the roles carried change, once a run. Veeran was
+        # lent in this run (he needs no place bought); Vil is saved, in the
+        # one place bought.
+        steps = [(10, "door"), (14, "jump"), (16, "right_p"), (18, "jump")] + [(20 + 2 * n, "right_p") for n in range(5)] + [(32, "jump"),
+                 (40, "door"), (44, "jump")]
+        r, got = story('run.data.saved = { "vil" } run.data.repairs.r_slot = 1 run.lent.veeran = true '
+                       'fight.wear({ "komali", "veeran" }) rooms.enter("tear.ooru", "boss.ooru", body) at(20, 208)', presses(*steps),
                        'local function names() local n = {} for _, r in ipairs(fight.carried) do n[#n + 1] = r.name end return table.concat(n, ",") end '
-                       'if f == 30 then dbg("changed", names(), tostring(run.torn)) end '
+                       'if f == 36 then dbg("changed", names(), tostring(run.torn)) end '
                        'if f == 42 then dbg("again", tostring(rooms.pick.is_open())) end '
                        'if f == 50 then dbg("once", names(), tostring(rooms.pick.is_open())) end', frames=55)
         t.check("nizhalattam: at the halfway tear the roles carried change, once a run",
