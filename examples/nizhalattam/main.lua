@@ -4,15 +4,18 @@
 -- shadow-puppet theatre into the world of its stories, and wears the roles
 -- of the other puppets to bring them home. So far: the Courtyard; the first
 -- story, the Screen, a lesson a room, with Veeran as its boss; and the
--- second, the Painted Forest, with Vil.
+-- second, the Painted Forest, with Vil; the third, the Leather Sea, with
+-- Aattakkaari.
 --
 --   body.lua      how Komali moves: running, jumping, dodging, walls, blows
 --   fight.lua     his roles and his blows; the freeze and the shake
 --   shots.lua     arrows in flight, his and the shadows' (only where wanted)
 --   shadows.lua   the enemies: soldier, dummy, inkblot, scrap
 --   forest.lua    the forest's own: vine-hand, leaf-moth, wisp (in its rooms only)
+--   sea.lua       the sea's own: crab-shield, wave-cutter, gull; boats (in its rooms only)
 --   veeran.lua    Veeran, the Screen's boss (loaded in his room only)
 --   vil.lua       Vil, the forest's boss (loaded in his room only)
+--   aattakkaari.lua  Aattakkaari, the sea's boss (loaded on her deck only)
 --   rooms.lua     rooms and the doors between them; reading ahead
 --   stall.lua     the stall, where mai is spent (loaded in its rooms only)
 --   box.lua       the Aasaan's box: repairs, the roles to carry, a seed
@@ -337,7 +340,7 @@ function draw()
   shadows.draw()
   local role = fight.role()
   local pose = fight.pose(body)
-  body.draw(role.colours, pose and body.FRAME[pose], role.frames)
+  body.draw(role.colours, pose and body.FRAME[pose], role.frames, role.moves)
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- body.draw resets pal
   fight.draw(body)
   if fight.shots then fight.shots.draw() end

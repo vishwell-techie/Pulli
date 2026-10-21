@@ -4,12 +4,20 @@
 --   body.place(x, y)          -- feet at (x, y), in map pixels
 --   body.update(input)        -- once a frame; input from body.read()
 --   body.hurt(n, from_x)      -- struck: false if he could not be touched
---   body.draw(c, pose, base)  -- c: the role's colours, swapped in (pal);
---                             pose: a frame of a blow (body.FRAME), or nil;
---                             base: where the role's frames start, or nil
+--   body.draw(c, pose, base, moves)  -- c: the role's colours, swapped in
+--                             (pal); pose: a frame of a blow (body.FRAME), or
+--                             nil; base: where the role's frames start, or
+--                             nil; moves: where its blows' frames start, if
+--                             it has only those
 --
 -- k.held, set by a shadow that grabs him (the vine-hand), holds him still
--- for that many frames; A, Y and B shake him free sooner.
+-- for that many frames; A, Y and B shake him free sooner. k.untouch, set by
+-- a role's move (the dancer's dash), keeps blows off him for that many.
+--
+-- body.floors: floors that move (the sea's boats), each { x, y, w, dx, dy }:
+-- its top at y, and how far it moved last frame. He lands on one from above
+-- as on a thin floor, rides it while he stands on it (k.on), and drops
+-- through with down + A. rooms.lua empties the list as a room is entered.
 --
 -- Every number that decides how it feels is in body.T, in pixels and
 -- frames (the game runs at a fixed 60 frames a second), so it can be tuned
@@ -18,7 +26,7 @@
 
 local move = require("move")
 
-local body = {}
+local body = { floors = {} }
 
 local T = {
   run = 1.6,          -- top running speed, pixels a frame (96 a second)
@@ -50,10 +58,13 @@ body.T = T
 local SOLID, THIN = 1, 2
 -- Komali's frames in actors.png, 24x32 each: frame k is sprite 3k, or
 -- 256 + 3k with a sword in hand (the warrior's role), or 1536 + 3k with a
--- bow (the archer's, whose frames 14-19 are his own). See art.py.
+-- bow (the archer's, whose frames 14-19 are his own). A role may have only
+-- frames 14-19 of its own (the dancer's, at 500 + 3k), and wear his for the
+-- rest. See art.py.
 local IDLE, RUN, JUMP, FALL, DODGE, WALL, HURT = 0, 2, 8, 9, 10, 12, 13
 body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9,
-               aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19 }
+               aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19,
+               kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
@@ -67,14 +78,16 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             max = 100,          -- health at full (more with the Aasaan's repairs)
             jumps = 0,          -- jumps left in the air (1 with the double jump)
             double = false,
-            held = 0 }          -- frames a shadow holds him still
+            held = 0,           -- frames a shadow holds him still
+            untouch = 0,        -- frames no blow reaches him
+            on = nil }          -- the moving floor he stands on, if any
 body.k = k
 
 move.solid, move.edges = SOLID, false
 
 function body.place(x, y)
   k.x, k.y, k.vx, k.vy = x - 5, y - k.h, 0, 0
-  k.safe_x, k.safe_y, k.dodge, k.wait, k.held = k.x, k.y, 0, 0, 0
+  k.safe_x, k.safe_y, k.dodge, k.wait, k.held, k.on, k.untouch = k.x, k.y, 0, 0, 0, nil, 0
 end
 
 -- The buttons this frame. Kept apart from the moving, so tests and the
@@ -125,6 +138,26 @@ local function thin_below(dy)
   end
 end
 
+-- The moving floor right under his feet, if any.
+local function on_floor()
+  if k.drop > 0 then return nil end
+  local feet = k.y + k.h
+  for _, f in ipairs(body.floors) do
+    if math.abs(feet - f.y) < 0.6 and k.x < f.x + f.w and f.x < k.x + k.w then return f end
+  end
+end
+
+-- Falling by dy: the top of the first moving floor his feet would pass.
+local function floor_below(dy)
+  if dy < 0 or k.drop > 0 then return nil end
+  local feet, top = k.y + k.h, nil
+  for _, f in ipairs(body.floors) do
+    if feet <= f.y + 0.6 and feet + dy >= f.y and k.x < f.x + f.w and f.x < k.x + k.w
+       and (not top or f.y < top) then top = f.y end
+  end
+  return top
+end
+
 local function toward(v, goal, by)
   if v < goal then return math.min(goal, v + by) end
   return math.max(goal, v - by)
@@ -135,6 +168,8 @@ function body.update(i)
   if k.wait > 0 then k.wait = k.wait - 1 end
   if k.struck > 0 then k.struck = k.struck - 1 end
   if k.drop > 0 then k.drop = k.drop - 1 end
+  if k.untouch > 0 then k.untouch = k.untouch - 1 end
+  if k.on then move.by(k, k.on.dx, k.on.dy) end      -- carried by the boat he stands on
   k.buf = i.jump and T.buffer or math.max(0, k.buf - 1)
 
   local dir = (i.right and 1 or 0) - (i.left and 1 or 0)
@@ -162,7 +197,7 @@ function body.update(i)
       k.vy, k.buf, k.jumps = -T.jump * T.again, 0, k.jumps - 1     -- the double jump
       k.from, k.top = k.y, k.y
     elseif k.buf > 0 and (k.ground or k.air <= T.coyote) then
-      if i.down and k.ground and on_thin() then
+      if i.down and k.ground and (on_thin() or k.on) then
         k.drop, k.buf = T.drop, 0
       else
         k.vy, k.buf, k.ground, k.air = -T.jump, 0, false, T.coyote + 1
@@ -187,7 +222,8 @@ function body.update(i)
 
   -- move: across, then down, landing on thin floors from above
   local dy = k.vy
-  local land = thin_below(dy)
+  local land, top = thin_below(dy), floor_below(dy)
+  if top and (not land or top < land) then land = top end
   if land then dy = land - (k.y + k.h) end
   local hit_x, hit_y = move.by(k, k.vx, dy)
   if hit_x then k.vx = 0 end
@@ -196,7 +232,8 @@ function body.update(i)
     if k.vy > 0 then k.y = math.floor(k.y) end       -- feet on a whole pixel
     k.vy = 0
   end
-  k.ground = move.blocked(k.x, k.y + k.h, k.w, 1) or on_thin()
+  k.on = on_floor()
+  k.ground = move.blocked(k.x, k.y + k.h, k.w, 1) or on_thin() or k.on ~= nil
   if was_ground and not k.ground and k.vy >= 0 then k.from, k.top = k.y, k.y end   -- walked off
   if k.ground then
     k.air, k.jumps = 0, k.double and 1 or 0
@@ -225,7 +262,7 @@ end
 -- after a blow.
 function body.safe()
   local f = T.dodge - k.dodge
-  return k.struck > 0 or (k.dodge > 0 and f >= T.dodge_safe[1] and f <= T.dodge_safe[2])
+  return k.struck > 0 or k.untouch > 0 or (k.dodge > 0 and f >= T.dodge_safe[1] and f <= T.dodge_safe[2])
 end
 
 -- A blow of n from the side of from_x. k.guard, set by fight.lua, takes
@@ -242,7 +279,7 @@ function body.hurt(n, from_x)
   return n
 end
 
-function body.draw(c, pose, base)
+function body.draw(c, pose, base, moves)
   local f
   if pose then f = pose
   elseif k.dodge > 0 then f = DODGE + k.dodge // 4 % 2
@@ -255,7 +292,7 @@ function body.draw(c, pose, base)
   if k.wall ~= 0 then flip = k.wall < 0 end
   if k.struck > 0 and k.struck < T.struck - 12 and k.struck // 4 % 2 == 0 then return end   -- flashing
   if c then for n = 1, #c, 2 do pal(c[n], c[n + 1]) end end
-  spr((base or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
+  spr((pose and moves or base or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
   pal()
 end
 

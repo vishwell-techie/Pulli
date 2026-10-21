@@ -58,9 +58,11 @@ local SCREEN = { __index = { place = "screen", sheet = "screen.kolam", bg = "bg_
 local FOREST = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest",
                              cast = "forest" } }
 local NONE = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest" } }
+local SEA = { __index = { place = "sea", sheet = "sea.kolam", bg = "bg_sea.kolam", story = "sea", cast = "sea" } }
 local S = function(def) return setmetatable(def, SCREEN) end
 local F = function(def) return setmetatable(def, FOREST) end
 local F0 = function(def) return setmetatable(def, NONE) end      -- a forest room with none of its shadows
+local K = function(def) return setmetatable(def, SEA) end        -- (kadal, the sea)
 local ROOMS = {
   ["map.ooru"]   = S{ place = "court", sheet = "court.kolam", bg = "bg_court.kolam", doors = { "test.ooru", "s1.ooru" },
                       hidden = 2,                -- the booth's glowing screen in the backdrop is the door
@@ -86,6 +88,15 @@ local ROOMS = {
   ["f6.ooru"]    = F{ doors = { "fboss.ooru" } },
   ["fboss.ooru"] = F0{ doors = { "next" }, fight = true, hint = "h_vil", pick = true, boss = "vil",
                        boss_sheet = "vil.kolam", arrows = true, taught = "h_aim", tkeys = "up down b" },
+  -- the Leather Sea, the third (cast = false: a room with none of its shadows)
+  ["k1.ooru"]    = K{ doors = { "k2.ooru" }, hint = "h_sea" },
+  ["k2.ooru"]    = K{ doors = { "k3.ooru" }, fight = true, hint = "h_crab" },
+  ["k3.ooru"]    = K{ doors = { "k4.ooru" }, hint = "h_boat" },
+  ["k4.ooru"]    = K{ doors = { "k5.ooru" }, shop = "stall", cast = false },
+  ["k5.ooru"]    = K{ doors = { "k6.ooru" }, fight = true, hint = "h_wave" },
+  ["k6.ooru"]    = K{ doors = { "kboss.ooru" } },
+  ["kboss.ooru"] = K{ doors = { "next" }, fight = true, hint = "h_aatta", pick = true, boss = "aattakkaari",
+                      boss_sheet = "aatta.kolam", cast = false, taught = "h_dance", tkeys = "b x" },
   -- the halfway tear, after the middle story: the roles carried may be
   -- changed here, once a run
   ["tear.ooru"]  = S{ doors = { "next" }, story = "tear", shop = "pick", pick = true, hint = "h_tear", keys = "up" },
@@ -94,16 +105,17 @@ local ROOMS = {
   ["climb.ooru"] = S{ doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = S{ doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
-rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru" }      -- each story's first room
-rooms.MIDDLE = { "forest" }          -- made so far; the Leather Sea, the Battlefield and the Market to come
+rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru", sea = "k1.ooru" }      -- each story's first room
+rooms.MIDDLE = { "forest", "sea" }   -- made so far; the Battlefield and the Market to come
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, LAST = 1012, 1012
+local TEAR, LAST = 1012, 1017
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
-               [1009] = "vine", [1010] = "moth", [1011] = "wisp" }
+               [1009] = "vine", [1010] = "moth", [1011] = "wisp",
+               [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -114,7 +126,7 @@ function rooms.def() return ROOMS[rooms.name] end
 function rooms.locked()
   if not ROOMS[rooms.name].fight then return false end
   for _, s in ipairs(shadows.list) do
-    if s.on then return true end
+    if s.on and not s.prop then return true end         -- (not for a boat)
   end
   return false
 end
@@ -164,7 +176,7 @@ local function needs(def)
     end
   end
   for _, name in pairs({ def.cast, def.boss, def.shop }) do
-    if not code[name] then code[name] = require(name) end
+    if name and not code[name] then code[name] = require(name) end
   end
 end
 
@@ -183,6 +195,7 @@ function rooms.enter(name, from, body)
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8
   shadows.clear()
+  for n = #body.floors, 1, -1 do body.floors[n] = nil end
   shadows.soft = def.soft and 0.33 or 1
   fx.clear()
   fight.arrows(def.arrows)                      -- (and clears those in flight)
@@ -218,7 +231,7 @@ function rooms.enter(name, from, body)
     local to = dto[n] == "end" and "map.ooru" or dto[n]
     local d = ROOMS[to]
     preload(to, d.sheet, d.bg)
-    for _, m in pairs({ d.cast, d.boss, d.shop, d.pick and "pick" }) do preload(m .. ".lua") end
+    for _, m in pairs({ d.cast, d.boss, d.shop, d.pick and "pick" }) do if m then preload(m .. ".lua") end end
     if d.boss then preload("role_" .. d.boss .. ".lua") end      -- the role he lends
     if d.boss_sheet then preload(d.boss_sheet) end
     if d.arrows then preload("shots.lua") end

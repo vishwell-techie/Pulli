@@ -59,6 +59,9 @@ function vine.update(s, body, k, dx)
   elseif st == "rest" then
     s.t = s.t - 1
     if s.t <= 0 then s.state, s.t = "hide", V.wait tall(s, 4) end
+  elseif st == "reel" then                         -- tripped or stunned: it rests after
+    s.t = s.t - 1
+    if s.t <= 0 then s.state, s.t = "rest", V.rest end
   end
 end
 

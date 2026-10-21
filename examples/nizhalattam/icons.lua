@@ -20,4 +20,5 @@ return {
   f_komali = 1834,
   f_veeran = 1836,
   f_vil = 1838,
+  f_aattakkaari = 1840,
 }

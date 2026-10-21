@@ -69,4 +69,11 @@ return {
   not_saved = "Not saved yet",
   no_slot = "Buy another place at the box",
   give_up = "Give up %s",
+  h_sea = "The Leather Sea. Aattakkaari the dancer is held here",
+  h_crab = "Crab-shields guard their front. Strike as they rest after a lunge",
+  h_boat = "Ride the boats across the water. Mind the gulls' cry",
+  h_wave = "A wave-cutter rides the quay: jump it, strike when its wave sinks",
+  h_aatta = "Aattakkaari! Her bells ring before she moves",
+  h_dance = "Aattakkaari's role: %s kicks carry you on, %s dashes through and stuns",
+  role_Aattakkaari = "Aattakkaari",
 }

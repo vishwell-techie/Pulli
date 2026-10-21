@@ -2,7 +2,7 @@
 -- make a blow feel solid.
 --
 --   fight.wear({ "komali", "veeran" })   the roles he carries; the first is worn
---                                        (komali, veeran, vil)
+--                                        (komali, veeran, vil, aattakkaari)
 --   fight.lend("veeran")                 a role lent for the rest of the run
 --   fight.sharp, fight.charms            set by run.lua: roles sharpened, charms
 --   fight.update(input, body, shadows)   once a frame, after body.update
@@ -22,6 +22,8 @@
 -- B held, a piercing arrow; X, a rain of arrows on a spot ahead; coming in,
 -- a leap back, loosing three down at what is in front. Each arrow that
 -- strikes makes the next fly further, until one misses.
+-- The dancer kicks, each kick carrying her on; X dashes through the
+-- shadows in her way, stunning them; a dodge leaves a ring that strikes.
 
 local move  = require("move")
 local C     = require("colours")
@@ -45,7 +47,7 @@ local ROLES = {
     slow = 0.5, dodge_wait = 0.5, guard = 0,         -- his own: quicker dodges
   },
 }
--- The other roles are in their own files (role_veeran.lua, role_vil.lua),
+-- The other roles are in their own files (role_veeran.lua, role_vil.lua, ...),
 -- read when first worn or lent, and let go when no longer carried.
 local FILE = "role_"                   -- (a name made, so pack does not take "role_" for a module)
 setmetatable(ROLES, { __index = function(t, name)
@@ -81,6 +83,13 @@ function fight.role() return fight.carried[fight.worn] end
 -- The frame Komali shows for what he is doing (body.FRAME), or nil.
 function fight.pose(body)
   local role = fight.role()
+  if role.moves then                         -- the dancer
+    if skill_t > 0 then return "dash" end
+    if atk == role.swap then return "whirl" end
+    if atk == role.air then return "kick_air" end
+    if atk then return step == 2 and "kick2" or step == 3 and "kick3" or "kick1" end
+    return nil
+  end
   if role.bow then
     if skill_t > 0 then return "rain" end
     if atk == role.swap then return "leap" end
@@ -166,8 +175,8 @@ function fight.update(i, body, shadows)
 
   -- a dodge or a blow taken ends any blow
   if k.dodge > 0 or k.struck > body.T.struck - 12 then atk, charge, skill_t = nil, 0, 0 end
-  -- the bell anklet: a dodge leaves a ring that strikes
-  if k.dodge == body.T.dodge - 1 and has("bell") then
+  -- the bell anklet (and the dancer): a dodge leaves a ring that strikes
+  if k.dodge == body.T.dodge - 1 and (has("bell") or role.ring) then
     fight.swing = fight.swing + 1
     fight.ring = 10
     for _, s in ipairs(shadows.list) do
@@ -203,6 +212,7 @@ function fight.update(i, body, shadows)
       end
     elseif role.start_skill then
       skill_t = role.start_skill(k)
+      fight.swing = fight.swing + 1
     else
       skill_t = BASH
       fight.swing = fight.swing + 1
@@ -210,7 +220,7 @@ function fight.update(i, body, shadows)
   end
   if skill_t > 0 then
     skill_t = skill_t - 1
-    if role.tick_skill then role.tick_skill(skill_t, role) end
+    if role.tick_skill then role.tick_skill(skill_t, role, k) end
     if role.skill == "bash" then
       k.guard = -1                             -- the shield: nothing from the front
       move.by(k, k.face * 1.4, 0)
@@ -285,6 +295,7 @@ function fight.draw(body)
   local k, role = body.k, fight.role()
   local cx, cy = k.x + k.w / 2, k.y + k.h / 2
   if (fight.ring or 0) > 0 then circ(cx, cy, 26 - fight.ring, C.lamp) end
+  if skill_t > 0 and role.draw_skill then role.draw_skill(k) end
   if charge >= CHARGE and stat("frame") % 4 < 2 then
     if role.bow then circ(cx + k.face * 10, cy - 4, 3, C.lamp) else circ(cx - k.face * 4, cy - 16, 3, C.glow) end
   end
