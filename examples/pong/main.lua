@@ -121,6 +121,7 @@ local function start_match()
 end
 
 function init()
+  backdrop("backdrop.kolam")        -- a neon arena at night: each frame starts from it
   left  = { x = 8,      y = H / 2 - PAD_H / 2, score = 0, text = "0" }
   right = { x = W - 12, y = H / 2 - PAD_H / 2, score = 0, text = "0" }
   ball  = { x = W / 2, y = H / 2, vx = 0, vy = 0, speed = BALL_SPEED }
@@ -382,7 +383,7 @@ function update(dt)
 end
 
 function draw()
-  cls(0)
+  cls()                             -- the backdrop
 
   -- screen shake via camera, costs nothing
   if shake > 0 and not paused then
