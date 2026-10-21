@@ -19,7 +19,7 @@ local shadows = require("shadows")
 local C       = require("colours")
 local fx      = require("fx")
 
-local boss = {}
+local boss = { kinds = { "veeran" } }
 
 local B = {
   hp = 160,

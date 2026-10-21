@@ -1,8 +1,10 @@
 -- places.lua — each place's own colours, 20-31 and their shades 52-63,
--- as r, g, b in turn. Made by the art script (private); rooms.lua sets
--- them with palette() as Komali enters a place.
+-- as rrggbb in hex, one after another (a string costs far less memory
+-- than a table of numbers). Made by the art script (private); rooms.lua
+-- sets them with palette() as Komali enters a place.
 
 return {
-  screen = { 255, 251, 234, 251, 240, 207, 246, 227, 178, 238, 209, 150, 226, 188, 124, 210, 164, 100, 190, 140, 81, 166, 116, 65, 140, 93, 50, 112, 70, 38, 178, 58, 48, 124, 30, 44, 128, 119, 145, 126, 114, 129, 124, 108, 113, 120, 100, 98, 114, 90, 83, 106, 79, 70, 97, 68, 59, 85, 57, 50, 73, 46, 42, 59, 36, 35, 91, 30, 40, 65, 17, 38 },
-  court = { 11, 10, 28, 21, 18, 46, 32, 26, 66, 45, 35, 86, 62, 43, 104, 87, 50, 115, 124, 60, 120, 170, 72, 110, 226, 122, 72, 205, 200, 228, 106, 104, 132, 156, 152, 180, 11, 8, 29, 16, 12, 39, 21, 15, 50, 27, 20, 62, 35, 23, 72, 47, 27, 78, 65, 31, 81, 87, 37, 75, 114, 60, 54, 104, 96, 141, 56, 51, 87, 80, 73, 114 },
+  screen = "fffbeafbf0cff6e3b2eed196e2bc7cd2a464be8c51a674418c5d32704626b23a307c1e2c8077917e72817c6c71786462725a536a4f4661443b553932492e2a3b24235b1e28411126",
+  court = "0b0a1c15122e201a422d23563e2b685732737c3c78aa486ee27a48cdc8e46a68849c98b40b081d100c27150f321b143e2317482f1b4e411f5157254b723c3668608d383357504972",
+  forest = "fbf2c0eed784d4b652aea44685a0445e8a3e4070382b54341c3b2d1126207a4f2ed0607a7e73797866576b573b594f35454d3433433024372d1a2a2b131f270e151f402827693052",
 }

@@ -15,7 +15,7 @@ local C = require("colours")
 local fx = {}
 
 -- bits: scraps of paper and sparks
-local BITS = 64                         -- two shadows torn at once
+local BITS = 32                         -- two shadows torn at once
 local bx, by, bvx, bvy, bt, bk = {}, {}, {}, {}, {}, {}
 for n = 1, BITS do bx[n], by[n], bvx[n], bvy[n], bt[n], bk[n] = 0, 0, 0, 0, 0, 0 end
 local alive = 0
@@ -42,7 +42,7 @@ local dx, dy, dvx, dvy, dt = {}, {}, {}, {}, {}
 for n = 1, MAX do dx[n], dy[n], dvx[n], dvy[n], dt[n] = 0, 0, 0, 0, -1 end
 
 function fx.tear(x, y, n)
-  emit(x, y, 24, SCRAP, 1.4)
+  emit(x, y, 14, SCRAP, 1.4)
   for _ = 1, n do
     for d = 1, MAX do
       if dt[d] < 0 then

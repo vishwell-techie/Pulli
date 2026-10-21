@@ -4,8 +4,12 @@
 --   body.place(x, y)          -- feet at (x, y), in map pixels
 --   body.update(input)        -- once a frame; input from body.read()
 --   body.hurt(n, from_x)      -- struck: false if he could not be touched
---   body.draw(c, pose, armed) -- c: the role's colours, swapped in (pal);
---                             pose: a frame of a blow (body.FRAME), or nil
+--   body.draw(c, pose, base)  -- c: the role's colours, swapped in (pal);
+--                             pose: a frame of a blow (body.FRAME), or nil;
+--                             base: where the role's frames start, or nil
+--
+-- k.held, set by a shadow that grabs him (the vine-hand), holds him still
+-- for that many frames; A, Y and B shake him free sooner.
 --
 -- Every number that decides how it feels is in body.T, in pixels and
 -- frames (the game runs at a fixed 60 frames a second), so it can be tuned
@@ -36,6 +40,7 @@ local T = {
   dodge_wait = 30,    -- frames after a dodge before the next
   slide = 1.0,        -- falling speed against a wall
   drop = 12,          -- frames thin floors are ignored after down + A
+  shake = 8,          -- frames of being held each A, Y or B shakes off
   pit = 10,           -- health a fall into a pit costs
   struck = 60,        -- frames he cannot be touched after a blow
   thrown = 2.2,       -- how hard a blow throws him back
@@ -44,9 +49,11 @@ body.T = T
 
 local SOLID, THIN = 1, 2
 -- Komali's frames in actors.png, 24x32 each: frame k is sprite 3k, or
--- 256 + 3k with a sword in hand (the warrior's role). See art.py.
+-- 256 + 3k with a sword in hand (the warrior's role), or 1536 + 3k with a
+-- bow (the archer's, whose frames 14-19 are his own). See art.py.
 local IDLE, RUN, JUMP, FALL, DODGE, WALL, HURT = 0, 2, 8, 9, 10, 12, 13
-body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9 }
+body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9,
+               aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
@@ -59,14 +66,15 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             pit_free = false,   -- the thread spool: a pit costs nothing
             max = 100,          -- health at full (more with the Aasaan's repairs)
             jumps = 0,          -- jumps left in the air (1 with the double jump)
-            double = false }
+            double = false,
+            held = 0 }          -- frames a shadow holds him still
 body.k = k
 
 move.solid, move.edges = SOLID, false
 
 function body.place(x, y)
   k.x, k.y, k.vx, k.vy = x - 5, y - k.h, 0, 0
-  k.safe_x, k.safe_y, k.dodge, k.wait = k.x, k.y, 0, 0
+  k.safe_x, k.safe_y, k.dodge, k.wait, k.held = k.x, k.y, 0, 0, 0
 end
 
 -- The buttons this frame. Kept apart from the moving, so tests and the
@@ -130,6 +138,11 @@ function body.update(i)
 
   local dir = (i.right and 1 or 0) - (i.left and 1 or 0)
   if k.struck > T.struck - 12 then dir = 0 end      -- thrown back: no steering yet
+  if k.held > 0 then                                -- held: still, unless shaken free
+    k.held = k.held - 1 - ((i.jump or i.dodge or i.attack) and T.shake or 0)
+    if k.held < 0 then k.held = 0 end
+    dir, k.buf, i.dodge = 0, 0, false
+  end
   if dir ~= 0 and k.dodge == 0 and k.slow == 1 then k.face = dir end
 
   -- the dodge: a quick roll, straight ahead, gravity held off
@@ -228,7 +241,7 @@ function body.hurt(n, from_x)
   return n
 end
 
-function body.draw(c, pose, armed)
+function body.draw(c, pose, base)
   local f
   if pose then f = pose
   elseif k.dodge > 0 then f = DODGE + k.dodge // 4 % 2
@@ -241,7 +254,7 @@ function body.draw(c, pose, armed)
   if k.wall ~= 0 then flip = k.wall < 0 end
   if k.struck > 0 and k.struck < T.struck - 12 and k.struck // 4 % 2 == 0 then return end   -- flashing
   if c then for n = 1, #c, 2 do pal(c[n], c[n + 1]) end end
-  spr((armed and 256 or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
+  spr((base or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
   pal()
 end
 

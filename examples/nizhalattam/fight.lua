@@ -2,10 +2,14 @@
 -- make a blow feel solid.
 --
 --   fight.wear({ "komali", "veeran" })   the roles he carries; the first is worn
+--                                        (komali, veeran, vil)
 --   fight.lend("veeran")                 a role lent for the rest of the run
 --   fight.sharp, fight.charms            set by run.lua: roles sharpened, charms
 --   fight.update(input, body, shadows)   once a frame, after body.update
 --   fight.draw(body)                     his blow, over him
+--   fight.arrows(wanted)                 arrows (shots.lua) kept while the room
+--                                        wants them or a role carried shoots;
+--                                        fight.shots is then the module
 --   fight.freeze, fight.shake_px         read by main.lua: frames the world
 --                                        stands still, and how far it shakes
 --
@@ -14,9 +18,13 @@
 -- gathers a heavy slash, let go when it shines. X is the role's skill. L and
 -- R change role, and the role coming in strikes as it comes (heavy: it
 -- breaks a guard). A blow that lands stops the world for a few frames.
+-- The archer looses arrows instead (shots.lua): B, aimed with up or down;
+-- B held, a piercing arrow; X, a rain of arrows on a spot ahead; coming in,
+-- a leap back, loosing three down at what is in front. Each arrow that
+-- strikes makes the next fly further, until one misses.
 
-local move = require("move")
-local C    = require("colours")
+local move  = require("move")
+local C     = require("colours")
 
 local fight = { freeze = 0, shake_px = 0, shake_t = 0, worn = 1, carried = {}, swing = 0,
                 mai = 0,         -- the ink picked up this run
@@ -36,22 +44,15 @@ local ROLES = {
     skill = "pratfall", wait = 240,
     slow = 0.5, dodge_wait = 0.5, guard = 0,         -- his own: quicker dodges
   },
-  veeran = {
-    name = "Veeran",
-    colours = { C.red, C.blue, C.vermil, C.sky, C.red + 32, C.blue + 32,       -- blue tunic,
-                C.saffron, C.cloth, C.saffron + 32, C.cloth + 32,          -- a white veshti,
-                C.marigold, C.silver, C.marigold + 32, C.silver + 32 },    -- a steel helmet
-    armed = true,                                    -- his frames with a sword in hand
-    combo = { { s = 5, a = 4, r = 10, n = 12, w = 20, h = 16 },
-              { s = 5, a = 4, r = 10, n = 12, w = 20, h = 16 },
-              { s = 7, a = 5, r = 14, n = 20, w = 22, h = 18 } },
-    air = { s = 4, a = 5, r = 8, n = 12, w = 18, h = 22 },
-    heavy = { s = 2, a = 6, r = 16, n = 40, w = 26, h = 20, heavy = true },
-    swap = { s = 2, a = 6, r = 8, n = 18, w = 22, h = 24, heavy = true },
-    skill = "bash", wait = 300,
-    slow = 0.3, dodge_wait = 1, guard = 0.15,        -- takes 15% less from every blow
-  },
 }
+-- The other roles are in their own files (role_veeran.lua, role_vil.lua),
+-- read when first worn or lent, and let go when no longer carried.
+local FILE = "role_"                   -- (a name made, so pack does not take "role_" for a module)
+setmetatable(ROLES, { __index = function(t, name)
+  local r = require(FILE .. name)
+  rawset(t, name, r)
+  return r
+end })
 fight.ROLES = ROLES
 
 local CHARGE = 30        -- frames B is held for the heavy slash
@@ -59,18 +60,36 @@ local CHAIN = 15         -- frames after a blow in which B carries the combo on
 local PRATFALL, BASH, TRIP = 30, 24, 60
 
 local atk, f, step, queued, idle, charge, cool, skill_t = nil, 0, 0, false, 99, 0, 0, 0
+local aim = 0                          -- the archer's aim: -1 up, 1 down
 
 function fight.wear(list)
   local c = fight.carried
   for n = #c, 1, -1 do c[n] = nil end
+  for name in pairs(ROLES) do                -- roles no longer carried are let go
+    local kept = name == "komali"
+    for _, r in ipairs(list) do kept = kept or r == name end
+    if not kept then ROLES[name] = nil unrequire(FILE .. name) end
+  end
   for n, r in ipairs(list) do c[n] = ROLES[r] end
+  fight.arrows(false)
   fight.worn = 1
   atk, step, charge, cool, skill_t = nil, 0, 0, 0, 0
 end
 
-function fight.role() -- The frame Komali shows for what he is doing (body.FRAME), or nil.
+function fight.role() return fight.carried[fight.worn] end
+
+-- The frame Komali shows for what he is doing (body.FRAME), or nil.
 function fight.pose(body)
   local role = fight.role()
+  if role.bow then
+    if skill_t > 0 then return "rain" end
+    if atk == role.swap then return "leap" end
+    if atk or charge > 0 then
+      if not body.k.ground then return "air" end
+      return aim < 0 and "aim_up" or aim > 0 and "aim_down" or "aim"
+    end
+    return nil
+  end
   if skill_t > 0 then return role.skill == "pratfall" and "flat" or "slap1" end
   if atk then
     if atk == role.swap then return role.name == "Komali" and "cart" or "slap3" end
@@ -81,8 +100,6 @@ function fight.pose(body)
   if charge >= CHARGE then return "gather" end
 end
 
-return fight.carried[fight.worn] end
-
 -- A role lent: carried for the rest of the run, beside his own and at most
 -- one more. (Choosing which to give up when both places are full comes
 -- with the roles chosen at the Aasaan's box.)
@@ -90,7 +107,16 @@ function fight.lend(name)
   local c = fight.carried
   for _, r in ipairs(c) do if r == ROLES[name] then return false end end
   if #c >= 3 then c[3] = ROLES[name] else c[#c + 1] = ROLES[name] end
+  if ROLES[name].bow then fight.arrows(true) end
   return true
+end
+
+function fight.arrows(wanted)
+  local need = wanted
+  for _, r in ipairs(fight.carried) do need = need or r.bow end
+  if fight.shots then fight.shots.clear() end
+  if need and not fight.shots then fight.shots = require("shots")
+  elseif not need and fight.shots then fight.shots = nil unrequire("shots") end
 end
 
 local function has(charm)
@@ -100,6 +126,7 @@ end
 
 -- a blow's cost, with the role's edge
 local function cost(n, role) return fight.sharp[role.name] and math.floor(n * 1.2 + 0.5) or n end
+fight.cost = cost
 function fight.cooldown() return cool end
 
 -- a blow lands: the world stops for a moment, and shakes
@@ -150,6 +177,7 @@ function fight.update(i, body, shadows)
     k.dodge_wait, k.guard = role.dodge_wait, role.guard
     step, charge, skill_t = 0, 0, 0
     start(role.swap)
+    if role.swap.leap then k.vy, k.vx, k.ground = -3.2, -k.face * 2.6, false end
   end
 
   -- the skill
@@ -163,6 +191,8 @@ function fight.update(i, body, shadows)
           s.state, s.t, s.vx = "reel", TRIP, 0
         end
       end
+    elseif role.start_skill then
+      skill_t = role.start_skill(k)
     else
       skill_t = BASH
       fight.swing = fight.swing + 1
@@ -170,6 +200,7 @@ function fight.update(i, body, shadows)
   end
   if skill_t > 0 then
     skill_t = skill_t - 1
+    if role.tick_skill then role.tick_skill(skill_t, role) end
     if role.skill == "bash" then
       k.guard = -1                             -- the shield: nothing from the front
       move.by(k, k.face * 1.4, 0)
@@ -185,7 +216,11 @@ function fight.update(i, body, shadows)
   -- B: the combo, the air blow, and the warrior's heavy slash
   if atk == nil and skill_t == 0 then
     idle = idle + 1
-    if i.attack then
+    if i.attack and role.bow then
+      step, aim = 0, i.up and -1 or i.down and 1 or 0
+      start(role.shot)
+      charge = 0
+    elseif i.attack then
       if not k.ground then step = 0; start(role.air)
       else
         step = (idle <= CHAIN and step < 3) and step + 1 or 1
@@ -200,7 +235,9 @@ function fight.update(i, body, shadows)
     end
   elseif atk then
     if i.attack then queued = true end
+    if role.bow and f < atk.s then aim = i.up and -1 or i.down and 1 or 0 end
     f = f + 1
+    if atk.speed and f == atk.s then role.loose(k, atk, aim) end
     local x, y, w, h = reach(k, atk)
     if x then
       for _, s in ipairs(shadows.list) do
@@ -216,13 +253,20 @@ function fight.update(i, body, shadows)
     if f >= atk.s + atk.a + atk.r then
       local m = atk
       atk, idle = nil, 0
-      if queued and m ~= role.air and m ~= role.swap and step < 3 then
+      if queued and role.bow and m == role.shot then
+        start(role.shot)
+      elseif queued and m ~= role.air and m ~= role.swap and step < 3 then
         step = step + 1
         start(role.combo[step])
       end
     end
   end
-  k.slow = (atk and k.ground) and role.slow or (skill_t > 0 and 0 or 1)
+  -- arrows in flight: those that strike stop the world too
+  if fight.shots then
+    local struck, heavy = fight.shots.update(body, shadows)
+    if struck > 0 then fight.hit(heavy) end
+  end
+  k.slow = ((atk or (role.bow and charge > 0)) and k.ground) and role.slow or (skill_t > 0 and 0 or 1)
 end
 
 -- the blow, drawn as the arc of a sword or a slap; the heavy slash shines
@@ -231,8 +275,10 @@ function fight.draw(body)
   local k, role = body.k, fight.role()
   local cx, cy = k.x + k.w / 2, k.y + k.h / 2
   if (fight.ring or 0) > 0 then circ(cx, cy, 26 - fight.ring, C.lamp) end
-  if charge >= CHARGE and stat("frame") % 4 < 2 then circ(cx - k.face * 4, cy - 16, 3, C.glow) end
-  if not atk then return end
+  if charge >= CHARGE and stat("frame") % 4 < 2 then
+    if role.bow then circ(cx + k.face * 10, cy - 4, 3, C.lamp) else circ(cx - k.face * 4, cy - 16, 3, C.glow) end
+  end
+  if not atk or atk.speed then return end
   local x, y, w, h = reach(k, atk)
   if not x then
     return

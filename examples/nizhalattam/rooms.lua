@@ -8,7 +8,9 @@
 --   rooms.draw_things()       the stall and the Aasaan's box, with the actors
 --   rooms.fade()              0 to 1, how dark the screen is
 --   rooms.ended               set when Komali goes through the last door of
---                             a story ("end"): main.lua ends the run
+--                             the stories ("end"): main.lua ends the run
+--   rooms.shop, rooms.shop_x  the room's stall or box (stall.lua, box.lua),
+--                             and where it stands; nil in other rooms
 --
 -- A room is a map of its own, drawn with its own tile sheet. Its doors are
 -- markers on layer 1, taken in the order the map is read (row by row), and
@@ -16,24 +18,37 @@
 -- next room is loaded behind it, and the rooms beyond that room's doors,
 -- with their sheets, are read ahead (`preload`), so nothing is read while
 -- Komali plays. A fight room's doors stay shut until its shadows are torn.
+-- Code is kept only where it is used: a story's own shadows (its cast) in
+-- its rooms, a boss in his room, the stall and the box in theirs; it is read
+-- ahead behind the doors too, and let go when Komali leaves.
 
 local shadows = require("shadows")
+local fight   = require("fight")
 local fx      = require("fx")
 local C       = require("colours")
 local PLACES  = require("places")
 
 local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = nil, floor_y = 0 }
 
--- Each room: its place (whose colours it is drawn in: the Courtyard, or the
--- Screen by default), its tile sheet and its background, where its doors lead (in the order the map is
--- read), whether it is a fight room (its doors shut until its shadows are
--- torn), whether its shadows strike softly (a lesson), and the hint shown
--- on the cloth, with the buttons it names.
+-- Each room: its place (whose colours it is drawn in: the Courtyard, the
+-- Screen by default, the forest), its tile sheet and its background, where
+-- its doors lead (in the order the map is read), whether it is a fight room
+-- (its doors shut until its shadows are torn), whether its shadows strike
+-- softly (a lesson), the hint shown on the cloth with the buttons it names,
+-- and the code it needs: its story's shadows (cast), its boss (and his
+-- sheet), its stall or box (shop), arrows (shots.lua). A boss's room says
+-- which hint follows his fall (taught).
 local SCREEN, COURT = "bg_screen.kolam", "bg_court.kolam"
+local FOREST = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", cast = "forest", story = "forest" }
+local function forest(def)
+  for key, v in pairs(FOREST) do if def[key] == nil then def[key] = v end end
+  if not def.cast then def.cast = nil end           -- no shadows of the forest's here
+  return def
+end
 local ROOMS = {
   ["map.ooru"]   = { place = "court", sheet = "court.kolam", bg = COURT, doors = { "test.ooru", "s1.ooru" },
                      hidden = 2,                -- the booth's glowing screen in the backdrop is the door
-                     name = "hub",
+                     name = "hub", shop = "box",
                      hint = "h_door", keys = { "up" } },
   -- the Screen, the first story: a lesson a room, then the boss
   ["s1.ooru"]    = { sheet = "screen.kolam", doors = { "s2.ooru" }, hint = "h_move", keys = { "left", "right", "a" },
@@ -45,22 +60,35 @@ local ROOMS = {
   ["s4.ooru"]    = { sheet = "screen.kolam", doors = { "s5.ooru" }, fight = true, soft = true,
                      hint = "h_skill", keys = { "x" } },
   ["s5.ooru"]    = { sheet = "screen.kolam", doors = { "s6.ooru" }, fight = true, hint = "h_fight", keys = {} },
-  ["s6.ooru"]    = { sheet = "screen.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" } },
+  ["s6.ooru"]    = { sheet = "screen.kolam", doors = { "s7.ooru" }, hint = "h_stall", keys = { "up" }, shop = "stall" },
   ["s7.ooru"]    = { sheet = "screen.kolam", doors = { "boss.ooru" }, hint = "h_pit", keys = {} },
-  ["boss.ooru"]  = { sheet = "screen.kolam", doors = { "end" }, fight = true, hint = "h_boss", keys = {},
-                     boss = "veeran" },
+  ["boss.ooru"]  = { sheet = "screen.kolam", doors = { "f1.ooru" }, fight = true, hint = "h_boss", keys = {},
+                     boss = "veeran", taught = "h_swap", tkeys = { "l", "r" } },
+  -- the Painted Forest, the second story
+  ["f1.ooru"]    = forest({ doors = { "f2.ooru" }, hint = "h_forest", keys = {} }),
+  ["f2.ooru"]    = forest({ doors = { "f3.ooru" }, fight = true, hint = "h_vine", keys = { "a" } }),
+  ["f3.ooru"]    = forest({ doors = { "f2.ooru", "f4.ooru" }, hint = "h_wisp", keys = {} }),
+  ["f4.ooru"]    = forest({ doors = { "f5.ooru" }, shop = "stall", cast = false }),
+  ["f5.ooru"]    = forest({ doors = { "f6.ooru" }, fight = true }),
+  ["f6.ooru"]    = forest({ doors = { "fboss.ooru" } }),
+  ["fboss.ooru"] = forest({ doors = { "end" }, fight = true, hint = "h_vil", keys = {}, cast = false,
+                            boss = "vil", boss_sheet = "vil.kolam", arrows = true, taught = "h_aim", tkeys = { "up", "down", "b" } }),
   -- the test rooms, off the Courtyard's side door
   ["test.ooru"]  = { sheet = "sprites.kolam", doors = { "climb.ooru" } },
   ["climb.ooru"] = { sheet = "screen.kolam", doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = { sheet = "screen.kolam", doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
-for _, def in pairs(ROOMS) do def.bg, def.place = def.bg or SCREEN, def.place or "screen" end
+for _, def in pairs(ROOMS) do
+  def.bg, def.place, def.story = def.bg or SCREEN, def.place or "screen", def.story or "screen"
+end
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap", [BOSS] = "veeran" }
+local LAST = 1011
+local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
+               [1009] = "vine", [1010] = "moth", [1011] = "wisp" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -76,7 +104,7 @@ function rooms.locked()
   return false
 end
 
-local boss_code                                 -- the boss module loaded, if any
+local code = {}                                 -- the modules loaded for this room, by name
 local backdrop_now                              -- the place's background, set once
 local place_now                                 -- the place whose colours are set
 
@@ -84,20 +112,32 @@ local place_now                                 -- the place whose colours are s
 local function colours_of(place)
   local p = PLACES[place]
   for n = 0, 23 do
-    palette(n < 12 and 20 + n or 52 + n - 12, p[n * 3 + 1], p[n * 3 + 2], p[n * 3 + 3])
+    local h = n * 6
+    palette(n < 12 and 20 + n or 52 + n - 12, tonumber(p:sub(h + 1, h + 2), 16),
+            tonumber(p:sub(h + 3, h + 4), 16), tonumber(p:sub(h + 5, h + 6), 16))
+  end
+end
+
+-- The code a room needs; what the last room needed and this one does not
+-- is let go, with the kinds of shadow it added.
+local function needs(def)
+  for name, m in pairs(code) do
+    if name ~= def.cast and name ~= def.boss and name ~= def.shop then
+      for _, kind in ipairs(m.kinds or {}) do shadows.kinds[kind] = nil end
+      unrequire(name)
+      code[name] = nil
+    end
+  end
+  for _, name in pairs({ def.cast, def.boss, def.shop }) do
+    if not code[name] then code[name] = require(name) end
   end
 end
 
 function rooms.enter(name, from, body)
   local def = ROOMS[name]
-  -- a boss's code is kept only in its room
-  if boss_code and boss_code ~= def.boss then
-    shadows.kinds[boss_code] = nil
-    unrequire(boss_code)
-    boss_code = nil
-  end
   shadows.boss, shadows.beaten = nil, false
-  if def.boss then boss_code = def.boss; require(def.boss) end
+  needs(def)
+  rooms.shop = def.shop and code[def.shop]
   map.load(name)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
@@ -109,6 +149,7 @@ function rooms.enter(name, from, body)
   shadows.clear()
   shadows.soft = def.soft and 0.33 or 1
   fx.clear()
+  fight.arrows(def.arrows)                      -- (and clears those in flight)
   rooms.stall_x, rooms.box_x = nil, nil
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
   local sx, sy = 40, 200
@@ -118,26 +159,32 @@ function rooms.enter(name, from, body)
       local x, y = cx * 8 + 4, cy * 8 + 8
       if m == START then sx, sy = x, y
       elseif KIND[m] then shadows.add(x, y, KIND[m])
+      elseif m == BOSS then shadows.add(x, y, def.boss)
       elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
       elseif m == BOX then rooms.box_x, rooms.floor_y = x, y
       elseif m == DOOR then
         local n = #dx + 1
         dx[n], dy[n], dto[n] = cx, cy, def.doors[n]
       end
-      if m >= START and m <= BOSS then map.set(1, cx, cy, 0) end
+      if m >= START and m <= LAST then map.set(1, cx, cy, 0) end
     end
   end
   -- in at the door from where he came
   for n = 1, #dx do
     if from and dto[n] == from then sx, sy = dx[n] * 8 + 4, dy[n] * 8 + 8 end
   end
+  rooms.shop_x = rooms.stall_x or rooms.box_x
   body.place(sx, sy)
-  -- the rooms beyond this one's doors, and their sheets, read ahead (past
-  -- a story's last door, the Courtyard)
+  -- the rooms beyond this one's doors, their sheets and their code, read
+  -- ahead (past the last door, the Courtyard)
   for n = 1, #dto do
     local to = dto[n] == "end" and "map.ooru" or dto[n]
-    preload(to, ROOMS[to].sheet, ROOMS[to].bg)
-    if ROOMS[to].boss then preload(ROOMS[to].boss .. ".lua") end
+    local d = ROOMS[to]
+    preload(to, d.sheet, d.bg)
+    for _, m in pairs({ d.cast, d.boss, d.shop }) do preload(m .. ".lua") end
+    if d.boss then preload("role_" .. d.boss .. ".lua") end      -- the role he lends
+    if d.boss_sheet then preload(d.boss_sheet) end
+    if d.arrows then preload("shots.lua") end
   end
 end
 

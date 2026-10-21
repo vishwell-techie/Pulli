@@ -2,16 +2,19 @@
 --
 -- A cracked clown puppet, Komali, steps through the cloth screen of a
 -- shadow-puppet theatre into the world of its stories, and wears the roles
--- of the other puppets to bring them home. This is step 4, the first
--- playable: the Courtyard, and the first story, the Screen, a lesson a
--- room, the stall, and Veeran as its boss.
+-- of the other puppets to bring them home. So far: the Courtyard; the first
+-- story, the Screen, a lesson a room, with Veeran as its boss; and the
+-- second, the Painted Forest, with Vil.
 --
 --   body.lua      how Komali moves: running, jumping, dodging, walls, blows
 --   fight.lua     his roles and his blows; the freeze and the shake
+--   shots.lua     arrows in flight, his and the shadows' (only where wanted)
 --   shadows.lua   the enemies: soldier, dummy, inkblot, scrap
+--   forest.lua    the forest's own: vine-hand, leaf-moth, wisp (in its rooms only)
 --   veeran.lua    Veeran, the Screen's boss (loaded in his room only)
+--   vil.lua       Vil, the forest's boss (loaded in his room only)
 --   rooms.lua     rooms and the doors between them; reading ahead
---   stall.lua     the stall, where mai is spent
+--   stall.lua     the stall, where mai is spent (loaded in its rooms only)
 --   run.lua       what is kept between runs, and what a run carries
 --   lines.lua     every word, in Tamil and English
 --   fx.lua        scraps, sparks, and the drops of ink (mai)
@@ -27,8 +30,6 @@ local fight   = require("fight")
 local shadows = require("shadows")
 local fx      = require("fx")
 local rooms   = require("rooms")
-local stall   = require("stall")
-local box     = require("box")
 local run     = require("run")
 local lines   = require("lines")
 local text    = require("text")
@@ -130,8 +131,8 @@ function update(dt)
     end
     return
   end
-  if stall.update(i, body) then return end
-  if box.update(i, body) then return end
+  local shop = rooms.shop
+  if shop and shop.update(i, body) then return end
   if select_p then show = not show end
 
   if fight.freeze > 0 then
@@ -150,7 +151,7 @@ function update(dt)
   if rooms.update(i, body) then          -- through a door: the world waits
     if rooms.ended then
       rooms.ended = false
-      run.data.screen_played = run.data.screen_played + 1
+      run.data.played = run.data.played + 1
       run.keep()
       show_card(lines.t("done"), nil, home)
       return
@@ -159,8 +160,7 @@ function update(dt)
     follow()
     return
   end
-  if i.door and rooms.near(rooms.stall_x, body.k) then stall.open() return end
-  if i.door and rooms.near(rooms.box_x, body.k) then box.open() return end
+  if shop and i.door and rooms.near(rooms.shop_x, body.k) then shop.open() return end
 
   local before = body.k.health
   body.k.pit_free = run.charm("spool")
@@ -189,9 +189,13 @@ function update(dt)
     shadows.beaten = false
     fight.lend(b.role)
     run.add_oil(b.oil)
-    say(lines.t("lent") .. "   " .. lines.t("oil", b.oil))
+    say(lines.t("lent", lines.role(fight.ROLES[b.role].name)) .. "   " .. lines.t("oil", b.oil))
+    -- what his role does, in place of the room's hint
+    local def = rooms.def()
+    local keys = {}
+    for n, key in ipairs(def.tkeys) do keys[n] = buttons[key] end
     font("small")
-    hint, hint2 = table.concat(text.wrap(lines.t("h_swap", buttons.l, buttons.r), 36), "\n"), nil
+    hint, hint2 = table.concat(text.wrap(lines.t(def.taught, table.unpack(keys)), 36), "\n"), nil
     font()
   end
   -- fallen: the run ends; he wakes on the Aasaan's box
@@ -251,7 +255,7 @@ end
 
 local function overlay()
   font("small")
-  if hint and mode == "play" and not stall.is_open() then
+  if hint and mode == "play" and not (rooms.shop and rooms.shop.is_open()) then
     local y = say_at(hint, 28, C.glow)
     if hint2 then say_at(hint2, y + 2, C.cloth) end
   end
@@ -309,14 +313,14 @@ function draw()
   shadows.draw()
   local role = fight.role()
   local pose = fight.pose(body)
-  body.draw(role.colours, pose and body.FRAME[pose], role.armed)
+  body.draw(role.colours, pose and body.FRAME[pose], role.frames)
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- body.draw resets pal
   fight.draw(body)
+  if fight.shots then fight.shots.draw() end
   fx.draw()
   camera()
   hud()
-  stall.draw(body)
-  box.draw(body)
+  if rooms.shop then rooms.shop.draw(body) end
   overlay()
   if show then
     local k = body.k

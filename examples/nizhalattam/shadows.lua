@@ -8,7 +8,8 @@
 --   shadows.soft              a blow's cost is multiplied by this (a lesson
 --                             room makes them soft)
 --   shadows.kinds[kind]       { add, update, draw, strike, torn } for a kind
---                             made elsewhere (the boss, boss.lua)
+--                             made elsewhere (a story's shadows, its boss);
+--                             one with fly set moves itself: no gravity
 --
 -- The cut-paper soldier walks up holding his guard to the front, so a
 -- light blow from the front is turned aside; one from behind lands, and
@@ -95,6 +96,7 @@ local function touch(s, body, n)
     shadows.hits = shadows.hits + 1
   end
 end
+shadows.touch = touch
 
 local function soldier(s, body, k, dx)
   local st = s.state
@@ -180,6 +182,8 @@ function shadows.update(body)
       local kind = s.kind
       if kind == "scrap" then
         scrap(s, body, k, dx)
+      elseif shadows.kinds[kind] and shadows.kinds[kind].fly then
+        shadows.kinds[kind].update(s, body, k, dx)
       else
         if kind == "soldier" then soldier(s, body, k, dx)
         elseif kind == "ink" or kind == "small" then crawl(s, body, k, dx, K[kind])

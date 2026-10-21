@@ -1,7 +1,7 @@
 -- run.lua — what is kept between runs, and what a run carries.
 --
 --   run.load()            once, at the start
---   run.data              kept: oil, the Screen played, the language
+--   run.data              kept: oil, runs played through, the language
 --   run.begin()           a new run, at the Aasaan's box
 --   run.charm(name)       does Komali carry this charm?
 --   run.add_oil(n)        oil, kept at once
@@ -17,7 +17,7 @@ local run = { charms = {}, sharp = {} }
 local KEY, VERSION = "progress", 1
 
 local function defaults()
-  return { version = VERSION, lang = "ta", oil = 0, screen_played = 0, falls = 0,
+  return { version = VERSION, lang = "ta", oil = 0, played = 0, falls = 0,
            repairs = {} }                  -- the Aasaan's repairs: r_health, r_double, r_mai
 end
 
