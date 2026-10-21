@@ -28,11 +28,13 @@ local PAD_SPEED = 170               -- a player's paddle, pixels per second
 -- A paddle reaches 21 pixels from its centre, so err + tire above 21 means
 -- the console starts to miss once a rally is fast. Every level gets there:
 -- that is what ends a rally between two good players.
+-- Each level has its own backdrop (bg), wilder as the level rises: an
+-- orbit, a neon arena, a data tunnel, a red alert.
 local LEVELS = {
-  { name = "EASY",   speed = 95,  react = 0.55, err = 12, tire = 22,   top = 330 },
-  { name = "NORMAL", speed = 125, react = 0.40, err = 6,  tire = 20,   top = 330 },
-  { name = "HARD",   speed = 150, react = 0.25, err = 4,  tire = 20,   top = 330 },
-  { name = "INSANE", speed = 185, react = 0,    err = 2,  tire = 20.5, top = 390 },
+  { name = "EASY",   speed = 95,  react = 0.55, err = 12, tire = 22,   top = 330, bg = "bg_easy.kolam" },
+  { name = "NORMAL", speed = 125, react = 0.40, err = 6,  tire = 20,   top = 330, bg = "bg_normal.kolam" },
+  { name = "HARD",   speed = 150, react = 0.25, err = 4,  tire = 20,   top = 330, bg = "bg_hard.kolam" },
+  { name = "INSANE", speed = 185, react = 0,    err = 2,  tire = 20.5, top = 390, bg = "bg_insane.kolam" },
 }
 local BALL_SPEED = 150              -- at the serve; LEVELS sets the top speed
 local R = 3                         -- ball radius
@@ -53,6 +55,7 @@ local modes                         -- how many of those this console offers
 local left, right, ball
 local level                         -- index into LEVELS, kept between runs
 local ai_aim, shake, wins, wins_text, level_text, result
+local shown_bg                      -- the backdrop set now
 
 -- Link play. The console the link calls side 1 runs the match and plays the
 -- left paddle; side 2 plays the right paddle and draws what it is told.
@@ -109,6 +112,10 @@ end
 -- Menu text is rebuilt only when the level or the win count changes.
 local function set_level(n)
   level = (n - 1) % #LEVELS + 1
+  if LEVELS[level].bg ~= shown_bg then       -- each frame starts from it (cls)
+    shown_bg = LEVELS[level].bg
+    backdrop(shown_bg)
+  end
   level_text = "LEVEL: < " .. LEVELS[level].name .. " >"
   wins_text = "WINS ON " .. LEVELS[level].name .. ": " .. wins[level]
 end
@@ -121,7 +128,6 @@ local function start_match()
 end
 
 function init()
-  backdrop("backdrop.kolam")        -- a neon arena at night: each frame starts from it
   left  = { x = 8,      y = H / 2 - PAD_H / 2, score = 0, text = "0" }
   right = { x = W - 12, y = H / 2 - PAD_H / 2, score = 0, text = "0" }
   ball  = { x = W / 2, y = H / 2, vx = 0, vy = 0, speed = BALL_SPEED }
@@ -131,6 +137,7 @@ function init()
   peer_pause, peer_quit, link_lost = false, false, false
   wins = {}
   for i = 1, #LEVELS do wins[i] = load("wins" .. i, 0) end
+  for _, l in ipairs(LEVELS) do preload(l.bg) end      -- read now, so changing level does not wait
   set_level(load("level", 2))
   result = ""
   paused = false
@@ -383,7 +390,7 @@ function update(dt)
 end
 
 function draw()
-  cls()                             -- the backdrop
+  cls()                             -- the level's backdrop
 
   -- screen shake via camera, costs nothing
   if shake > 0 and not paused then
