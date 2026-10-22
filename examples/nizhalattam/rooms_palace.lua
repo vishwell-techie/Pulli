@@ -23,6 +23,7 @@ local words = {
     pick_free = "The King lets one puppet go. Choose:",
     freed = "The %s comes home to the box",
     king_home = "The Puppet King comes home",
+    hard_now = "From now on every story is hard, and its boss a shadow",
   },
   ta = {
     h_palace = "விளக்கு அரண்மனை. ராணி இங்கே சிறைப்பட்டிருக்கிறார்; பாவை அரசன் காத்திருக்கிறான்",
@@ -38,6 +39,7 @@ local words = {
     pick_free = "அரசன் ஒரு பாவையை விடுவிக்கிறான். தேர்ந்தெடு:",
     freed = "%s பெட்டிக்குத் திரும்புகிறார்",
     king_home = "பாவை அரசன் வீடு திரும்புகிறான்",
+    hard_now = "இனி ஒவ்வொரு கதையும் கடினம்; அதன் தலைவன் ஒரு நிழல்",
   },
 }
 

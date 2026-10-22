@@ -12,6 +12,7 @@
 --   run.lent[name]        the roles lent in this run (they need no place bought)
 --   run.charm(name)       does Komali carry this charm?
 --   run.add_oil(n)        oil, kept at once (not in a seeded run)
+--   run.hard()            hard mode: once the Puppet King is home, for good
 --   run.clock()           the run's time, as m:ss
 --
 -- A run carries mai, charms and roles lent; all of it is lost when the run
@@ -84,6 +85,8 @@ function run.set_language(l)
   lines.use(l)
   save("lang", l)
 end
+
+function run.hard() return run.data.king == true end
 
 function run.saved(name)
   for _, s in ipairs(run.data.saved) do if s == name then return true end end

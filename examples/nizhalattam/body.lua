@@ -27,7 +27,8 @@
 
 local move = require("move")
 
-local body = { floors = {} }
+local body = { floors = {},
+               harder = 1 }    -- what every blow costs him, times this (hard mode: 1.5)
 
 local T = {
   run = 1.6,          -- top running speed, pixels a frame (96 a second)
@@ -279,7 +280,7 @@ function body.hurt(n, from_x)
   local side = from_x < k.x + k.w / 2 and -1 or 1
   if k.guard < 0 and side == k.face then return false end   -- shield up, facing it
   if k.ward > 0 then k.ward = k.ward - 1 return false end    -- the lamp shield takes it
-  n = math.max(1, math.floor(n * (1 - math.max(0, k.guard)) + 0.5))
+  n = math.max(1, math.floor(n * body.harder * (1 - math.max(0, k.guard)) + 0.5))
   k.health = math.max(0, k.health - n)
   k.struck, k.dodge = T.struck, 0
   if not k.steady then k.vx, k.vy, k.ground = -side * T.thrown, -1.6, false end   -- (the elephant stands)

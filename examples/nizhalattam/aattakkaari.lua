@@ -14,6 +14,10 @@
 -- is twice as long. After each she rests, open to blows; a heavy blow while
 -- she walks or gets ready breaks it off. Below half her health she rests
 -- less and kicks once more. Twice Komali's size: no single jump clears her.
+--
+-- Her shadow (s.shade: once she is saved, or in hard mode) leaves
+-- afterimages: each kick, whirl and dash is left behind as a dark copy of
+-- her, which strikes again where it was, a beat later.
 
 local shadows = require("shadows")
 local move    = require("move")
@@ -33,6 +37,7 @@ local B = {
   dash = { speed = 5, n = 14, stun = 40, most = 70 },
   whirl = { frames = 18, n = 12, r = 34 },
   rest = { kicks = 50, dash = 60, whirl = 36 },
+  echo = { beat = 28, frames = 8, n = 10 },        -- (the shadow's) afterimages
   mai = { 40, 50 },
   oil = 10,
   role = "aattakkaari",                            -- the role she lends, beaten
@@ -45,9 +50,26 @@ boss.B = B
 local SHEET = "aatta.kolam"
 local GUARD, WALK, RISE, KICK, SPIN, CROUCH, DASH, WHIRL, REEL = 0, 6, 30, 36, 42, 48, 54, 512, 518
 
+-- the shadow's afterimages: a few long arrays (the box the blow covers,
+-- where she stood and the frame drawn, frames until it is gone, and
+-- whether it has struck)
+local NE = 4
+local ex, ey, ew, eh, ecx, efeet, eface, eframe, et, egot = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+for n = 1, NE do et[n] = 0 end
+local function echo(s, x, y, w, h, frame)
+  for n = 1, NE do
+    if et[n] <= 0 then
+      ex[n], ey[n], ew[n], eh[n], ecx[n], efeet[n] = x, y, w, h, s.x + s.w / 2, s.y + s.h
+      eface[n], eframe[n], et[n], egot[n] = s.face, frame, B.echo.beat + B.echo.frames, false
+      return
+    end
+  end
+end
+
 local kind = { mai = B.mai }
 
 function kind.add(s)
+  for n = 1, NE do et[n] = 0 end
   s.x, s.y, s.w, s.h = s.x + 5 - B.w / 2, s.y + 20 - B.h, B.w, B.h
   s.hp, s.max, s.shown, s.think, s.turn = B.hp, B.hp, {}, 50, 0
   s.oil, s.role = B.oil, B.role
@@ -97,6 +119,7 @@ function kind.update(s, body, k, dx)
     if s.t % K.gap > 4 and s.t % K.gap < 16 then
       hurt(s, body, k, K.n, s.face > 0 and s.x + s.w or s.x - K.w, s.y + 8, K.w, K.h)
     end
+    if s.shade and s.t % K.gap == 8 then echo(s, s.face > 0 and s.x + s.w or s.x - K.w, s.y + 8, K.w, K.h, KICK) end
     if s.count >= K.count + (tired and 1 or 0) and s.t % K.gap == 0 then
       s.state, s.t, s.vx = "rest", math.floor(B.rest.kicks * (tired and 0.7 or 1)), 0
     end
@@ -106,6 +129,10 @@ function kind.update(s, body, k, dx)
     s.t = s.t + 1
     local ahead = s.face > 0 and s.x + s.w + 1 or s.x - 2
     if move.blocked(ahead, s.y, 1, s.h - 2) or s.t > D.most then
+      if s.shade then
+        local a, b = math.min(s.from, s.x), math.max(s.from, s.x) + s.w
+        echo(s, a, s.y + 8, b - a, s.h - 8, DASH)
+      end
       s.state, s.t, s.vx = "rest", math.floor(B.rest.dash * (tired and 0.7 or 1)), 0
     else
       s.vx = s.face * D.speed
@@ -114,12 +141,24 @@ function kind.update(s, body, k, dx)
   elseif st == "whirl" then
     local W = B.whirl
     s.t = s.t + 1
+    if s.shade and s.t == 1 then echo(s, s.x + s.w / 2 - W.r, s.y + 4, W.r * 2, s.h - 4, WHIRL) end
     hurt(s, body, k, W.n, s.x + s.w / 2 - W.r, s.y + 4, W.r * 2, s.h - 4)
     if s.t >= W.frames then s.state, s.t = "rest", math.floor(B.rest.whirl * (tired and 0.7 or 1)) end
   elseif st == "rest" or st == "reel" then
     s.vx = s.vx * 0.85
     s.t = s.t - 1
     if s.t <= 0 then s.state, s.think = "walk", tired and 24 or 40 end
+  end
+  -- the afterimages: each strikes once, a beat after the blow it copies
+  for n = 1, NE do
+    if et[n] > 0 then
+      et[n] = et[n] - 1
+      if et[n] < B.echo.frames and not egot[n]
+         and shadows.overlap(ex[n], ey[n], ew[n], eh[n], k) and body.hurt(B.echo.n, ex[n] + ew[n] / 2) then
+        shadows.hits = shadows.hits + 1
+        egot[n] = true
+      end
+    end
   end
 end
 
@@ -131,6 +170,7 @@ end
 
 function kind.torn(s)
   shadows.beaten = true
+  for n = 1, NE do et[n] = 0 end
   fx.tear(s.x + s.w / 2, s.y + 4, 0)
   fx.tear(s.x + s.w / 2, s.y + 16, 0)
 end
@@ -155,8 +195,17 @@ function kind.draw(s)
   elseif st == "whirl" then
     circ(s.x + s.w / 2, s.y + s.h / 2, B.whirl.r - (f % 4), C.lamp)
   end
-  if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(C.vermil, C.glow) pal(C.marigold, C.glow) end
   sheet.load(SHEET)
+  -- her afterimages: dim while they wait, whole as they strike
+  for e = 1, NE do
+    if et[e] > 0 and (et[e] < B.echo.frames or f % 3 > 0) then
+      spr(eframe[e], math.floor(ecx[e]) - 24, math.floor(efeet[e]) - 63, 6, 8, eface[e] < 0)
+      if eframe[e] == DASH then                       -- the path the dash will take again
+        for d = 0, ew[e], 6 do pset(ex[e] + d, ey[e] + eh[e] // 2 + (d // 6 + f // 2) % 2, C.sky) end
+      end
+    end
+  end
+  if st == "wind" and s.t < 8 and s.t % 2 == 0 then pal(C.vermil, C.glow) pal(C.marigold, C.glow) end
   spr(n, x, y, 6, 8, s.face < 0)
   sheet.load("actors.kolam")
   pal()

@@ -120,10 +120,10 @@ end
 
 -- the run played through: a card, then back to the Aasaan's box
 local freeing = false                   -- waiting for the player to choose who goes free
-local function finish(said)
+local function finish(said, said2)
   run.drop()
   if not run.typed then run.data.played = run.data.played + 1 run.keep() end
-  show_card(said, run.typed and lines.t("seeded") or nil, home, summary())
+  show_card(said, run.typed and lines.t("seeded") or said2, home, summary())
 end
 
 local function title(r) return lines.role(r:sub(1, 1):upper() .. r:sub(2)) end
@@ -138,7 +138,7 @@ local function king_beaten(b)
   local left = 0
   for _, r in ipairs(require("pick").PUPPETS) do if not run.saved(r) then left = left + 1 end end
   if run.typed then finish(lines.t("done"))
-  elseif left == 0 then run.free("king") finish(lines.t("king_home"))
+  elseif left == 0 then run.free("king") finish(lines.t("king_home"), lines.t("hard_now"))
   else rooms.want("pick").open("free") freeing = true end
 end
 
@@ -251,6 +251,8 @@ function update(dt)
     if rooms.came then                   -- through a door in a run: keep it here
       rooms.came = false
       if run.seed then run.keep_at(body, rooms.name, rooms.from) end
+      local b = shadows.boss
+      if b and b.shade then say(lines.t("shade_in", title(b.role))) end
     end
     if rooms.ended then
       rooms.ended = false
@@ -291,6 +293,11 @@ function update(dt)
   if shadows.beaten and b and b.act then
     shadows.beaten = false
     king_beaten(b)
+  elseif shadows.beaten and b and b.shade then   -- a shadow boss: torn, and it lends nothing
+    shadows.beaten = false
+    run.cleared = run.cleared + 1
+    run.add_oil(b.oil)
+    say(lines.t("shade_torn") .. "   " .. lines.t("oil", b.oil))
   elseif shadows.beaten and b then
     shadows.beaten = false
     run.cleared = run.cleared + 1
@@ -375,6 +382,7 @@ local function overlay()
     font()
     text.center(lines.t("paused"), 42, C.lamp)
     font("small")
+    if run.hard() then print(lines.t("hard"), 276 - text.width(lines.t("hard")), 40, C.vermil) end
     local y = 64
     local names = ""
     for n, r in ipairs(fight.carried) do names = names .. (n > 1 and ", " or "") .. lines.role(r.name) end

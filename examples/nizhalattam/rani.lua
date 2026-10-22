@@ -12,6 +12,11 @@
 -- and she sends a ring of fire out all round her: roll through it, or be
 -- out of its reach. The first time she does a move its warning is twice as
 -- long. Below half her health she rests less.
+--
+-- Her shadow (s.shade: once she is saved, or in hard mode) also casts a
+-- ring of fire far out round her that closes in: roll through it as it
+-- passes, or be inside her shield's reach when it has gone. It comes in
+-- place of every third lamp-fire or shield.
 
 local shadows = require("shadows")
 local move    = require("move")
@@ -25,11 +30,12 @@ local B = {
   w = 20, h = 40,
   speed = 0.6,
   near = 50, far = 140,
-  wind = { fire = 24, shield = 16, ring = 20 },    -- frames of warning (twice the first time)
+  wind = { fire = 24, shield = 16, ring = 20, close = 30 },   -- frames of warning (twice the first time)
   fire = { count = 3, gap = 12, speed = 3, n = 10, life = 80 },
   shield = { blows = 3, most = 240, mend = 20 },
   ring = { r = 64, frames = 36, n = 12 },
-  rest = { fire = 40, shield = 24, ring = 40 },
+  close = { r = 150, frames = 70 },                -- (the shadow's) the ring closing in
+  rest = { fire = 40, shield = 24, ring = 40, close = 40 },
   mai = { 50, 60 },
   oil = 14,
   role = "rani",                                   -- the role she lends, beaten
@@ -82,7 +88,11 @@ function kind.update(s, body, k, dx)
     s.think = s.think - 1
     if dist < B.near or s.think <= 0 then
       local m = "ring"
-      if dist >= B.near then s.turn = s.turn + 1; m = s.turn % 2 == 1 and "fire" or "shield" end
+      if dist >= B.near then
+        s.turn = s.turn + 1
+        m = s.turn % 2 == 1 and "fire" or "shield"
+        if s.shade and s.turn % 3 == 0 then m = "close" end
+      end
       s.move, s.state, s.vx = m, "wind", 0
       s.t = B.wind[m] * (s.shown[m] and 1 or 2)
       s.shown[m] = true
@@ -93,7 +103,7 @@ function kind.update(s, body, k, dx)
     if s.t <= 0 then
       s.state, s.t, s.count = s.move, 0, 0
       if s.move == "shield" then s.count = B.shield.blows end
-      if s.move == "ring" then s.landed = false end
+      if s.move == "ring" or s.move == "close" then s.landed = false end
     end
   elseif st == "fire" then
     s.t = s.t + 1
@@ -112,6 +122,15 @@ function kind.update(s, body, k, dx)
       shadows.hits = shadows.hits + 1
     end
     if s.t >= B.ring.frames then s.state, s.t, s.ring = "rest", math.floor(B.rest.ring * tired), 0 end
+  elseif st == "close" then
+    s.t = s.t + 1
+    s.ring = B.close.r - (B.close.r - 8) * s.t / B.close.frames
+    local d = math.sqrt((k.x + k.w / 2 - (s.x + s.w / 2)) ^ 2 + (k.y + k.h / 2 - (s.y + s.h / 2)) ^ 2)
+    if not s.landed and math.abs(d - s.ring) < 6 and body.hurt(B.ring.n, s.x + s.w / 2) then
+      s.landed = true
+      shadows.hits = shadows.hits + 1
+    end
+    if s.t >= B.close.frames then s.state, s.t, s.ring = "rest", math.floor(B.rest.close * tired), 0 end
   elseif st == "rest" or st == "reel" then
     s.vx = s.vx * 0.85
     s.t = s.t - 1
@@ -156,10 +175,10 @@ function kind.draw(s)
   local st, f = s.state, stat("frame")
   local n = GUARD
   if st == "walk" then n = math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 6 or GUARD
-  elseif st == "wind" then n = s.move == "ring" and RING or s.move == "shield" and SHIELD or RAISE
+  elseif st == "wind" then n = (s.move == "ring" or s.move == "close") and RING or s.move == "shield" and SHIELD or RAISE
   elseif st == "fire" then n = FIRE
   elseif st == "shield" then n = SHIELD
-  elseif st == "ring" then n = RING
+  elseif st == "ring" or st == "close" then n = RING
   elseif st == "reel" then n = REEL end
   local cx, cy = s.x + s.w / 2, s.y + s.h / 2
   if st == "shield" then                           -- the lamp shield: a ring of light, a bead a blow left
@@ -171,7 +190,10 @@ function kind.draw(s)
   spr(n, math.floor(cx) - 24, math.floor(s.y + s.h) - 63, 6, 8, s.face < 0)
   sheet.load("actors.kolam")
   pal()
-  if st == "ring" then                             -- the ring of fire going out
+  if st == "wind" and s.move == "close" and stat("frame") % 4 < 2 then
+    circ(cx, cy, B.close.r, C.vermil)              -- where the closing ring will come from
+  end
+  if st == "ring" or st == "close" then            -- the ring of fire going out, or closing in
     circ(cx, cy, s.ring, C.vermil)
     circ(cx, cy, s.ring - 1, C.lamp)
     for a = 0, 11 do

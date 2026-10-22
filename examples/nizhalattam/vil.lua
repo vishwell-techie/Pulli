@@ -14,6 +14,10 @@
 -- open to blows; a heavy blow while he draws breaks his aim. Below half his
 -- health he rests less. Twice Komali's size, like Veeran: no single jump
 -- clears him.
+--
+-- His shadow (s.shade: once he is saved, or in hard mode) looses three
+-- arrows at once, fanned; and in place of every other volley he looses
+-- straight up, and a rain of arrows falls after Komali, wherever he goes.
 
 local shadows = require("shadows")
 local shots   = require("shots")
@@ -29,11 +33,13 @@ local B = {
   speed = 0.6,
   near = 56,                                       -- closer than this, he leaps away
   far = 150,                                       -- further than this, he walks closer
-  wind = { shot = 24, volley = 30, leap = 10 },    -- frames of warning (twice the first time)
+  wind = { shot = 24, volley = 30, leap = 10, rain = 30 },   -- frames of warning (twice the first time)
   arrow = { n = 10, speed = 3.2, life = 110 },
   volley = { count = 3, gap = 14 },
+  fan = 0.22,                                      -- (the shadow's) the fan's spread, either side
+  rain = { count = 6, gap = 12, speed = 3.4, n = 10 },
   leap = { up = 4.4, across = 2.4 },
-  rest = { shot = 40, volley = 60, leap = 12 },
+  rest = { shot = 40, volley = 60, leap = 12, rain = 50 },
   mai = { 40, 50 },
   oil = 9,
   role = "vil",                                    -- the role he lends, beaten
@@ -69,6 +75,12 @@ local function loose(s, k)
   local bx, by = bow(s)
   local v = B.arrow.speed
   shots.fire(bx, by, s.ax * v, s.ay * v, B.arrow.life, B.arrow.n, false)
+  if s.shade then                                  -- the shadow's fan: one either side
+    for side = -1, 1, 2 do
+      local c, sn = math.cos(B.fan * side), math.sin(B.fan * side)
+      shots.fire(bx, by, (s.ax * c - s.ay * sn) * v, (s.ax * sn + s.ay * c) * v, B.arrow.life, B.arrow.n, false)
+    end
+  end
   s.loosed = 0
 end
 
@@ -83,14 +95,19 @@ function kind.update(s, body, k, dx)
     s.think = s.think - 1
     if dist < B.near or s.think <= 0 then
       local m = "leap"
-      if dist >= B.near then s.turn = s.turn + 1; m = s.turn % 2 == 1 and "shot" or "volley" end
+      if dist >= B.near then
+        s.turn = s.turn + 1
+        m = s.turn % 2 == 1 and "shot" or "volley"
+        if s.shade and s.turn % 4 == 0 then m = "rain" end
+      end
       s.move, s.state, s.vx = m, "wind", 0
       s.t = B.wind[m] * (s.shown[m] and 1 or 2)
       s.shown[m] = true
     end
   elseif st == "wind" then
     s.vx = 0
-    if s.move ~= "leap" then s.face = dx < 0 and -1 or 1 aim(s, k) end
+    if s.move == "rain" then s.ax, s.ay = 0, -1
+    elseif s.move ~= "leap" then s.face = dx < 0 and -1 or 1 aim(s, k) end
     s.t = s.t - 1
     if s.t <= 0 then s.state, s.t, s.count = s.move, 0, 0 end
   elseif st == "shot" then
@@ -102,6 +119,16 @@ function kind.update(s, body, k, dx)
     if s.count >= B.volley.count and s.t % B.volley.gap == B.volley.gap - 1 then
       s.state, s.t = "rest", math.floor(B.rest.volley * tired)
     end
+  elseif st == "rain" then
+    -- arrows falling from the top of the room, each over where he is now
+    local R = B.rain
+    s.t = s.t + 1
+    if s.t % R.gap == 1 then
+      shots.fire(k.x + k.w / 2 + math.random(-6, 6), 2, 0, R.speed, 90, R.n, false)
+      s.count = s.count + 1
+      s.loosed = 0
+    end
+    if s.count >= R.count then s.state, s.t = "rest", math.floor(B.rest.rain * tired) end
   elseif st == "leap" then
     if s.t == 0 then
       -- away from Komali, or over him if a wall is close behind
@@ -138,7 +165,7 @@ function kind.draw(s)
   local n = GUARD
   if st == "walk" then n = math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 6 or GUARD
   elseif st == "wind" then n = s.move == "leap" and CROUCH or DRAW
-  elseif st == "shot" or st == "volley" then n = s.loosed < 8 and LOOSE or DRAW
+  elseif st == "shot" or st == "volley" or st == "rain" then n = s.loosed < 8 and LOOSE or DRAW
   elseif st == "leap" then n = LEAP
   elseif st == "reel" then n = REEL
   elseif s.loosed < 8 then n = LOOSE end

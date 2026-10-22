@@ -13,6 +13,11 @@
 -- every so often he and they change places in a puff of smoke: a blow
 -- tears a decoy, and only the real one drips ink. The first time he does a
 -- move its warning is twice as long. Below half his health he rests less.
+--
+-- His shadow (s.shade: once he is saved, or in hard mode) has decoys that
+-- strike too: when he throws a dart, so does each of them. And he lobs five
+-- snares, not three, which lie in wait longer: the floor turns to ink in
+-- places.
 
 local shadows = require("shadows")
 local fight   = require("fight")
@@ -31,6 +36,7 @@ local B = {
   wind = { dart = 22, snare = 28, decoys = 34 },   -- frames of warning (twice the first time)
   dart = { n = 10, speed = 3.4, life = 110 },
   snare = { count = 3, spread = 30, flight = 30, hold = 50, n = 4, life = 420 },
+  shade_snare = { count = 5, life = 720 },         -- (the shadow's)
   decoys = { life = 480, shuffle = 80 },
   rest = { dart = 40, snare = 50, decoys = 40 },
   mai = { 45, 55 },
@@ -45,7 +51,7 @@ local SHEET = "mandhiri.kolam"
 local GUARD, WALK, THROW, TOSS, CONJURE, REEL = 0, 6, 30, 36, 42, 48
 
 -- his snares: a few long arrays (where, where to, frames left)
-local NS = 3
+local NS = 5
 local sx, sy, sx0, sy0, stx, sty, sf, sl = {}, {}, {}, {}, {}, {}, {}, {}
 for n = 1, NS do sx[n], sy[n], sx0[n], sy0[n], stx[n], sty[n], sf[n], sl[n] = 0, 0, 0, 0, 0, 0, 0, 0 end
 
@@ -99,16 +105,27 @@ function kind.update(s, body, k, dx)
       local m = s.move
       if m == "dart" and fight.shots then
         fight.shots.fire(hx, hy, s.ax * B.dart.speed, s.ay * B.dart.speed, B.dart.life, B.dart.n, false, false, true)
+        if s.shade then                            -- the shadow's decoys throw too
+          for _, d in ipairs(s.decoys) do
+            if d.on then
+              local dx_, dy_ = d.x + d.w / 2 + d.face * 12, d.y + 10
+              local ex, ey = k.x + k.w / 2 - dx_, k.y + k.h / 2 - dy_
+              local len = math.max(1, math.sqrt(ex * ex + ey * ey))
+              fight.shots.fire(dx_, dy_, ex / len * B.dart.speed, ey / len * B.dart.speed, B.dart.life, B.dart.n, false, false, true)
+            end
+          end
+        end
       elseif m == "snare" then                     -- three blots lobbed to land about him
         local floor = s.y + s.h
-        for n = 1, NS do
+        local count = s.shade and B.shade_snare.count or B.snare.count
+        for n = 1, count do
           sx0[n], sy0[n], sx[n], sy[n] = hx, hy, hx, hy
-          stx[n], sty[n] = k.x + k.w / 2 + (n - 2) * B.snare.spread, floor
-          sf[n], sl[n] = B.snare.flight, B.snare.life
+          stx[n], sty[n] = k.x + k.w / 2 + (n - (count + 1) / 2) * B.snare.spread, floor
+          sf[n], sl[n] = B.snare.flight, s.shade and B.shade_snare.life or B.snare.life
         end
       elseif m == "decoys" then                    -- two paper Ministers, either side
         for n, d in ipairs(s.decoys) do
-          d.on, d.hp, d.state, d.t, d.face = true, 1, "walk", B.decoys.shuffle, s.face
+          d.on, d.hp, d.state, d.t, d.face, d.shade = true, 1, "walk", B.decoys.shuffle, s.face, s.shade
           d.x, d.y, d.life = s.x + (n == 1 and -64 or 64), s.y, B.decoys.life
           if move.blocked(d.x, d.y, d.w, d.h - 2) then d.x = s.x + (n == 1 and 32 or -32) end
           fx.tear(d.x + d.w / 2, d.y + 10, 0)

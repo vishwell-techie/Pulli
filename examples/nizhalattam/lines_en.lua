@@ -65,4 +65,7 @@ return {
   title_keys = "%s play    %s erase    %s language",
   erase_q = "%s again to erase this slot",
   to_title = "%s back to the title",
+  shade_torn = "A shadow, torn: it lends no role",
+  hard = "Hard",
+  shade_in = "The %s's shadow: stronger, and it lends no role",
 }

@@ -43,6 +43,7 @@ local lines   = require("lines")
 local fight   = require("fight")
 local run     = require("run")
 local fx      = require("fx")
+local move    = require("move")
 local C       = require("colours")
 local PLACES  = require("places")
 
@@ -122,6 +123,10 @@ local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] 
                [1018] = "archer", [1019] = "flag", [1020] = "drum",
                [1021] = "thief", [1022] = "juggler", [1023] = "twin",
                [1024] = "lampguard", [1025] = "mirror", [1026] = "cinder" }
+-- In hard mode every other one of these has a second beside it.
+local MORE = { soldier = true, ink = true, scrap = true, vine = true, moth = true, wisp = true,
+               crab = true, wave = true, gull = true, archer = true, thief = true,
+               lampguard = true, mirror = true, cinder = true }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -135,6 +140,19 @@ function rooms.locked()
     if s.on and not s.prop then return true end         -- (not for a boat)
   end
   return false
+end
+
+-- a second shadow of a kind, a little way off the marker: where there is
+-- room for it, and a floor if the marker has one
+local function another(x, y, kind)
+  local floor = move.blocked(x, y, 1, 1)
+  for _, d in ipairs({ -18, 18 }) do
+    local x2 = x + d
+    if not move.blocked(x2 - 5, y - 20, 10, 20) and (not floor or move.blocked(x2, y, 1, 1)) then
+      shadows.add(x2, y, kind)
+      return
+    end
+  end
 end
 
 local code = {}                                 -- the modules loaded for this room, by name
@@ -209,6 +227,12 @@ function rooms.enter(name, from, body)
   shadows.clear()
   for n = #body.floors, 1, -1 do body.floors[n] = nil end
   shadows.soft = def.soft and 0.33 or 1
+  -- hard mode: shadows hit harder, have more health, come more of them,
+  -- and every boss is a shadow; before that, so is a saved puppet's
+  local hard = run.hard()
+  shadows.hard, body.harder = hard, hard and 1.5 or 1
+  shadows.shade = def.boss ~= nil and def.boss ~= "king" and (hard or run.saved(def.boss))
+  local more = 0
   fx.clear()
   fight.arrows(def.arrows)                      -- (and clears those in flight)
   rooms.stall_x, rooms.box_x, rooms.tear_x = nil, nil, nil
@@ -219,7 +243,12 @@ function rooms.enter(name, from, body)
       local m = map.get(1, cx, cy)
       local x, y = cx * 8 + 4, cy * 8 + 8
       if m == START then sx, sy = x, y
-      elseif KIND[m] then shadows.add(x, y, KIND[m])
+      elseif KIND[m] then
+        shadows.add(x, y, KIND[m])
+        if hard and MORE[KIND[m]] then
+          more = more + 1
+          if more % 2 == 1 then another(x, y, KIND[m]) end
+        end
       elseif m == BOSS then shadows.add(x, y, def.boss)
       elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
       elseif m == BOX then rooms.box_x, rooms.floor_y = x, y

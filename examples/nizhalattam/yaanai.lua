@@ -13,6 +13,11 @@
 -- the ground. The first time he does a move its warning is twice as long.
 -- Below half his health he rests less. Bigger than Komali: only a double
 -- jump clears him.
+--
+-- His shadow (s.shade: once he is saved, or in hard mode) turns at the wall
+-- and charges again before he stands dizzy; and his pound shakes stones
+-- loose from above, which fall one after another about Komali (a mark on
+-- the ground shows where).
 
 local shadows = require("shadows")
 local move    = require("move")
@@ -29,6 +34,8 @@ local B = {
   charge = { speed = 4.2, n = 16 },
   pound = { n = 12, speed = 3.2, life = 80, high = 8 },
   rest = { charge = 80, pound = 50 },               -- after a charge he stands dizzy
+  turn = 16,                                        -- (the shadow's) frames turning at the wall
+  stones = { count = 3, gap = 14, spread = 28, fall = 0.25, n = 10 },
   mai = { 45, 55 },
   oil = 12,
   role = "yaanai",                                 -- the role he lends, beaten
@@ -40,13 +47,20 @@ boss.B = B
 local SHEET = "yaanai.kolam"
 local STAND, WALK, PAW, CHARGE, REAR, POUND, DIZZY, TRUMPET = 0, 8, 40, 48, 56, 512, 520, 528
 
+-- the shadow's stones: a few long arrays (where, falling how fast, frames
+-- until they let go)
+local NS = 3
+local sx, sy, sv, sd = {}, {}, {}, {}
+for n = 1, NS do sx[n], sy[n], sv[n], sd[n] = 0, 0, 0, -1 end
+
 local kind = { mai = B.mai }
 
 function kind.add(s)
   s.x, s.y, s.w, s.h = s.x + 5 - B.w / 2, s.y + 20 - B.h, B.w, B.h
   s.hp, s.max, s.shown, s.think, s.turn, s.wt = B.hp, B.hp, {}, 60, 0, 0
-  s.oil, s.role = B.oil, B.role
+  s.oil, s.role, s.again = B.oil, B.role, false
   shadows.boss, shadows.beaten = s, false
+  for n = 1, NS do sd[n] = -1 end
 end
 
 function kind.update(s, body, k, dx)
@@ -65,10 +79,16 @@ function kind.update(s, body, k, dx)
     end
   elseif st == "wind" then
     s.vx = 0
-    s.face = dx < 0 and -1 or 1
+    if not s.again then s.face = dx < 0 and -1 or 1 end
     s.t = s.t - 1
     if s.t <= 0 then
       s.state, s.t, s.landed = s.move, 0, false
+      if s.move == "pound" and s.shade then          -- the shadow's stones, about Komali
+        local S = B.stones
+        for n = 1, NS do
+          sx[n], sy[n], sv[n], sd[n] = k.x + k.w / 2 + (n - 2) * S.spread, 0, 0, 10 + (n - 1) * S.gap
+        end
+      end
       if s.move == "pound" then                     -- the shockwave, either way from his feet
         s.wl, s.wr, s.wt, s.hitl, s.hitr = s.x + s.w / 2, s.x + s.w / 2, B.pound.life, false, false
         fx.spark(s.x + s.w / 2 + s.face * 20, s.y + s.h - 2)
@@ -76,8 +96,12 @@ function kind.update(s, body, k, dx)
     end
   elseif st == "charge" then
     local ahead = s.face > 0 and s.x + s.w + 1 or s.x - 2
-    if move.blocked(ahead, s.y, 1, s.h - 2) then    -- the wall: he stands dizzy
-      s.state, s.t, s.vx = "rest", math.floor(B.rest.charge * tired), 0
+    if move.blocked(ahead, s.y, 1, s.h - 2) and s.shade and not s.again then
+      -- the shadow turns at the wall and comes again
+      s.again, s.face, s.vx = true, -s.face, 0
+      s.state, s.t, s.landed = "wind", B.turn, false
+    elseif move.blocked(ahead, s.y, 1, s.h - 2) then    -- the wall: he stands dizzy
+      s.state, s.t, s.vx, s.again = "rest", math.floor(B.rest.charge * tired), 0, false
     else
       s.vx = s.face * B.charge.speed
       if not s.landed and shadows.overlap(s.x, s.y, s.w, s.h, k) and body.hurt(B.charge.n, s.x + s.w / 2) then
@@ -92,6 +116,20 @@ function kind.update(s, body, k, dx)
     s.vx = s.vx * 0.85
     s.t = s.t - 1
     if s.t <= 0 then s.state, s.think = "walk", math.floor(50 * tired) end
+  end
+  for n = 1, NS do                                  -- the stones: waiting, then falling
+    if sd[n] > 0 then sd[n] = sd[n] - 1
+    elseif sd[n] == 0 then
+      sv[n] = sv[n] + B.stones.fall
+      sy[n] = sy[n] + sv[n]
+      if move.blocked(sx[n], sy[n] + 4, 1, 1) then
+        sd[n] = -1
+        fx.spark(sx[n], sy[n])
+      elseif sx[n] + 4 > k.x and sx[n] - 4 < k.x + k.w and sy[n] + 4 > k.y and sy[n] - 4 < k.y + k.h then
+        sd[n] = -1
+        if body.hurt(B.stones.n, sx[n]) then shadows.hits = shadows.hits + 1 end
+      end
+    end
   end
   if s.wt > 0 then                                  -- the shockwave rolls on along the ground
     s.wt = s.wt - 1
@@ -116,6 +154,7 @@ function kind.strike(s, n, dir, heavy) return "hit" end
 
 function kind.torn(s)
   shadows.beaten = true
+  for n = 1, NS do sd[n] = -1 end
   fx.tear(s.x + s.w / 2, s.y + 8, 0)
   fx.tear(s.x + s.w / 2, s.y + 24, 0)
 end
@@ -141,6 +180,16 @@ function kind.draw(s)
     end
   elseif st == "charge" and f % 3 == 0 then
     fx.spark(s.x + s.w / 2 - s.face * 22, s.y + s.h - 2)
+  end
+  for n = 1, NS do                                  -- the stones, and the marks where they will fall
+    if sd[n] >= 0 then
+      local floor = s.y + s.h
+      if f % 4 < 2 then line(sx[n] - 4, floor - 1, sx[n] + 4, floor - 1, C.vermil) end
+      if sd[n] == 0 then
+        circfill(sx[n], sy[n], 4, C.leather)
+        pset(sx[n] - 1, sy[n] - 2, C.tan)
+      end
+    end
   end
   if s.wt > 0 then
     local floor, h = s.y + s.h, 2 + s.wt // 20

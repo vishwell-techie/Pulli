@@ -1446,6 +1446,61 @@ def main():
                 got.get("choose") == ["true"] and got.get("freed") == ["veeran,yaanai", "1", "map.ooru"]
                 and got2.get("king") == ["true", "map.ooru"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
 
+        # Hard mode, once the King is home: shadows have half as much health
+        # again, hit half as hard again, and come more of them
+        count = ('local n, hp = 0, nil for _, s in ipairs(shadows.list) do if s.on and not s.prop then n = n + 1 end '
+                 '  if s.kind == "soldier" and not hp then hp = s.hp end end ')
+        r, got = story('rooms.enter("b1.ooru", nil, body) ' + count + 'dbg("gentle", n, hp, tostring(run.hard())) '
+                       'run.data.king = true rooms.enter("b1.ooru", nil, body) ' + count + 'dbg("hard", n, hp, tostring(run.hard())) '
+                       'dbg("blow", body.hurt(12, 0), k.health)', "", "", frames=4)
+        gentle, hard = got.get("gentle", ["0"]), got.get("hard", ["0"])
+        t.check("nizhalattam: in hard mode shadows have 1.5x health, hit 1.5x harder, and there are more of them",
+                gentle[1:] == ["40", "false"] and hard[1:] == ["60", "true"] and int(hard[0]) > int(gentle[0])
+                and got.get("blow") == ["18", "82"], f"{got} {r.err[-300:]}")
+
+        # a boss is a shadow once his puppet is saved, and every one is in
+        # hard mode (not the King: his shadow is hard's last boss); a shadow
+        # torn lends no role, but leaves its oil
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body) dbg("puppet", tostring(shadows.boss.shade)) '
+                       'run.data.saved = { "veeran" } rooms.enter("boss.ooru", "s7.ooru", body) dbg("saved", tostring(shadows.boss.shade)) '
+                       'run.data.saved = {} run.data.king = true rooms.enter("fboss.ooru", "f6.ooru", body) '
+                       '  dbg("hard", tostring(shadows.boss.shade), shadows.boss.hp, shadows.boss.max) '
+                       'rooms.enter("p7.ooru", "pboss.ooru", body) dbg("king", tostring(shadows.boss.shade)) '
+                       'run.data.king = false run.data.saved = { "veeran" } run.start(body, { "forest" }, "palace") '
+                       '  rooms.enter("boss.ooru", "s7.ooru", body) st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true)', "",
+                       'if f == 10 then dbg("torn", #fight.carried, tostring(run.lent.veeran), run.data.oil - st.oil) end', frames=12)
+        t.check("nizhalattam: a saved puppet's boss is its shadow, and in hard mode every boss but the King; a shadow lends no role",
+                got.get("puppet") == ["false"] and got.get("saved") == ["true"] and got.get("hard") == ["true", "225", "225"]
+                and got.get("king") == ["false"] and got.get("torn") == ["1", "nil", "8"], f"{got} {r.err[-300:]}")
+
+        # each boss's shadow has its stronger moves: watched for 2400 frames
+        # with Komali walking to and fro, never falling (the blows' costs say
+        # which moves landed; the most arrows loosed in one frame)
+        watch = ('local h0 = body.hurt body.hurt = function(n, x) st.h = st.h or {} st.h[n] = true return h0(n, x) end '
+                 'local sh = require("shots") local f0 = sh.fire sh.fire = function(...) st.fired = (st.fired or 0) + 1 return f0(...) end ')
+        report = ('local b = shadows.boss k.health, k.struck, k.steady = 100, 0, true '
+                  'if (st.fired or 0) > (st.most or 0) then st.most = st.fired end st.fired = 0 '
+                  'if b and b.on then st.s = st.s or {} st.s[b.state] = true if (b.count or 0) > (st.c or 0) then st.c = b.count end '
+                  '  if b.again then st.again = true end end '
+                  'if f == 2400 then local s = {} for x in pairs(st.s or {}) do s[#s + 1] = x end table.sort(s) '
+                  '  local h = {} for x in pairs(st.h or {}) do h[#h + 1] = x end table.sort(h) '
+                  '  dbg("seen", table.concat(s, ","), table.concat(h, ","), st.most or 0, st.c or 0, tostring(st.again)) end')
+        shades = {}
+        for boss, room, came in (("veeran", "boss.ooru", "s7.ooru"), ("vil", "fboss.ooru", "f6.ooru"),
+                                 ("aattakkaari", "kboss.ooru", "k6.ooru"), ("yaanai", "bboss.ooru", "b6.ooru"),
+                                 ("mandhiri", "mboss.ooru", "m6.ooru"), ("rani", "pboss.ooru", "p6.ooru")):
+            r, got = story(f'run.data.saved = {{ "{boss}" }} rooms.enter("{room}", "{came}", body) at(8, 208) ' + watch,
+                           "i.right = f % 300 < 90 i.left = f % 300 >= 150 and f % 300 < 240", report, frames=2402)
+            seen = got.get("seen", ["", "", "0", "0", "nil"])
+            shades[boss] = (seen[0].split(","), seen[1].split(","), int(seen[2]), int(seen[3]), seen[4], r.err[-200:] if r.code else "")
+        v, a, d, e, m, q = (shades[b] for b in ("veeran", "vil", "aattakkaari", "yaanai", "mandhiri", "rani"))
+        t.check("nizhalattam: the bosses' shadows: the Warrior leaps (16) and slashes five times; the Archer looses three at once "
+                "and rains arrows; the Dancer's afterimages strike (10); the Elephant charges twice and stones fall (10); "
+                "the Minister's decoys throw too; the Queen's ring closes in",
+                "leap" in v[0] and "16" in v[1] and v[3] == 5 and "rain" in a[0] and a[2] == 3 and "10" in d[1]
+                and e[4] == "true" and "10" in e[1] and m[2] >= 2 and "close" in q[0]
+                and not any(s[5] for s in shades.values()), shades)
+
         # A run is kept at every door: switched off and on again, the game
         # asks, and A takes it up where it was; falling lets it go.
         with tempfile.TemporaryDirectory() as saves:
@@ -1743,9 +1798,9 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 127 and bossroom < 129 and forestroom < 133 and vilroom < 137 and searoom < 149 and aattaroom < 142
-                and fieldroom < 145 and elephantroom < 141 and marketroom < 147 and ministerroom < 148
-                and palaceroom < 151 and queenroom < 148 and kingroom < 152 and after < forestroom - 4, got)
+                hub < 130 and bossroom < 132 and forestroom < 136 and vilroom < 141 and searoom < 152 and aattaroom < 147
+                and fieldroom < 149 and elephantroom < 147 and marketroom < 147 and ministerroom < 152
+                and palaceroom < 156 and queenroom < 153 and kingroom < 156 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

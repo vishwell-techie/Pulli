@@ -14,6 +14,12 @@
 --                             within that many pixels take half of a blow
 --   s.slow                    frames a shadow moves at half speed (an ink
 --                             dart, shots.lua)
+--   shadows.hard              hard mode: every shadow has half as much health
+--                             again (and hits harder: body.lua)
+--   shadows.shade             the room's boss is a shadow of his puppet (one
+--                             saved already, or any in hard): s.shade is set
+--                             on him, his moves are stronger, and he is drawn
+--                             dark (shadows.dark)
 --   shadows.lure              a decoy the shadows go for instead of Komali
 --                             (the Minister's role): { x, y, w, h, hp, t,
 --                             body }, lure.body standing in for body.lua;
@@ -33,7 +39,14 @@ local move = require("move")
 local fx   = require("fx")
 local C    = require("colours")
 
-local shadows = { list = {}, hits = 0, soft = 1, kinds = {} }
+local shadows = { list = {}, hits = 0, soft = 1, kinds = {}, hard = false, shade = false }
+
+-- A shadow boss's colours: every colour to the dark of ink, the lightest
+-- to the blue of a shadow on the night, the shades to ink.
+local DARK = { [0] = 0, 1, 1, 47, 47, 15, 16, 16, 16, 47, 47, 15, 15, 16, 16, 47, 15, 16, 16, 15 }
+function shadows.dark()
+  for c = 0, 63 do pal(c, c < 20 and DARK[c] or c < 32 and 47 or 1) end
+end
 
 local S = {
   hp = 40,
@@ -84,6 +97,11 @@ function shadows.add(x, y, kind)
     s.y, s.w, s.h, s.home = y - 6, 12, 6, y - 6
   elseif shadows.kinds[kind] then
     shadows.kinds[kind].add(s)
+    if s == shadows.boss then s.shade = shadows.shade end
+  end
+  if shadows.hard and kind ~= "dummy" then
+    s.hp = s.hp * 3 // 2
+    if s.max then s.max = s.hp end
   end
   shadows.list[#shadows.list + 1] = s
   return s
@@ -298,7 +316,9 @@ function shadows.draw()
       elseif kind == "scrap" then
         spr(SCRAP + f // 5 % 3 * 2, x - 2, y - 1, 2, 1, s.face < 0)
       elseif shadows.kinds[kind] then
+        if s.shade then shadows.dark() end
         shadows.kinds[kind].draw(s)
+        if s.shade then pal() end
       end
     end
   end
