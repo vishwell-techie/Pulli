@@ -5,7 +5,7 @@ return {
   version       = "0.3.0",
   spec          = 1,
   save_target   = "sd",       -- oil, the language, and what has been played
-  save_size     = 4096,
+  save_size     = 8192,       -- three slots
   save_mode     = "auto",
   save_interval = 60,
 }

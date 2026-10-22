@@ -1,6 +1,9 @@
 -- run.lua — what is kept between runs, and what a run carries.
 --
---   run.load()            once, at the start
+--   run.load(slot)        a save slot (1 to 3), chosen at the title
+--   run.read(slot)        a slot's save as it is written, or nil if empty
+--   run.language()        the language chosen, for every slot;
+--   run.set_language(l)   and changing it
 --   run.data              kept: oil, runs played through, the language, the
 --                         repairs, the puppets saved, the roles chosen
 --   run.begin(body)       back at the Aasaan's box: the next run not begun
@@ -35,7 +38,8 @@ local fight = require("fight")
 
 local run = { charms = {}, sharp = {}, seed = nil, typed = false, next_seed = nil, lent = {},
               order = { "screen" }, half = 0, torn = false, cleared = 0, time = 0 }
-local KEY, VERSION = "progress", 1
+local SLOT, OLD, VERSION = "slot", "progress", 1   -- (the one save from before there were slots: slot 1)
+run.SLOT, run.OLD = SLOT, OLD
 run.SEEDS = 100000                      -- seeds are five digits
 
 local function defaults()
@@ -47,19 +51,39 @@ local function defaults()
            kept = false }                 -- the run in progress, kept at its last door
 end
 
-function run.load()
-  local d = load(KEY)
-  if type(d) ~= "table" or d.version ~= VERSION then
-    local fresh = defaults()
-    if type(d) == "table" and (d.lang == "en" or d.lang == "ta") then fresh.lang = d.lang end
-    d = fresh
-  end
-  for k, v in pairs(defaults()) do if d[k] == nil then d[k] = v end end
-  run.data = d
-  lines.use(d.lang)
+-- a slot's save, as it was written (slot 1 may still be the old save)
+function run.read(slot)
+  local d = load(SLOT .. slot)
+  if slot == 1 and type(d) ~= "table" then d = load(OLD) end
+  if type(d) ~= "table" or d.version ~= VERSION then return nil end
+  return d
 end
 
-function run.keep() save(KEY, run.data) end
+function run.load(slot)
+  run.slot = slot
+  local d = run.read(slot) or defaults()
+  for k, v in pairs(defaults()) do if d[k] == nil then d[k] = v end end
+  run.data = d
+  if slot == 1 and load(OLD) then run.keep() save(OLD, nil) end      -- the old save moves into slot 1
+  lines.use(run.language())
+end
+
+function run.keep() save(SLOT .. run.slot, run.data) end
+
+-- the language is the console's, not a slot's (the old save said it)
+function run.language()
+  local l = load("lang")
+  if l ~= "en" and l ~= "ta" then
+    local old = load(OLD)
+    l = type(old) == "table" and (old.lang == "en" or old.lang == "ta") and old.lang or "ta"
+  end
+  return l
+end
+
+function run.set_language(l)
+  lines.use(l)
+  save("lang", l)
+end
 
 function run.saved(name)
   for _, s in ipairs(run.data.saved) do if s == name then return true end end

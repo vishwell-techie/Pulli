@@ -568,7 +568,8 @@ def main():
         # Nizhalattam, step 1: how Komali moves, in the grey test room. Each
         # case places him, then drives him through body.read on exact frames.
         def komali(name, place, read, report, frames=240, pre=""):
-            extra = pre + ('local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
+            extra = pre + ('require("title").skip = 1\n'          # (straight to slot 1, no title)
+                     'local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
                      'local up, i0 = update, {}\n'
                      f'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
                      f'local st = {{}}\n'
@@ -753,8 +754,9 @@ def main():
         # Step 4: the first playable. A game starts in the Courtyard; `story`
         # runs it from there, `setup` on frame 1 (entering a room with
         # rooms.enter, say).
-        def story(setup, read, report, frames=300, pre="", saves=None):
-            extra = pre + ('local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
+        def story(setup, read, report, frames=300, pre="", saves=None, title=False):
+            extra = pre + ('' if title else 'require("title").skip = 1\n') + (      # (straight to slot 1, no title)
+                           'local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
                            'local run, lines = require("run"), require("lines")\n'
                            'local up, st = update, {}\n'
                            'local function at(cx, feet) body.place(cx * 8 + 5, feet) end\n'
@@ -1392,6 +1394,34 @@ def main():
                 and got2.get("fell") == ["map.ooru", "nil"] and got3.get("after") == ["nil"],
                 f"{got} {got2} {got3} {r.err[-300:]} {r2.err[-300:]}")
 
+        # The title: three save slots, each showing its runs played through
+        # and its oil. A plays the slot chosen; X twice empties it. The save
+        # from before there were slots becomes slot 1; the language is shared.
+        with tempfile.TemporaryDirectory() as saves:
+            r, got = story("", "if f == 10 then i.right_p = true end if f == 14 then i.jump = true end",
+                           'if f == 5 then dbg("title", tostring(rooms.name)) end '
+                           'if f == 20 then dbg("slot", rooms.name, run.slot) run.data.oil, run.data.played = 33, 2 run.keep() end',
+                           frames=25, saves=saves, title=True)
+            r2, got2 = story("", "if f == 10 then i.jump = true end",
+                             'if f == 5 then local a, b = require("title").peek(1), require("title").peek(2) dbg("peek", tostring(a), b.played, b.oil) end '
+                             'if f == 20 then dbg("one", run.slot, run.data.oil) end', frames=25, saves=saves, title=True)
+            r3, got3 = story("", "if f == 10 then i.right_p = true end if f == 12 or f == 14 then i.skill = true end",
+                             'if f == 20 then dbg("erased", tostring(require("title").peek(2))) end', frames=25, saves=saves, title=True)
+        with tempfile.TemporaryDirectory() as saves:
+            t.run_game("save('progress', { version = 1, lang = 'en', oil = 21, played = 3, falls = 0, runs = 4, "
+                       "repairs = {}, saved = { 'vil' }, chosen = {}, king = false, kept = false })",
+                       manifest=open(os.path.join(ROOT, "examples", "nizhalattam", "manifest.lua")).read(), saves=saves)
+            r4, got4 = story("", "if f == 10 then i.jump = true end",
+                             'if f == 5 then local p = require("title").peek(1) dbg("old", p.played, p.oil, p.saved[1], lines.lang) end '
+                             'if f == 20 then dbg("moved", run.data.oil, tostring(load("progress"))) end', frames=25, saves=saves, title=True)
+        t.check("nizhalattam: the game opens on the title; a slot chosen, Komali is in the Courtyard, its save his",
+                got.get("title") == ["nil"] and got.get("slot") == ["map.ooru", "2"]
+                and got2.get("peek") == ["nil", "2", "33"] and got2.get("one") == ["1", "0"], f"{got} {got2} {r.err[-300:]}")
+        t.check("nizhalattam: at the title X, and X again, empties a slot",
+                got3.get("erased") == ["nil"], f"{got3} {r3.err[-300:]}")
+        t.check("nizhalattam: the save from before the slots is slot 1, in its language",
+                got4.get("old") == ["3", "21", "vil", "en"] and got4.get("moved") == ["21", "nil"], f"{got4} {r4.err[-300:]}")
+
         # The run: a seed when Komali steps into the Screen; the stories
         # between the first and the last in an order from it; the halfway
         # tear after the middle one.
@@ -1640,9 +1670,9 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 125 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
-                and fieldroom < 145 and elephantroom < 141 and marketroom < 145 and ministerroom < 145
-                and palaceroom < 148 and queenroom < 145 and kingroom < 150 and after < forestroom - 4, got)
+                hub < 127 and bossroom < 129 and forestroom < 133 and vilroom < 137 and searoom < 149 and aattaroom < 142
+                and fieldroom < 145 and elephantroom < 141 and marketroom < 147 and ministerroom < 148
+                and palaceroom < 151 and queenroom < 148 and kingroom < 152 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

@@ -31,6 +31,7 @@
 --   pick.lua      choosing roles: at the box, the halfway tear, a role lent
 --   run.lua       what is kept between runs, and what a run carries; a run kept at a door
 --   resume.lua    taking up a kept run, when the game is switched on (then let go)
+--   title.lua     the title: the theatre, and three save slots (then let go)
 --   lines.lua     every word, in Tamil and English
 --   fx.lua        scraps, sparks, and the drops of ink (mai)
 --
@@ -52,12 +53,15 @@ local C       = require("colours")
 
 local cam = { x = 0, y = 0 }
 local show = false
-local mode = "play"                     -- "play", "pause", "card", or "ask" (take up a kept run?)
+local mode = "title"                    -- "title", "play", "pause", "card", or "ask" (take up a kept run?)
 local asking                            -- resume.lua, while it asks
+local titling                           -- title.lua, while the title shows
 local card, card2, card_t, card_then = nil, nil, 0, nil
 local toast, toast_t = nil, 0
 local hint, hint2, hint_for = nil, nil, nil
 local CARD = 150                        -- frames a card shows (A skips after a second)
+
+local to_title                          -- (below: the title)
 
 local function home()
   run.begin(body)
@@ -70,10 +74,26 @@ function init()
   -- collect sooner than Lua's default (when the heap has doubled): the game
   -- keeps little garbage, and the room it leaves is the 256 KB heap's
   collectgarbage("incremental", 120, 200)
-  run.load()
   preload(rooms.ACTORS)
+  to_title()
+end
+
+-- The title: three save slots. A slot chosen, its save is read, and Komali
+-- is in the Courtyard; a run kept at a door in that slot may be taken up.
+local function play_slot(n)
+  titling = nil
+  unrequire("title")
+  run.load(n)
   home()
-  if run.kept() then mode, asking = "ask", require("resume") end   -- a run kept at a door: take it up?
+  mode = "play"
+  if run.kept() then mode, asking = "ask", require("resume") end
+end
+
+to_title = function()
+  titling = require("title")
+  if titling.skip then play_slot(titling.skip) return end
+  titling.open()
+  mode = "title"
 end
 
 local function show_card(a, b, after, c)
@@ -173,6 +193,11 @@ function update(dt)
     end
     return
   end
+  if mode == "title" then
+    local n = titling.update(i, select_p)
+    if n then play_slot(n) end
+    return
+  end
   if mode == "ask" then                 -- a kept run: taken up, or let go
     if asking.update(i, body) then
       asking = nil
@@ -184,10 +209,11 @@ function update(dt)
   end
   if mode == "pause" then
     if i.pause then mode = "play" end
-    if select_p then
-      lines.use(lines.lang == "ta" and "en" or "ta")
-      run.data.lang = lines.lang
+    if select_p then run.set_language(lines.lang == "ta" and "en" or "ta") end
+    if i.attack then                    -- back to the title (the run stays kept at its last door)
       run.keep()
+      save_commit()
+      to_title()
     end
     return
   end
@@ -364,7 +390,8 @@ local function overlay()
       print(summary(), 44, y, C.cloth)
       if run.typed then print(lines.t("seeded"), 44, y + 16, C.vermil) end
     end
-    text.center(lines.t("resume", buttons.start, buttons.select), 186, C.tan)
+    text.center(lines.t("resume", buttons.start, buttons.select), 182, C.tan)
+    text.center(lines.t("to_title", buttons.b), 196, C.tan)
   end
   if mode == "ask" then asking.draw(say_at) end
   if mode == "card" then
@@ -380,6 +407,7 @@ local function overlay()
 end
 
 function draw()
+  if mode == "title" then titling.draw() return end
   local fade = rooms.fade()
   if fade > 0.66 then cls(C.ink) return end
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- half dark

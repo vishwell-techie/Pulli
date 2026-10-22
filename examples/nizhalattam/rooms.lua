@@ -171,6 +171,13 @@ local function colours_of(place)
   end
 end
 
+-- A place's colours and background, set if they are not set already (the
+-- title sets its own this way too).
+function rooms.dress(place, bg)
+  if bg ~= backdrop_now then backdrop(bg) backdrop_now = bg end
+  if place ~= place_now then colours_of(place) place_now = place end
+end
+
 -- The code a room needs; what the last room needed and this one does not
 -- is let go, with the kinds of shadow it added.
 local function needs(def)
@@ -195,8 +202,7 @@ function rooms.enter(name, from, body)
   map.load(name)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
-  if def.bg ~= backdrop_now then backdrop(def.bg) backdrop_now = def.bg end
-  if def.place ~= place_now then colours_of(def.place) place_now = def.place end
+  rooms.dress(def.place, def.bg)
   rooms.name = name
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8

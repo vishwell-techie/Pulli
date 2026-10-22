@@ -61,4 +61,8 @@ return {
   role_King = "Puppet King",
   kept_q = "A run is waiting at a door",
   kept_keys = "%s take it up    %s let it go",
+  new_slot = "New",
+  title_keys = "%s play    %s erase    %s language",
+  erase_q = "%s again to erase this slot",
+  to_title = "%s back to the title",
 }
