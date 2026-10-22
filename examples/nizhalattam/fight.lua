@@ -154,6 +154,7 @@ end
 local function cost(n, role) return fight.sharp[role.name] and math.floor(n * 1.2 + 0.5) or n end
 fight.cost = cost
 function fight.cooldown() return cool end
+function fight.shorten(n) cool = math.max(0, cool - n) end      -- (the King's summons comes sooner)
 
 -- a blow lands: the world stops for a moment, and shakes
 function fight.hit(heavy)

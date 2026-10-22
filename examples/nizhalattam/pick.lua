@@ -60,6 +60,7 @@ function pick.open(kind, name) -- (the tear's shop: open with no kind)
     pick.freed = nil
   else
     for _, r in ipairs(PUPPETS) do names[#names + 1] = r end
+    if run.data.king then names[#names + 1] = "king" end   -- the eighth role, once he is home
     if how == "tear" then
       for n = 2, #fight.carried do marked[#marked + 1] = key(fight.carried[n]) end
       if run.torn then note, note_t = "swapped", 9999 end

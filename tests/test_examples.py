@@ -1413,6 +1413,30 @@ def main():
         t.check("nizhalattam: as the Queen, he mends while the lamp shield holds",
                 int(got.get("mends", ["0"])[0]) > 80, f"{got} {r.err[-300:]}")
 
+        # The Puppet King's role, once he is home: X summons two shadow
+        # soldiers that go for the shadows about him; each shadow torn makes
+        # the next summons sooner; coming in, the cape turns blows from the front
+        r, got = story('rooms.enter("s2.ooru", "s1.ooru", body) fight.wear({ "king" }) at(12, 208)', "if f == 10 then i.skill = true end",
+                       'local function dummies() local n = 0 for _, s in ipairs(shadows.list) do if s.on and s.kind == "dummy" then n = n + 1 end end return n end '
+                       'if f == 12 then dbg("summoned", fight.ROLES.king.summoned(), dummies()) end '
+                       'if f == 500 then dbg("later", fight.ROLES.king.summoned(), dummies(), fight.cooldown()) end '
+                       'if f == 600 then dbg("gone", fight.ROLES.king.summoned()) end', frames=605)
+        later = got.get("later", ["0", "3", "999"])
+        t.check("nizhalattam: as the King, X summons two shadow soldiers that tear the shadows near; each torn shortens the wait",
+                got.get("summoned") == ["2", "3"] and later[0] == "2" and int(later[1]) < 3
+                # (the wait stands still while the world does, a few frames a blow)
+                and int(later[2]) < 900 - 490 - 90 * (3 - int(later[1])) + 40 and got.get("gone") == ["0"], f"{got} {r.err[-300:]}")
+        r, got = story('rooms.enter("s3.ooru", "s2.ooru", body) fight.wear({ "komali", "king" }) at(8, 208)', "if f == 10 then i.swap = 1 end",
+                       'if f == 14 then k.struck = 0 local front = body.hurt(10, k.x + k.w / 2 + k.face * 20) k.struck = 0 '
+                       '  dbg("cape", fight.role().name, tostring(front), tostring(body.hurt(10, k.x + k.w / 2 - k.face * 20))) end', frames=16)
+        t.check("nizhalattam: as the King, coming in his cape turns blows from the front aside, not from behind",
+                got.get("cape") == ["King", "false", "10"], f"{got} {r.err[-300:]}")
+        r, got = story('run.data.king, run.data.repairs.r_slot, run.data.chosen = true, 1, { "king" } run.start(body, { "forest" }, "palace") '
+                       'local pk = rooms.want("pick") pk.open("box") pk.update({}, body)', "",
+                       'if f == 3 then dbg("carried", #fight.carried, fight.carried[2] and fight.carried[2].name) end', frames=4)
+        t.check("nizhalattam: once the King is home his role can be chosen at the box, and is carried from the start",
+                got.get("carried") == ["2", "King"], f"{got} {r.err[-300:]}")
+
         # The Puppet King: act one calls in soldiers, and his cape turns blows back
         r, got = story('rooms.enter("p7.ooru", "pboss.ooru", body) at(20, 208)', "",
                        'local b = shadows.boss if f == 2 then b.shown.summon, b.move, b.state, b.t = true, "summon", "wind", 1 end '
@@ -1823,7 +1847,7 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 130 and bossroom < 132 and forestroom < 136 and vilroom < 141 and searoom < 152 and aattaroom < 147
+                hub < 131 and bossroom < 133 and forestroom < 137 and vilroom < 141 and searoom < 152 and aattaroom < 147
                 and fieldroom < 149 and elephantroom < 147 and marketroom < 147 and ministerroom < 152
                 and palaceroom < 156 and queenroom < 153 and kingroom < 160 and after < forestroom - 4, got)
 

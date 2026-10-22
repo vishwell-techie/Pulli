@@ -24,4 +24,5 @@ return {
   f_yaanai = 1842,
   f_mandhiri = 1930,
   f_rani = 1932,
+  f_king = 1934,
 }

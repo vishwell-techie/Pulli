@@ -69,7 +69,8 @@ body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 
                kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19,
                sweep1 = 14, sweep2 = 15, t_air = 16, charge = 17, pound = 18, stomp = 19,
                dart = 14, dart2 = 15, m_air = 16, conjure = 17, snare = 18, m_spin = 19,
-               fire1 = 14, fire2 = 15, fire3 = 16, q_air = 17, lamp_up = 18, ring = 19 }
+               fire1 = 14, fire2 = 15, fire3 = 16, q_air = 17, lamp_up = 18, ring = 19,
+               sceptre1 = 14, sceptre2 = 15, sceptre3 = 16, k_air = 17, summon = 18, cape = 19 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,

@@ -90,6 +90,7 @@ end
 function run.hard() return run.data.king == true end
 
 function run.saved(name)
+  if name == "king" then return run.data.king == true end      -- (his role, once he is home)
   for _, s in ipairs(run.data.saved) do if s == name then return true end end
   return false
 end
