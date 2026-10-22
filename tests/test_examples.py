@@ -627,6 +627,17 @@ def main():
         starts = {play(n + 200, f"a@{n}") for n in range(5, 10)}
         t.check("pong: when A is pressed changes the match that follows", len(starts) > 1)
 
+        # Each level has its own backdrop: above the menu, away from the net,
+        # the screen is the level's picture.
+        def backdrop_shown(fb, name):
+            w, h, pixels = pulli.read_png(open(os.path.join(ROOT, "examples", "pong", name + ".png"), "rb").read())
+            index = {c: i for i, c in reversed(list(enumerate(pulli.palette()))) if i}   # (black packs as 32)
+            return all(fb[y * 320 + x] == index[pixels[y * w + x][:3]]
+                       for y in range(36) for x in range(320) if x not in (159, 160))
+        shown = [backdrop_shown(play(5, ",".join(f"right@{1 + 2 * k}" for k in range(n)) or None), name)
+                 for n, name in ((3, "bg_easy"), (0, "bg_normal"), (1, "bg_hard"), (2, "bg_insane"))]
+        t.check("pong: each level shows its own backdrop", all(shown), shown)
+
         # Saved between runs: the chosen level, and wins on each level.
         with tempfile.TemporaryDirectory() as saves:
             play(10, "right@1,a@5", saves=saves)
