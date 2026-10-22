@@ -25,4 +25,5 @@ return {
   f_mandhiri = 1930,
   f_rani = 1932,
   f_king = 1934,
+  page = 1936,
 }

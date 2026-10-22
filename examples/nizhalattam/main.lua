@@ -97,7 +97,7 @@ to_title = function()
   mode = "title"
 end
 
-local function show_card(a, b, after, c)
+local function show_card(a, b, after, c, frames)
   -- broken into lines that fit: the first line large, the rest small
   font()
   a = table.concat(text.wrap(a, 34), "\n")
@@ -105,7 +105,7 @@ local function show_card(a, b, after, c)
   b = b and table.concat(text.wrap(b, 36), "\n")
   if c then b = (b and b .. "\n" or "") .. c end
   font()
-  mode, card, card2, card_t, card_then = "card", a, b, CARD, after
+  mode, card, card2, card_t, card_then = "card", a, b, frames or CARD, after
 end
 
 local function say(s)                  -- broken into lines that fit, in the small size
@@ -318,6 +318,15 @@ function update(dt)
   end
   fight.mai = fight.mai + fx.update(body.k)
   follow()
+  -- a page of the King's story: picked up, and read
+  local px = rooms.page_x
+  if px and math.abs(body.k.x + body.k.w / 2 - px) < 10 and math.abs(body.k.y + body.k.h - rooms.page_y) < 20 then
+    rooms.page_x = nil
+    local n, pages = run.find_page(rooms.def().story), require("pages")
+    show_card(lines.t("page_n", n, pages.COUNT), pages.text(n), nil, nil, 900)    -- (time to read it)
+    unrequire("pages")
+    return
+  end
   -- the boss torn: his role lent, and oil
   local b = shadows.boss
   if shadows.beaten and b and b.act then
@@ -422,7 +431,8 @@ local function overlay()
     for n, c in ipairs(run.charms) do cs = cs .. (n > 1 and ", " or "") .. lines.t(c) end
     print(lines.t("charms") .. ": " .. (cs == "" and "-" or cs), 44, y, C.cloth)
     y = y + 20
-    print(lines.t("mai") .. ": " .. fight.mai .. "    " .. lines.t("oil_k") .. ": " .. run.data.oil, 44, y, C.cloth)
+    print(lines.t("mai") .. ": " .. fight.mai .. "    " .. lines.t("oil_k") .. ": " .. run.data.oil
+          .. "    " .. lines.t("pages_k") .. ": " .. #run.data.pages, 44, y, C.cloth)
     if run.seed then
       y = y + 20
       print(summary(), 44, y, C.cloth)

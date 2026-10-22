@@ -1565,6 +1565,25 @@ def main():
                 played["a"][0] == ["1"] and played["b"][0] == ["1"] and played["a_alone"][0] == ["0"]
                 and played["a_alone"][1] == ["1", "map.ooru"], played)
 
+        # the pages of the King's story: one in a room of each story; found,
+        # it is read at once and kept (in the order found), and is not there
+        # again; at the box the pages found are read again (B puts them away)
+        r, got = story('rooms.enter("s5.ooru", "s4.ooru", body) dbg("lying", tostring(rooms.page_x ~= nil)) '
+                       'body.place(rooms.page_x, rooms.page_y)', "",
+                       'if f == 3 then dbg("found", table.concat(run.data.pages, ","), tostring(rooms.page_x)) '
+                       '  rooms.enter("s5.ooru", "s4.ooru", body) dbg("again", tostring(rooms.page_x)) end', frames=5)
+        r2, got2 = story('local n = 0 for _, room in ipairs({ "f1", "k5", "b3", "m5", "p3" }) do '
+                         '  rooms.enter(room .. ".ooru", nil, body) if rooms.page_x then n = n + 1 end end dbg("each", n)', "", "", frames=3)
+        r3, got3 = story('run.data.pages = { "screen" } at(7, 208)',
+                         " ".join(f"if f == {fr} then i.{b} = true end" for fr, b in
+                                  [(10, "door")] + [(12 + 2 * n, "right_p") for n in range(5)] + [(24, "jump"), (30, "attack"), (40, "attack")]),
+                         'if f == 34 then dbg("reading", tostring(rooms.shop.is_open())) end '
+                         'if f == 44 then dbg("left", tostring(rooms.shop.is_open())) end', frames=46)
+        t.check("nizhalattam: a page of the King's story lies in a room of each story; found, it is kept, not there again, and read at the box",
+                got.get("lying") == ["true"] and got.get("found") == ["screen", "nil"] and got.get("again") == ["nil"]
+                and got2.get("each") == ["5"] and got3.get("reading") == ["true"] and got3.get("left") == ["false"],
+                f"{got} {got2} {got3} {r.err[-300:]} {r2.err[-300:]} {r3.err[-300:]}")
+
         # A run is kept at every door: switched off and on again, the game
         # asks, and A takes it up where it was; falling lets it go.
         with tempfile.TemporaryDirectory() as saves:
@@ -1686,8 +1705,8 @@ def main():
         t.check("nizhalattam: no place bought, or a puppet not saved, and nothing is chosen",
                 got2.get("chosen") == ["veeran"] and got.get("none") == ["true"], (got, got2))
 
-        steps = [(10, "door")] + [(12 + 2 * n, "down_p") for n in range(5)] + [(22, "jump"),     # Seed
-                 (24, "door"), (26, "door"), (28, "door"), (30, "right_p"), (32, "door"), (34, "jump")]
+        steps = [(10, "door")] + [(12 + 2 * n, "down_p") for n in range(6)] + [(24, "jump"),     # Seed
+                 (26, "door"), (28, "door"), (30, "door"), (32, "right_p"), (34, "door"), (36, "jump")]
         r, got = story("at(7, 208)", presses(*steps),
                        'if f == 40 then dbg("seed", tostring(run.next_seed)) run.start(body, rooms.MIDDLE) '
                        '  dbg("typed", run.seed, tostring(run.typed), tostring(run.next_seed)) end', frames=45)
@@ -1862,9 +1881,9 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 132 and bossroom < 134 and forestroom < 138 and vilroom < 142 and searoom < 153 and aattaroom < 148
-                and fieldroom < 150 and elephantroom < 148 and marketroom < 148 and ministerroom < 153
-                and palaceroom < 157 and queenroom < 154 and kingroom < 160 and after < forestroom - 4, got)
+                hub < 134 and bossroom < 136 and forestroom < 140 and vilroom < 144 and searoom < 155 and aattaroom < 150
+                and fieldroom < 152 and elephantroom < 150 and marketroom < 150 and ministerroom < 155
+                and palaceroom < 159 and queenroom < 156 and kingroom < 162 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

@@ -9,6 +9,8 @@
 --   rooms.fade()              0 to 1, how dark the screen is
 --   rooms.ended               set when Komali goes through the last door of
 --                             the stories ("end"): main.lua ends the run
+--   rooms.page_x, page_y      a page of the King's story lying here, not yet
+--                             found (one a story); main.lua picks it up
 --   rooms.shop, rooms.shop_x  the room's stall or box (stall.lua, box.lua),
 --                             or the halfway tear (pick.lua), and where it
 --                             stands; nil in other rooms
@@ -116,7 +118,7 @@ rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own she
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, LAST = 1012, 1026
+local TEAR, PAGE, LAST = 1012, 1027, 1027
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
                [1009] = "vine", [1010] = "moth", [1011] = "wisp",
                [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry",
@@ -238,7 +240,7 @@ function rooms.enter(name, from, body)
   fx.clear()
   -- (arrows; the King's shadow summons archers in every act)
   fight.arrows(def.arrows or (def.boss == "king" and hard))   -- (and clears those in flight)
-  rooms.stall_x, rooms.box_x, rooms.tear_x = nil, nil, nil
+  rooms.stall_x, rooms.box_x, rooms.tear_x, rooms.page_x = nil, nil, nil, nil
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
   local sx, sy = 40, 200
   for cy = 0, h - 1 do
@@ -256,6 +258,7 @@ function rooms.enter(name, from, body)
       elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
       elseif m == BOX then rooms.box_x, rooms.floor_y = x, y
       elseif m == TEAR then rooms.tear_x, rooms.floor_y = x, y
+      elseif m == PAGE and run.data and not run.page_found(def.story) then rooms.page_x, rooms.page_y = x, y
       elseif m == DOOR then
         local n = #dx + 1
         dx[n], dy[n], dto[n] = cx, cy, def.doors[n] == "next" and rooms.after(def.story) or def.doors[n]
@@ -362,6 +365,12 @@ function rooms.draw_things()
     end
   end
   if rooms.stall_x then spr(774, rooms.stall_x - 16, rooms.floor_y - 32, 4, 4) end
+  if rooms.page_x then                          -- a page of the King's story, drifting, aglow
+    local f = stat("frame")
+    local y = rooms.page_y - 14 + math.sin(f * 0.06) * 2
+    circ(rooms.page_x, y, 9 + f // 10 % 2, C.lamp)
+    spr(1936, rooms.page_x - 8, y - 8, 2, 2)
+  end
   if rooms.box_x then
     spr(771, rooms.box_x - 12, rooms.floor_y - 16, 3, 2)
     -- the Aasaan beside his box, nodding now and then

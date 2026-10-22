@@ -13,6 +13,7 @@
 --   run.charm(name)       does Komali carry this charm?
 --   run.add_oil(n)        oil, kept at once (not in a seeded run)
 --   run.hard()            hard mode: once the Puppet King is home, for good
+--   run.page_found(story), run.find_page(story)   the pages of the King's story
 --   run.clock()           the run's time, as m:ss
 --
 -- A run carries mai, charms and roles lent; all of it is lost when the run
@@ -50,6 +51,7 @@ local function defaults()
            chosen = {},                   -- the saved puppets' roles carried from the start
            king = false,                  -- the Puppet King come home (all six saved, then him)
            ending_b = false,              -- his shadow torn, in hard mode
+           pages = {},                    -- the stories whose page is found, in the order found
            kept = false }                 -- the run in progress, kept at its last door
 end
 
@@ -176,6 +178,19 @@ function run.kept() return run.data.kept or nil end
 
 function run.drop()
   if run.data.kept then run.data.kept = false run.keep() save_commit() end
+end
+
+-- A story's page: found already? Found now: which page it is (they are
+-- read in the order found), kept (not in a seeded run).
+function run.page_found(story)
+  for _, s in ipairs(run.data.pages) do if s == story then return true end end
+  return false
+end
+
+function run.find_page(story)
+  local n = #run.data.pages + 1
+  if not run.typed then run.data.pages[n] = story run.keep() end
+  return n
 end
 
 function run.charm(name)

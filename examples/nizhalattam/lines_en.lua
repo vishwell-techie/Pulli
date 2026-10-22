@@ -67,5 +67,9 @@ return {
   to_title = "%s back to the title",
   shade_torn = "A shadow, torn: it lends no role",
   hard = "Hard",
+  page_n = "Page %d of %d",
+  r_pages = "Read the pages found",
+  no_pages = "No pages found yet",
+  pages_k = "Pages",
   shade_in = "The %s's shadow: stronger, and it lends no role",
 }
