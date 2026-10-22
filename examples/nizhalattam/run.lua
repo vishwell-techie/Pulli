@@ -15,6 +15,15 @@
 -- ends, by falling or by playing the stories through. Oil and the rest of
 -- run.data are kept in the save.
 --
+-- A run in progress is kept at every door (run.keep_at): where Komali is,
+-- and everything the run carries. The console can be switched off, and the
+-- run taken up again where it was kept (resume.lua). Ending the run, by
+-- falling or by playing it through, lets it go (run.drop).
+--
+--   run.keep_at(body, room, from)   at a door: keep the run
+--   run.kept()                      the run kept, if any
+--   run.drop()                      the run is over: keep it no more
+--
 -- Each run has a seed, shown in the pause and at the end. It decides the
 -- order of the stories between the Screen (always first) and the Lamp
 -- Palace (always last). A fresh seed comes from the moment Komali steps
@@ -34,7 +43,8 @@ local function defaults()
            repairs = {},                  -- the Aasaan's repairs: r_health, r_double, r_mai
            saved = {},                    -- the puppets brought home, by role name
            chosen = {},                   -- the saved puppets' roles carried from the start
-           king = false }                 -- the Puppet King come home (all six saved, then him)
+           king = false,                  -- the Puppet King come home (all six saved, then him)
+           kept = false }                 -- the run in progress, kept at its last door
 end
 
 function run.load()
@@ -113,6 +123,30 @@ function run.free(name)
   if name == "king" then run.data.king = true
   elseif not run.saved(name) then run.data.saved[#run.data.saved + 1] = name end
   run.keep()
+end
+
+-- the names of a set (lent, sharp), as a list, and back
+local function list(set) local l = {} for k, v in pairs(set) do if v then l[#l + 1] = k end end return l end
+local function copy(l) local c = {} for n, v in ipairs(l) do c[n] = v end return c end
+run.copy = copy
+
+function run.keep_at(body, room, from)
+  local roles = {}
+  for n, r in ipairs(fight.carried) do roles[n] = r.name:lower() end
+  run.data.kept = {
+    seed = run.seed, typed = run.typed, order = copy(run.order), half = run.half, torn = run.torn,
+    cleared = run.cleared, time = run.time, room = room, from = from,
+    health = body.k.health, mai = fight.mai, charms = copy(run.charms), sharp = list(run.sharp),
+    roles = roles, worn = fight.worn, lent = list(run.lent),
+  }
+  run.keep()
+  save_commit()                          -- a door is a checkpoint: written now, not at the next interval
+end
+
+function run.kept() return run.data.kept or nil end
+
+function run.drop()
+  if run.data.kept then run.data.kept = false run.keep() save_commit() end
 end
 
 function run.charm(name)

@@ -17,6 +17,10 @@
 --   rooms.pick                the role picker, once wanted (or at the tear)
 --   rooms.started             set when Komali steps from the Courtyard into
 --                             the first story: main.lua begins the run
+--   rooms.came                set when Komali has come through a door into
+--                             a room (not when a room is entered otherwise):
+--                             main.lua keeps the run there; rooms.from is
+--                             the room he came from
 --   rooms.STORIES, MIDDLE     the stories: their first rooms; those made so
 --                             far that come between the first and the last
 --
@@ -257,7 +261,11 @@ end
 function rooms.update(i, body)
   if going then
     fade_t = fade_t + 1
-    if fade_t == FADE then rooms.enter(going, rooms.name, body) end
+    if fade_t == FADE then
+      rooms.from = rooms.name
+      rooms.enter(going, rooms.name, body)
+      rooms.came = true
+    end
     if fade_t >= FADE * 2 then going, fade_t = nil, 0 end
     return true
   end

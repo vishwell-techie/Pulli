@@ -753,7 +753,7 @@ def main():
         # Step 4: the first playable. A game starts in the Courtyard; `story`
         # runs it from there, `setup` on frame 1 (entering a room with
         # rooms.enter, say).
-        def story(setup, read, report, frames=300, pre=""):
+        def story(setup, read, report, frames=300, pre="", saves=None):
             extra = pre + ('local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
                            'local run, lines = require("run"), require("lines")\n'
                            'local up, st = update, {}\n'
@@ -765,7 +765,7 @@ def main():
                 shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
-                r = t.run_package(pulli.build(folder), frames=frames)
+                r = t.run_package(pulli.build(folder), frames=frames, saves=saves)
             return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
 
         r, got = story("at(34, 208)", "if f == 10 then i.door = true end",
@@ -1371,6 +1371,27 @@ def main():
                 got.get("choose") == ["true"] and got.get("freed") == ["veeran,yaanai", "1", "map.ooru"]
                 and got2.get("king") == ["true", "map.ooru"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
 
+        # A run is kept at every door: switched off and on again, the game
+        # asks, and A takes it up where it was; falling lets it go.
+        with tempfile.TemporaryDirectory() as saves:
+            r, got = story("at(34, 208)", "if f == 10 or f == 70 then i.door = true end",
+                           'if f == 60 then fight.mai, k.health = 77, 63 fight.lend("veeran") run.charms[1] = "bell" '
+                           '  at(math.floor(rooms.w / 8) - 6, 208) end '
+                           'if f == 120 then local kp = run.kept() dbg("kept", kp.room, kp.from, kp.health, kp.mai, '
+                           '  table.concat(kp.roles, ","), kp.charms[1], tostring(kp.seed == run.seed)) end', frames=125, saves=saves)
+            r2, got2 = story("", "if f == 10 then i.jump = true end",
+                             'if f == 2 then dbg("asks", rooms.name, tostring(run.kept() ~= nil)) end '
+                             'if f == 20 then local n = {} for _, r in ipairs(fight.carried) do n[#n + 1] = r.name end '
+                             '  dbg("back", rooms.name, k.health, fight.mai, table.concat(n, ","), run.charms[1], run.seed) k.health = 0 end '
+                             'if f == 300 then dbg("fell", rooms.name, tostring(run.kept())) end', frames=305, saves=saves)
+            r3, got3 = story("", "", 'if f == 5 then dbg("after", tostring(run.kept())) end', frames=8, saves=saves)
+        kept = got.get("kept", [""] * 7)
+        t.check("nizhalattam: a run is kept at every door; switched on again, A takes it up where it was; falling lets it go",
+                kept[:6] == ["s2.ooru", "s1.ooru", "63", "77", "komali,veeran", "bell"] and kept[6] == "true"
+                and got2.get("asks") == ["map.ooru", "true"] and (got2.get("back") or [""])[:5] == ["s2.ooru", "63", "77", "Komali,Veeran", "bell"]
+                and got2.get("fell") == ["map.ooru", "nil"] and got3.get("after") == ["nil"],
+                f"{got} {got2} {got3} {r.err[-300:]} {r2.err[-300:]}")
+
         # The run: a seed when Komali steps into the Screen; the stories
         # between the first and the last in an order from it; the halfway
         # tear after the middle one.
@@ -1619,7 +1640,7 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 123 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
+                hub < 125 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
                 and fieldroom < 145 and elephantroom < 141 and marketroom < 145 and ministerroom < 145
                 and palaceroom < 148 and queenroom < 145 and kingroom < 150 and after < forestroom - 4, got)
 

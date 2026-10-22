@@ -29,7 +29,8 @@
 --   stall.lua     the stall, where mai is spent (loaded in its rooms only)
 --   box.lua       the Aasaan's box: repairs, the roles to carry, a seed
 --   pick.lua      choosing roles: at the box, the halfway tear, a role lent
---   run.lua       what is kept between runs, and what a run carries
+--   run.lua       what is kept between runs, and what a run carries; a run kept at a door
+--   resume.lua    taking up a kept run, when the game is switched on (then let go)
 --   lines.lua     every word, in Tamil and English
 --   fx.lua        scraps, sparks, and the drops of ink (mai)
 --
@@ -51,7 +52,8 @@ local C       = require("colours")
 
 local cam = { x = 0, y = 0 }
 local show = false
-local mode = "play"                     -- "play", "pause" or "card"
+local mode = "play"                     -- "play", "pause", "card", or "ask" (take up a kept run?)
+local asking                            -- resume.lua, while it asks
 local card, card2, card_t, card_then = nil, nil, 0, nil
 local toast, toast_t = nil, 0
 local hint, hint2, hint_for = nil, nil, nil
@@ -71,6 +73,7 @@ function init()
   run.load()
   preload(rooms.ACTORS)
   home()
+  if run.kept() then mode, asking = "ask", require("resume") end   -- a run kept at a door: take it up?
 end
 
 local function show_card(a, b, after, c)
@@ -98,6 +101,7 @@ end
 -- the run played through: a card, then back to the Aasaan's box
 local freeing = false                   -- waiting for the player to choose who goes free
 local function finish(said)
+  run.drop()
   if not run.typed then run.data.played = run.data.played + 1 run.keep() end
   show_card(said, run.typed and lines.t("seeded") or nil, home, summary())
 end
@@ -169,6 +173,15 @@ function update(dt)
     end
     return
   end
+  if mode == "ask" then                 -- a kept run: taken up, or let go
+    if asking.update(i, body) then
+      asking = nil
+      unrequire("resume")
+      cam.x, cam.y = body.k.x + 5 - 160, body.k.y + 10 - 140
+      mode = "play"
+    end
+    return
+  end
   if mode == "pause" then
     if i.pause then mode = "play" end
     if select_p then
@@ -209,8 +222,13 @@ function update(dt)
       run.start(body, rooms.MIDDLE, rooms.LAST)
       if run.typed then say(lines.t("seeded")) end
     end
+    if rooms.came then                   -- through a door in a run: keep it here
+      rooms.came = false
+      if run.seed then run.keep_at(body, rooms.name, rooms.from) end
+    end
     if rooms.ended then
       rooms.ended = false
+      run.drop()
       if not run.typed then run.data.played = run.data.played + 1 run.keep() end
       show_card(lines.t("done"), nil, home, summary())
       return
@@ -267,6 +285,7 @@ function update(dt)
   end
   -- fallen: the run ends; he wakes on the Aasaan's box
   if body.k.health <= 0 then
+    run.drop()
     if not run.typed then run.data.falls = run.data.falls + 1 run.keep() end
     show_card(lines.t("fallen"), lines.t("woke"), home, run.seed and summary())
   end
@@ -347,6 +366,7 @@ local function overlay()
     end
     text.center(lines.t("resume", buttons.start, buttons.select), 186, C.tan)
   end
+  if mode == "ask" then asking.draw(say_at) end
   if mode == "card" then
     cls(C.ink)
     font()

@@ -59,4 +59,6 @@ return {
   role_Mandhiri = "Minister",
   role_Rani = "Queen",
   role_King = "Puppet King",
+  kept_q = "A run is waiting at a door",
+  kept_keys = "%s take it up    %s let it go",
 }
