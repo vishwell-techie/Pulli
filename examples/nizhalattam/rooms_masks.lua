@@ -1,6 +1,6 @@
--- rooms_masks.lua — the Market of Masks's rooms (see rooms.lua): read while Komali is in
--- the story or next to it, let go after. Each room takes what it does not say
--- from the story's defaults, through a metatable.
+-- rooms_masks.lua — the rooms of the Market of Masks (see rooms.lua): read while
+-- Komali is in the story or at a door into it, let go after. Each room
+-- takes what it does not say from the story's defaults, through a metatable.
 
 local MASKS = { __index = { place = "masks", sheet = "masks.kolam", bg = "bg_masks.kolam", story = "masks",
                             cast = "masks" } }

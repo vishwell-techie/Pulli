@@ -1,6 +1,6 @@
--- rooms_flags.lua — the Battlefield of Flags's rooms (see rooms.lua): read while Komali is in
--- the story or next to it, let go after. Each room takes what it does not say
--- from the story's defaults, through a metatable.
+-- rooms_flags.lua — the rooms of the Battlefield of Flags (see rooms.lua): read while
+-- Komali is in the story or at a door into it, let go after. Each room
+-- takes what it does not say from the story's defaults, through a metatable.
 
 local FLAGS = { __index = { place = "flags", sheet = "flags.kolam", bg = "bg_flags.kolam", story = "flags",
                             cast = "flags" } }

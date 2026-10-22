@@ -1,6 +1,6 @@
--- rooms_forest.lua — the Painted Forest's rooms (see rooms.lua): read while Komali is in
--- the story or next to it, let go after. Each room takes what it does not say
--- from the story's defaults, through a metatable.
+-- rooms_forest.lua — the rooms of the Painted Forest (see rooms.lua): read while
+-- Komali is in the story or at a door into it, let go after. Each room
+-- takes what it does not say from the story's defaults, through a metatable.
 
 local FOREST = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest",
                              cast = "forest" } }

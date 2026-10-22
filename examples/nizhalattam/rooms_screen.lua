@@ -1,6 +1,6 @@
--- rooms_screen.lua — the Screen's rooms (see rooms.lua): read while Komali is in
--- the story or next to it, let go after. Each room takes what it does not say
--- from the story's defaults, through a metatable.
+-- rooms_screen.lua — the rooms of the Screen (see rooms.lua): read while
+-- Komali is in the story or at a door into it, let go after. Each room
+-- takes what it does not say from the story's defaults, through a metatable.
 
 local SCREEN = { __index = { place = "screen", sheet = "screen.kolam", bg = "bg_screen.kolam", story = "screen" } }
 local S = function(def) return setmetatable(def, SCREEN) end

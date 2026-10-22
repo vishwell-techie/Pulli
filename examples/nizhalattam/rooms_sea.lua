@@ -1,6 +1,6 @@
--- rooms_sea.lua — the Leather Sea's rooms (see rooms.lua): read while Komali is in
--- the story or next to it, let go after. Each room takes what it does not say
--- from the story's defaults, through a metatable.
+-- rooms_sea.lua — the rooms of the Leather Sea (see rooms.lua): read while
+-- Komali is in the story or at a door into it, let go after. Each room
+-- takes what it does not say from the story's defaults, through a metatable.
 
 local SEA = { __index = { place = "sea", sheet = "sea.kolam", bg = "bg_sea.kolam", story = "sea", cast = "sea" } }
 local K = function(def) return setmetatable(def, SEA) end        -- (kadal, the sea)
