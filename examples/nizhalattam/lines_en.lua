@@ -86,4 +86,10 @@ return {
   h_archers = "Archers draw together, then loose: roll through",
   h_yaanai = "The Elephant! His charge ends at a wall: strike him then",
   h_trunk = "The Elephant's role: %s sweeps wide, %s charges them to the wall",
+  h_masks = "The Market of Masks. The Minister is held here",
+  h_twins = "Twin masks swap places when they flash",
+  h_juggler = "Jugglers lob knives: watch where they fall",
+  h_thief = "A mask thief snatches mai. Catch it: it pays back double",
+  h_mandhiri = "The Minister! Which is he? Only he drips ink",
+  h_ink = "The Minister's role: %s ink darts slow them, %s a paper decoy draws them off",
 }

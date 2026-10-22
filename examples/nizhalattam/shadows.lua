@@ -12,6 +12,12 @@
 --                             one with fly set moves itself: no gravity
 --   s.rally                   set on a shadow (the flag-bearer): the others
 --                             within that many pixels take half of a blow
+--   s.slow                    frames a shadow moves at half speed (an ink
+--                             dart, shots.lua)
+--   shadows.lure              a decoy the shadows go for instead of Komali
+--                             (the Minister's role): { x, y, w, h, hp, t,
+--                             body }, lure.body standing in for body.lua;
+--                             gone when its hp or its time (t) runs out
 --
 -- The cut-paper soldier walks up holding his guard to the front, so a
 -- light blow from the front is turned aside; one from behind lands, and
@@ -85,6 +91,7 @@ end
 
 function shadows.clear()
   for n = #shadows.list, 1, -1 do shadows.list[n] = nil end
+  shadows.lure = nil
 end
 
 -- is a shadow near a rallying one (not one itself)?
@@ -186,9 +193,20 @@ local function scrap(s, body, k, dx)
 end
 
 function shadows.update(body)
+  local lure = shadows.lure
+  if lure then                                        -- a decoy: they go for it
+    lure.t = lure.t - 1
+    if lure.t <= 0 or lure.hp <= 0 then
+      fx.tear(lure.x + lure.w / 2, lure.y + lure.h / 2, 0)
+      shadows.lure = nil
+    else
+      body = lure.body
+    end
+  end
   local k = body.k
   local kx = k.x + k.w / 2
   for _, s in ipairs(shadows.list) do
+    local x0 = s.x
     if s.on and math.abs(s.x - k.x) < 360 then        -- those far off sleep
       local dx = kx - (s.x + s.w / 2)
       local kind = s.kind
@@ -205,6 +223,10 @@ function shadows.update(body)
         local _, hy = move.by(s, s.vx, s.vy)
         if hy then s.vy = 0 end
         s.step = s.step + math.abs(s.vx)
+      end
+      if (s.slow or 0) > 0 then                       -- inked: half as far across
+        s.slow = s.slow - 1
+        s.x = x0 + (s.x - x0) / 2
       end
     end
   end
@@ -256,6 +278,9 @@ end
 function shadows.draw()
   local f = stat("frame")
   for _, s in ipairs(shadows.list) do
+    if s.on and (s.slow or 0) > 0 then                -- inked: drips falling from it
+      pset(s.x + s.w / 2 + (f // 6 % 3 - 1) * 3, s.y + s.h - 2 + f % 6, C.navy)
+    end
     if s.on then
       local x, y, st, kind = math.floor(s.x), math.floor(s.y), s.state, s.kind
       if kind == "soldier" then

@@ -1139,6 +1139,117 @@ def main():
         t.check("nizhalattam: as the Elephant, X charges a shadow before him to the wall (20, tearing a dummy); short of one, 10",
                 got.get("wall") == ["false", "true"] and got2.get("open") == ["8", "true"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
 
+        # Step 5e: the Market of Masks. Its own shadows, in its rooms only.
+        r, got = story('rooms.enter("m2.ooru", "m1.ooru", body)', "",
+                       'if f == 3 then dbg("market", tostring(shadows.kinds.thief ~= nil), tostring(shadows.kinds.twin ~= nil)) '
+                       '  rooms.enter("m4.ooru", "m3.ooru", body) dbg("stall", tostring(shadows.kinds.thief ~= nil), tostring(rooms.shop ~= nil)) '
+                       '  rooms.enter("mboss.ooru", "m6.ooru", body) dbg("court", tostring(shadows.kinds.thief ~= nil), tostring(shadows.kinds.mandhiri ~= nil)) '
+                       '  rooms.enter("map.ooru", nil, body) dbg("hub", tostring(shadows.kinds.thief ~= nil), tostring(shadows.kinds.mandhiri ~= nil)) end', frames=5)
+        t.check("nizhalattam: the market's shadows' code is there in its rooms only",
+                got.get("market") == ["true", "true"] and got.get("stall") == ["false", "true"]
+                and got.get("court") == ["false", "true"] and got.get("hub") == ["false", "false"], f"{got} {r.err[-300:]}")
+
+        # the mask thief snatches 20 mai and runs; caught, it gives back double
+        r, got = story('rooms.enter("m1.ooru", nil, body) at(26, 208) fight.mai = 30', "",
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "thief" and not st.t then st.t = s end end '
+                       '  for _, s in ipairs(shadows.list) do s.on = s == st.t end end '
+                       'if f > 2 and st.t.state == "flee" and not st.s then st.s = true dbg("stole", fight.mai, k.health) end '
+                       'if f == 150 then st.t.hp = 1 dbg("caught", shadows.strike(st.t, 5, 1, false), fight.mai) end', frames=155)
+        t.check("nizhalattam: a mask thief snatches 20 mai and runs, hurting no one; caught, it gives back double",
+                got.get("stole") == ["10", "100"] and got.get("caught") == ["torn", "50"], f"{got} {r.err[-300:]}")
+
+        # the juggler lobs three knives to fall about Komali (8); struck while
+        # juggling, it drops them
+        juggled = {}
+        for strike in (False, True):
+            r, got = story('rooms.enter("m3.ooru", "m2.ooru", body) at(36, 208)', "",
+                           'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "juggler" and not st.j then st.j = s end end '
+                           '  for _, s in ipairs(shadows.list) do s.on = s == st.j end end '
+                           + ('if f > 2 and st.j.state == "wind" and not st.w then st.w = true shadows.strike(st.j, 2, 1, false) end ' if strike else '')
+                           + 'if f == 180 then dbg("knives", k.health) end', frames=185)
+            juggled[strike] = got.get("knives")
+        t.check("nizhalattam: a juggler lobs knives to fall about Komali (8); struck while juggling, it drops them",
+                juggled == {False: ["92"], True: ["100"]}, f"{juggled} {r.err[-300:]}")
+
+        # twin masks flash, then swap places; one torn, the other flies faster and swaps no more
+        r, got = story('rooms.enter("m2.ooru", "m1.ooru", body) at(50, 208)', "",
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "twin" then if s.sun then st.sun = s else st.moon = s end end end '
+                       '  for _, s in ipairs(shadows.list) do s.on = s.kind == "twin" end end '
+                       'k.health = 100 if f > 2 then '
+                       'if st.was == "wind" and st.sun.state == "walk" and not st.sw then st.sw = true dbg("swapped", tostring(math.abs(st.sun.x - st.mx) < 4)) end '
+                       'st.was, st.mx = st.sun.state, st.moon.x end '
+                       'if f == 200 then st.moon.hp = 1 shadows.strike(st.moon, 5, 1, false) end '
+                       'if f == 220 then dbg("alone", string.format("%.1f", math.sqrt(st.sun.vx ^ 2 + st.sun.vy ^ 2))) end', frames=225)
+        t.check("nizhalattam: twin masks flash, then swap places; one torn, the other flies at Komali faster",
+                got.get("swapped") == ["true"] and got.get("alone") == ["1.0"], f"{got} {r.err[-300:]}")
+
+        # The Minister's role, against the dodging lesson's soldier
+        def ink(read, report, frames=120, wear='"mandhiri"', room="s3.ooru", cell=8):
+            return story(f'rooms.enter("{room}", "s2.ooru", body) fight.wear({{ {wear} }}) at({cell}, 208)', read,
+                         'local so = shadows.list[1] ' + report, frames)
+
+        r, got = ink("if f == 10 then i.attack = true end",
+                     'if f == 2 then so.x = k.x + 60 end if f == 40 then dbg("dart", so.hp, tostring((so.slow or 0) > 0)) end',
+                     room="s2.ooru")
+        t.check("nizhalattam: as the Minister, B throws an ink dart (7) that slows what it strikes",
+                got.get("dart") == ["11", "true"], f"{got} {r.err[-300:]}")
+
+        r, got = ink("if f == 10 then i.skill = true end",
+                     'if f == 2 then so.x = k.x + 70 end if f == 30 then at(40, 208) st.x = so.x end '
+                     'if f == 31 then dbg("lured", tostring(shadows.lure ~= nil)) end '
+                     'if f == 200 then dbg("decoy", tostring(so.x < st.x), k.health) end', frames=205)
+        t.check("nizhalattam: as the Minister, X leaves a paper decoy the shadows go for instead of Komali",
+                got.get("lured") == ["true"] and got.get("decoy") == ["true", "100"], f"{got} {r.err[-300:]}")
+
+        r, got = ink("if f == 10 then i.swap = 1 end",
+                     'if f == 2 then so.x = k.x + 60 end if f == 16 then at(3, 208) end '
+                     'if so.state == "reel" and so.t > 100 and not st.h then st.h = true dbg("snared", tostring(f > 20)) end',
+                     frames=200, wear='"komali", "mandhiri"')
+        t.check("nizhalattam: as the Minister, coming in he drops an ink snare that holds the first shadow into it",
+                got.get("snared") == ["true"], f"{got} {r.err[-300:]}")
+
+        # the Minister: each move shown first; his dart (10); his snares hold
+        r, got = story('rooms.enter("mboss.ooru", "m6.ooru", body) at(8, 208)', "",
+                       'local b = shadows.boss if k.health < 100 and not st.h then st.h = true dbg("dart", k.health) end k.health = 100 k.held = 0 '
+                       'if b.state == "wind" and not st.w then st.w = true st.seen = st.seen or {} '
+                       '  local m = b.move st.seen[m] = (st.seen[m] or 0) + 1 dbg(m .. st.seen[m], b.t) '
+                       'elseif b.state ~= "wind" then st.w = false end', frames=1500)
+        firsts = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("1")}
+        seconds = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("2")}
+        wind = {"dart": 22, "snare": 28, "decoys": 34}        # mandhiri.lua's B.wind
+        t.check("nizhalattam: the Minister shows each move first, with a warning twice as long; his ink dart costs 10",
+                r.code == 0 and set(wind) <= set(firsts) and all(v == 2 * wind[m] for m, v in firsts.items())
+                and len(seconds) >= 1 and all(seconds[m] == wind[m] for m in seconds) and got.get("dart") == ["90"],
+                f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("mboss.ooru", "m6.ooru", body) at(20, 208)', "",
+                       'local b = shadows.boss if f == 2 then b.shown.snare, b.move, b.state, b.t = true, "snare", "wind", 1 end '
+                       'if k.held > 0 and not st.h then st.h = true dbg("held", k.health, k.held) end', frames=80)
+        t.check("nizhalattam: the Minister's ink snares land about Komali; stepping in one holds him (4, 50 frames)",
+                got.get("held") == ["96", "50"], f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("mboss.ooru", "m6.ooru", body) at(8, 208)', "",
+                       'local b = shadows.boss if f == 2 then b.shown.decoys, b.move, b.state, b.t = true, "decoys", "wind", 1 st.x = b.x end '
+                       'k.health = 100 '
+                       'if f == 18 then local n = 0 for _, d in ipairs(b.decoys) do if d.on then n = n + 1 end end dbg("decoys", n) '
+                       '  dbg("paper", shadows.strike(b.decoys[1], 10, 1, false), tostring(b.decoys[1].on), b.hp) end '
+                       'if f == 30 then b.hp = 1 shadows.strike(b, 5, 1, true) dbg("gone", tostring(b.decoys[2].on)) end', frames=200)
+        t.check("nizhalattam: the Minister conjures two decoys; a blow tears one (he takes nothing); they go when he is torn",
+                got.get("decoys") == ["2"] and got.get("paper") == ["torn", "false", "170"] and got.get("gone") == ["false"],
+                f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("mboss.ooru", "m6.ooru", body) at(8, 208)', "",
+                       'local b = shadows.boss if f == 2 then b.shown.decoys, b.move, b.state, b.t = true, "decoys", "wind", 1 st.x = b.x end '
+                       'k.health = 100 if f > 2 and math.abs(b.x - st.x) > 30 and not st.m then st.m = true dbg("shuffled", f) end', frames=200)
+        t.check("nizhalattam: the Minister and his decoys change places",
+                "shuffled" in got, f"{got} {r.err[-300:]}")
+
+        r, got = story('run.start(body, { "masks" }) rooms.enter("mboss.ooru", "m6.ooru", body)', "",
+                       'if f == 3 then st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                       'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) end', frames=12)
+        t.check("nizhalattam: the Minister torn lends his role and 11 oil",
+                got.get("lent") == ["2", "Mandhiri", "11"], f"{got} {r.err[-300:]}")
+
         # The run: a seed when Komali steps into the Screen; the stories
         # between the first and the last in an order from it; the halfway
         # tear after the middle one.
@@ -1149,7 +1260,7 @@ def main():
         begun = got.get("begun", [""] * 5)
         t.check("nizhalattam: a run begins as Komali steps into the Screen: a seed, the stories in order, counted",
                 got.get("before") == ["nil"] and begun[:2] == ["s1.ooru", "true"] and begun[3:] == ["1", "false"]
-                and begun[2].startswith("screen,") and sorted(begun[2].split(",")[1:]) == ["flags", "forest", "sea"], got)
+                and begun[2].startswith("screen,") and sorted(begun[2].split(",")[1:]) == ["flags", "forest", "masks", "sea"], got)
 
         r, got = story("", "",
                        'if f == 3 then local m = { "forest", "sea", "flags", "masks" } local seen = {} '
@@ -1361,13 +1472,18 @@ def main():
                        '  rooms.enter("b6.ooru", "b5.ooru", body) end '
                        'if f == 210 then collectgarbage() dbg("field", stat("mem")) rooms.enter("bboss.ooru", "b6.ooru", body) end '
                        'if f == 240 then collectgarbage() dbg("elephant", stat("mem")) fight.give_up("vil", "yaanai") '
+                       '  rooms.enter("m6.ooru", "m5.ooru", body) end '
+                       'if f == 270 then collectgarbage() dbg("market", stat("mem")) rooms.enter("mboss.ooru", "m6.ooru", body) end '
+                       'if f == 300 then collectgarbage() dbg("minister", stat("mem")) fight.give_up("aattakkaari", "mandhiri") '
                        '  run.begin(body) rooms.enter("map.ooru", nil, body) end '
-                       'if f == 270 then collectgarbage() dbg("after", stat("mem")) end', frames=280)
-        hub, bossroom, forestroom, vilroom, searoom, aattaroom, fieldroom, elephantroom, after = (
-            float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant", "after"))
+                       'if f == 330 then collectgarbage() dbg("after", stat("mem")) end', frames=340)
+        hub, bossroom, forestroom, vilroom, searoom, aattaroom, fieldroom, elephantroom, marketroom, ministerroom, after = (
+            float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
+                                                    "market", "minister", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 125 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
-                and fieldroom < 145 and elephantroom < 141 and after < forestroom - 4, got)
+                hub < 123 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
+                and fieldroom < 145 and elephantroom < 141 and marketroom < 145 and ministerroom < 145
+                and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

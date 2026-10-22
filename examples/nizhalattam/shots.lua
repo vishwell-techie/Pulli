@@ -1,8 +1,9 @@
 -- shots.lua — arrows in flight: Komali's (the archer's role) and the
--- shadows' (Vil's).
+-- shadows' (the Archer's, the archer lines'); ink darts (the Minister's).
 --
---   shots.fire(x, y, vx, vy, life, n, mine, heavy)   an arrow from (x, y);
---                             heavy ones pass through what they strike
+--   shots.fire(x, y, vx, vy, life, n, mine, heavy, ink)   an arrow from
+--                             (x, y); heavy ones pass through what they
+--                             strike; ink darts slow it (s.slow, shadows.lua)
 --   shots.update(body, shadows)   once a frame: returns how many shadows
 --                             Komali's arrows struck, and whether a heavy one
 --   shots.draw()
@@ -23,17 +24,18 @@ local C    = require("colours")
 local shots = { streak = 0 }
 
 local MAX = 24
-local MINE, HEAVY, GOT = 1, 2, 4                -- an arrow's flags: Komali's, piercing, has struck
+local MINE, HEAVY, GOT, INK = 1, 2, 4, 8       -- an arrow's flags: Komali's, piercing, has struck, ink
+local SLOW = 120                                -- frames an ink dart slows a shadow
 local sx, sy, svx, svy, st, sn, sf, sid = {}, {}, {}, {}, {}, {}, {}, {}
 for n = 1, MAX do sx[n], sy[n], svx[n], svy[n], st[n], sn[n], sf[n], sid[n] = 0, 0, 0, 0, 0, 0, 0, 0 end
 local alive, ids = 0, 1000000          -- ids apart from fight.lua's blows
 
-function shots.fire(x, y, vx, vy, life, n, mine, heavy)
+function shots.fire(x, y, vx, vy, life, n, mine, heavy, ink)
   if alive >= MAX then return end
   alive = alive + 1
   ids = ids + 1
   sx[alive], sy[alive], svx[alive], svy[alive], st[alive] = x, y, vx, vy, life
-  sn[alive], sf[alive], sid[alive] = n, (mine and MINE or 0) | (heavy and HEAVY or 0), ids
+  sn[alive], sf[alive], sid[alive] = n, (mine and MINE or 0) | (heavy and HEAVY or 0) | (ink and INK or 0), ids
 end
 
 local function gone(n)                 -- the last one alive takes its place
@@ -57,6 +59,7 @@ function shots.update(body, shadows)
         if s.on and s.hit ~= sid[n] and x >= s.x and x < s.x + s.w and y >= s.y and y < s.y + s.h then
           s.hit = sid[n]
           local r = shadows.strike(s, sn[n], svx[n] < 0 and -1 or 1, pierce)
+          if r and f & INK ~= 0 then s.slow = SLOW end
           if r then
             if r ~= "blocked" then
               struck, heavy = struck + 1, heavy or pierce
@@ -91,9 +94,15 @@ function shots.draw()
     local ux, uy = vx / len, vy / len
     local x, y = sx[n], sy[n]
     local heavy = sf[n] & HEAVY ~= 0
+    if sf[n] & INK ~= 0 then                    -- an ink dart: a dark quill, a drop at its point
+      line(x - ux * 6, y - uy * 6, x - ux, y - uy, C.navy)
+      circfill(x, y, 1, C.ink)
+      pset(x - ux * 7, y - uy * 7 - 1, C.glow)
+    else
     line(x - ux * 8, y - uy * 8, x - ux, y - uy, sf[n] & MINE ~= 0 and C.tan or C.wood)
     pset(x, y, heavy and C.lamp or C.glow)
     line(x - ux * 9, y - uy * 9 - 1, x - ux * 8, y - uy * 8 - 1, C.red)
+    end
     if heavy and stat("frame") % 4 < 2 then pset(x - ux * 4, y - uy * 4, C.lamp) end
   end
 end

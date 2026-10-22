@@ -55,60 +55,12 @@ local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = 
 -- metatable, so each room's own table stays small; the buttons a hint names
 -- are a string, "left right a".)
 local SCREEN = { __index = { place = "screen", sheet = "screen.kolam", bg = "bg_screen.kolam", story = "screen" } }
-local FOREST = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest",
-                             cast = "forest" } }
-local NONE = { __index = { place = "forest", sheet = "forest.kolam", bg = "bg_forest.kolam", story = "forest" } }
-local SEA = { __index = { place = "sea", sheet = "sea.kolam", bg = "bg_sea.kolam", story = "sea", cast = "sea" } }
 local S = function(def) return setmetatable(def, SCREEN) end
-local F = function(def) return setmetatable(def, FOREST) end
-local F0 = function(def) return setmetatable(def, NONE) end      -- a forest room with none of its shadows
-local K = function(def) return setmetatable(def, SEA) end        -- (kadal, the sea)
-local FLAGS = { __index = { place = "flags", sheet = "flags.kolam", bg = "bg_flags.kolam", story = "flags",
-                            cast = "flags" } }
-local B = function(def) return setmetatable(def, FLAGS) end      -- (the battlefield)
 local ROOMS = {
   ["map.ooru"]   = S{ place = "court", sheet = "court.kolam", bg = "bg_court.kolam", doors = { "test.ooru", "s1.ooru" },
                       hidden = 2,                -- the booth's glowing screen in the backdrop is the door
                       shop = "box", pick = true, -- (pick: read ahead, wanted later)
                       hint = "h_door", keys = "up" },
-  -- the Screen, the first story: a lesson a room, then the boss
-  ["s1.ooru"]    = S{ doors = { "s2.ooru" }, hint = "h_move", keys = "left right a", start = true,
-                      hint2 = "h_high", keys2 = "a" },
-  ["s2.ooru"]    = S{ doors = { "s3.ooru" }, fight = true, soft = true, hint = "h_strike", keys = "b" },
-  ["s3.ooru"]    = S{ doors = { "s4.ooru" }, fight = true, soft = true, hint = "h_dodge", keys = "y" },
-  ["s4.ooru"]    = S{ doors = { "s5.ooru" }, fight = true, soft = true, hint = "h_skill", keys = "x" },
-  ["s5.ooru"]    = S{ doors = { "s6.ooru" }, fight = true, hint = "h_fight" },
-  ["s6.ooru"]    = S{ doors = { "s7.ooru" }, hint = "h_stall", keys = "up", shop = "stall" },
-  ["s7.ooru"]    = S{ doors = { "boss.ooru" }, hint = "h_pit" },
-  ["boss.ooru"]  = S{ doors = { "next" }, fight = true, hint = "h_boss", boss = "veeran", pick = true,
-                      taught = "h_swap", tkeys = "l r" },
-  -- the Painted Forest, the second story
-  ["f1.ooru"]    = F{ doors = { "f2.ooru" }, hint = "h_forest" },
-  ["f2.ooru"]    = F{ doors = { "f3.ooru" }, fight = true, hint = "h_vine", keys = "a" },
-  ["f3.ooru"]    = F{ doors = { "f2.ooru", "f4.ooru" }, hint = "h_wisp" },
-  ["f4.ooru"]    = F0{ doors = { "f5.ooru" }, shop = "stall" },
-  ["f5.ooru"]    = F{ doors = { "f6.ooru" }, fight = true },
-  ["f6.ooru"]    = F{ doors = { "fboss.ooru" } },
-  ["fboss.ooru"] = F0{ doors = { "next" }, fight = true, hint = "h_vil", pick = true, boss = "vil",
-                       boss_sheet = "vil.kolam", arrows = true, taught = "h_aim", tkeys = "up down b" },
-  -- the Leather Sea, the third (cast = false: a room with none of its shadows)
-  ["k1.ooru"]    = K{ doors = { "k2.ooru" }, hint = "h_sea" },
-  ["k2.ooru"]    = K{ doors = { "k3.ooru" }, fight = true, hint = "h_crab" },
-  ["k3.ooru"]    = K{ doors = { "k4.ooru" }, hint = "h_boat" },
-  ["k4.ooru"]    = K{ doors = { "k5.ooru" }, shop = "stall", cast = false },
-  ["k5.ooru"]    = K{ doors = { "k6.ooru" }, fight = true, hint = "h_wave" },
-  ["k6.ooru"]    = K{ doors = { "kboss.ooru" } },
-  ["kboss.ooru"] = K{ doors = { "next" }, fight = true, hint = "h_aatta", pick = true, boss = "aattakkaari",
-                      boss_sheet = "aatta.kolam", cast = false, taught = "h_dance", tkeys = "b x" },
-  -- the Battlefield of Flags, the fourth (its archers want arrows)
-  ["b1.ooru"]    = B{ doors = { "b2.ooru" }, hint = "h_flags" },
-  ["b2.ooru"]    = B{ doors = { "b3.ooru" }, fight = true, hint = "h_bearer" },
-  ["b3.ooru"]    = B{ doors = { "b4.ooru" }, hint = "h_drum" },
-  ["b4.ooru"]    = B{ doors = { "b5.ooru" }, shop = "stall", cast = false },
-  ["b5.ooru"]    = B{ doors = { "b6.ooru" }, fight = true, hint = "h_archers", arrows = true },
-  ["b6.ooru"]    = B{ doors = { "bboss.ooru" }, arrows = true },
-  ["bboss.ooru"] = B{ doors = { "next" }, fight = true, hint = "h_yaanai", pick = true, boss = "yaanai",
-                      boss_sheet = "yaanai.kolam", cast = false, taught = "h_trunk", tkeys = "b x" },
   -- the halfway tear, after the middle story: the roles carried may be
   -- changed here, once a run
   ["tear.ooru"]  = S{ doors = { "next" }, story = "tear", shop = "pick", pick = true, hint = "h_tear", keys = "up" },
@@ -117,18 +69,52 @@ local ROOMS = {
   ["climb.ooru"] = S{ doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = S{ doors = { "climb.ooru", "test.ooru" }, fight = true },
 }
-rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru", sea = "k1.ooru", flags = "b1.ooru" }   -- first rooms
-rooms.MIDDLE = { "forest", "sea", "flags" }      -- made so far; the Market to come
+-- Each story's rooms are in a file of their own (rooms_forest.lua, ...),
+-- read when a room of it is wanted, and let go once Komali is neither in
+-- the story nor at a door into it: only the Courtyard's, the tear's and the
+-- test rooms are always kept. A room's name says its story: its first
+-- letter, then a digit or "boss" (and "boss.ooru" is the Screen's).
+local FILE = "rooms_"                   -- (a name made, so pack does not take "rooms_" for a module)
+local LETTER = { s = "screen", f = "forest", k = "sea", b = "flags", m = "masks" }
+local held = {}                         -- the stories' room tables read now, by story
+
+local function story_of(name)
+  if name == "boss.ooru" then return "screen" end
+  if name:find("^%l%d") or name:find("^%lboss") then return LETTER[name:sub(1, 1)] end
+end
+
+setmetatable(ROOMS, { __index = function(_, name)
+  local story = story_of(name)
+  if not story then return nil end
+  if not held[story] then held[story] = require(FILE .. story) end
+  return held[story][name]
+end })
+
+-- let go the room tables of stories not in `keep` (a room's def, and the
+-- defs its doors lead to)
+local function let_go(a, b, c)
+  for story in pairs(held) do
+    if story ~= a and story ~= b and story ~= c then
+      held[story] = nil
+      unrequire(FILE .. story)
+    end
+  end
+end
+
+rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru", sea = "k1.ooru", flags = "b1.ooru",
+                  masks = "m1.ooru" }               -- each story's first room
+rooms.MIDDLE = { "forest", "sea", "flags", "masks" }     -- the stories between the Screen and the Palace
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, LAST = 1012, 1020
+local TEAR, LAST = 1012, 1023
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
                [1009] = "vine", [1010] = "moth", [1011] = "wisp",
                [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry",
-               [1018] = "archer", [1019] = "flag", [1020] = "drum" }
+               [1018] = "archer", [1019] = "flag", [1020] = "drum",
+               [1021] = "thief", [1022] = "juggler", [1023] = "twin" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -249,6 +235,10 @@ function rooms.enter(name, from, body)
     if d.boss_sheet then preload(d.boss_sheet) end
     if d.arrows then preload("shots.lua") end
   end
+  -- the room tables of the stories it is in and leads to are kept
+  local a = dto[1] and story_of(dto[1] == "end" and "map.ooru" or dto[1])
+  local b = dto[2] and story_of(dto[2])
+  let_go(def.story, a, b)
 end
 
 -- The door he stands at, if any.

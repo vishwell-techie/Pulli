@@ -4,11 +4,12 @@
 --   body.place(x, y)          -- feet at (x, y), in map pixels
 --   body.update(input)        -- once a frame; input from body.read()
 --   body.hurt(n, from_x)      -- struck: false if he could not be touched
---   body.draw(c, pose, base, moves)  -- c: the role's colours, swapped in
---                             (pal); pose: a frame of a blow (body.FRAME), or
---                             nil; base: where the role's frames start, or
---                             nil; moves: where its blows' frames start, if
---                             it has only those
+--   body.draw(c, pose, base, moves, sheet)  -- c: the role's colours,
+--                             swapped in (pal); pose: a frame of a blow
+--                             (body.FRAME), or nil; base: where the role's
+--                             frames start, or nil; moves: where its blows'
+--                             frames start, if it has only those; sheet: the
+--                             sheet they are on, if not the actors' own
 --
 -- k.held, set by a shadow that grabs him (the vine-hand), holds him still
 -- for that many frames; A, Y and B shake him free sooner. k.untouch, set by
@@ -65,7 +66,8 @@ local IDLE, RUN, JUMP, FALL, DODGE, WALL, HURT = 0, 2, 8, 9, 10, 12, 13
 body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9,
                aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19,
                kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19,
-               sweep1 = 14, sweep2 = 15, t_air = 16, charge = 17, pound = 18, stomp = 19 }
+               sweep1 = 14, sweep2 = 15, t_air = 16, charge = 17, pound = 18, stomp = 19,
+               dart = 14, dart2 = 15, m_air = 16, conjure = 17, snare = 18, m_spin = 19 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
@@ -281,7 +283,7 @@ function body.hurt(n, from_x)
   return n
 end
 
-function body.draw(c, pose, base, moves)
+function body.draw(c, pose, base, moves, sheet_)
   local f
   if pose then f = pose
   elseif k.dodge > 0 then f = DODGE + k.dodge // 4 % 2
@@ -294,7 +296,10 @@ function body.draw(c, pose, base, moves)
   if k.wall ~= 0 then flip = k.wall < 0 end
   if k.struck > 0 and k.struck < T.struck - 12 and k.struck // 4 % 2 == 0 then return end   -- flashing
   if c then for n = 1, #c, 2 do pal(c[n], c[n + 1]) end end
+  local own = pose and moves and sheet_
+  if own then sheet.load(sheet_) end
   spr((pose and moves or base or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
+  if own then sheet.load("actors.kolam") end
   pal()
 end
 

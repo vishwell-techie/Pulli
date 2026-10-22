@@ -72,7 +72,10 @@ function fight.wear(list)
     for _, r in ipairs(list) do kept = kept or r == name end
     if not kept then ROLES[name] = nil unrequire(FILE .. name) end
   end
-  for n, r in ipairs(list) do c[n] = ROLES[r] end
+  for n, r in ipairs(list) do
+    c[n] = ROLES[r]
+    if c[n].sheet then preload(c[n].sheet) end      -- its frames on a sheet of its own
+  end
   fight.arrows(false)
   fight.worn = 1
   atk, step, charge, cool, skill_t = nil, 0, 0, 0, 0
@@ -86,6 +89,7 @@ function fight.pose(body)
   local p = role.poses                       -- a role with frames for its blows alone
   if p then
     if skill_t > 0 then return p.skill end
+    if not atk then return nil end
     if atk == role.swap then return p.swap end
     if atk == role.air then return p.air end
     if atk then return p[step] or p[1] end
@@ -117,6 +121,7 @@ function fight.lend(name)
   local c = fight.carried
   for _, r in ipairs(c) do if r == ROLES[name] then return false end end
   if #c >= 3 then c[3] = ROLES[name] else c[#c + 1] = ROLES[name] end
+  if ROLES[name].sheet then preload(ROLES[name].sheet) end
   if ROLES[name].bow then fight.arrows(true) end
   return true
 end
@@ -136,6 +141,7 @@ function fight.give_up(old, new)
   for n = 2, #c do if c[n] == was then c[n] = ROLES[new] end end
   ROLES[old] = nil
   unrequire(FILE .. old)
+  if ROLES[new].sheet then preload(ROLES[new].sheet) end
   fight.arrows(ROLES[new].bow)
 end
 
@@ -198,6 +204,7 @@ function fight.update(i, body, shadows)
     step, charge, skill_t = 0, 0, 0
     start(role.swap)
     if role.swap.leap then k.vy, k.vx, k.ground = -3.2, -k.face * 2.6, false end
+    if role.on_swap then role.on_swap(k) end
   end
 
   -- the skill
@@ -288,6 +295,8 @@ function fight.update(i, body, shadows)
     if struck > 0 then fight.hit(heavy) end
   end
   k.slow = ((atk or (role.bow and charge > 0)) and k.ground) and role.slow or (skill_t > 0 and 0 or 1)
+  -- what a role leaves behind keeps going while it is carried (the Minister's snares)
+  for _, r in ipairs(fight.carried) do if r.each then r.each(k, shadows) end end
 end
 
 -- the blow, drawn as the arc of a sword or a slap; the heavy slash shines
@@ -297,6 +306,7 @@ function fight.draw(body)
   local cx, cy = k.x + k.w / 2, k.y + k.h / 2
   if (fight.ring or 0) > 0 then circ(cx, cy, 26 - fight.ring, C.lamp) end
   if skill_t > 0 and role.draw_skill then role.draw_skill(k) end
+  for _, r in ipairs(fight.carried) do if r.draw_each then r.draw_each(k) end end
   if charge >= CHARGE and stat("frame") % 4 < 2 then
     if role.bow then circ(cx + k.face * 10, cy - 4, 3, C.lamp) else circ(cx - k.face * 4, cy - 16, 3, C.glow) end
   end
