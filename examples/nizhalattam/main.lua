@@ -53,9 +53,10 @@ local C       = require("colours")
 
 local cam = { x = 0, y = 0 }
 local show = false
-local mode = "title"                    -- "title", "play", "pause", "card", or "ask" (take up a kept run?)
+local mode = "title"                    -- "title", "play", "pause", "card", "ask" (take up a kept run?), or "scene"
 local asking                            -- resume.lua, while it asks
 local titling                           -- title.lua, while the title shows
+local playing, after_scene              -- ending.lua, while an ending plays; what follows it
 local card, card2, card_t, card_then = nil, nil, 0, nil
 local toast, toast_t = nil, 0
 local hint, hint2, hint_for = nil, nil, nil
@@ -128,6 +129,16 @@ end
 
 local function title(r) return lines.role(r:sub(1, 1):upper() .. r:sub(2)) end
 
+-- an ending, played as a scene (ending.lua), in the Courtyard: the palace
+-- and its code are let go first. Then the card (said, said2: read before
+-- the palace's words go).
+local function play_scene(which, said, said2)
+  rooms.enter("map.ooru", nil, body)
+  playing, after_scene = require("ending"), function() finish(said, said2) end
+  playing.open(which)
+  mode = "scene"
+end
+
 -- The Puppet King beaten in an act: the curtain falls, and the door on
 -- opens. After the third he lets one puppet go, chosen by the player; with
 -- all six home, he comes home himself. In hard mode it is his shadow, and
@@ -137,14 +148,18 @@ local function king_beaten(b)
   run.cleared = run.cleared + 1
   run.add_oil(b.oil or 25)
   if b.shade then                       -- hard: the King's shadow torn, Ending B
-    if not run.typed then run.data.ending_b = true run.keep() end
-    finish(lines.t("ending_b"), lines.t("ending_b2"))
+    if run.typed then finish(lines.t("done")) return end
+    run.data.ending_b = true
+    run.keep()
+    play_scene("b", lines.t("the_end"))
     return
   end
   local left = 0
   for _, r in ipairs(require("pick").PUPPETS) do if not run.saved(r) then left = left + 1 end end
   if run.typed then finish(lines.t("done"))
-  elseif left == 0 then run.free("king") finish(lines.t("king_home"), lines.t("hard_now"))
+  elseif left == 0 then
+    run.free("king")
+    play_scene("a", lines.t("king_home"), lines.t("hard_now"))
   else rooms.want("pick").open("free") freeing = true end
 end
 
@@ -196,6 +211,15 @@ function update(dt)
     if card_t <= 0 or (card_t < CARD - 60 and i.jump) then
       mode = "play"
       if card_then then card_then() end
+    end
+    return
+  end
+  if mode == "scene" then
+    if playing.update(i) then
+      playing = nil
+      unrequire("ending")
+      mode = "play"
+      after_scene()
     end
     return
   end
@@ -422,6 +446,7 @@ end
 
 function draw()
   if mode == "title" then titling.draw() return end
+  if mode == "scene" then playing.draw() return end
   local fade = rooms.fade()
   if fade > 0.66 then cls(C.ink) return end
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- half dark

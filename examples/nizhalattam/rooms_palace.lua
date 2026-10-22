@@ -24,8 +24,7 @@ local words = {
     freed = "The %s comes home to the box",
     king_home = "The Puppet King comes home",
     hard_now = "From now on every story is hard, and its boss a shadow",
-    ending_b = "The King's shadow tears: the last of the anger he was painted with",
-    ending_b2 = "The Puppet Master carves the Jester a role of his own, and the troupe plays a new play, the King and the clown in it together",
+    the_end = "The End",
   },
   ta = {
     h_palace = "விளக்கு அரண்மனை. ராணி இங்கே சிறைப்பட்டிருக்கிறார்; பாவை அரசன் காத்திருக்கிறான்",
@@ -42,8 +41,7 @@ local words = {
     freed = "%s பெட்டிக்குத் திரும்புகிறார்",
     king_home = "பாவை அரசன் வீடு திரும்புகிறான்",
     hard_now = "இனி ஒவ்வொரு கதையும் கடினம்; அதன் தலைவன் ஒரு நிழல்",
-    ending_b = "அரசனின் நிழல் கிழிகிறது: அவன் மேல் தீட்டப்பட்ட கோபத்தின் கடைசித் துளி",
-    ending_b2 = "ஆசான் கோமாளிக்கென்றே ஒரு வேடம் செதுக்குகிறார்; குழு ஒரு புதிய நாடகம் ஆடுகிறது, அதில் அரசனும் கோமாளியும் சேர்ந்து",
+    the_end = "முற்றும்",
   },
 }
 

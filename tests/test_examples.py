@@ -1550,6 +1550,21 @@ def main():
         t.check("nizhalattam: the King's shadow torn in the third act is Ending B; no puppet is chosen, the run ends at the box",
                 got.get("choose") == ["false"] and got.get("ending") == ["true", "6", "map.ooru"], f"{got} {r.err[-300:]}")
 
+        # each ending is a scene of three panels before its card: A moves a
+        # panel on after a moment; left alone it plays them all
+        played = {}
+        for name, king, taps in (("a", "false", "if f % 50 == 0 then i.jump = true end"), ("a_alone", "false", ""),
+                                 ("b", "true", "if f % 50 == 0 then i.jump = true end")):
+            r, got = story(f'run.start(body, {{ "forest" }}, "palace") run.data.king = {king} '
+                           'run.data.saved = { "veeran", "vil", "aattakkaari", "yaanai", "mandhiri", "rani" } rooms.enter("p9.ooru", "p8.ooru", body)', taps,
+                           'if f == 3 then st.p = run.data.played local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                           'if f == 450 then dbg("played", run.data.played - st.p) end '
+                           'if f == 1300 then dbg("later", run.data.played - st.p, rooms.name) end', frames=1302)
+            played[name] = (got.get("played"), got.get("later"), r.err[-200:] if r.code else "")
+        t.check("nizhalattam: each ending plays as a scene, A moving it on; then its card, and the box",
+                played["a"][0] == ["1"] and played["b"][0] == ["1"] and played["a_alone"][0] == ["0"]
+                and played["a_alone"][1] == ["1", "map.ooru"], played)
+
         # A run is kept at every door: switched off and on again, the game
         # asks, and A takes it up where it was; falling lets it go.
         with tempfile.TemporaryDirectory() as saves:
@@ -1847,9 +1862,9 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 131 and bossroom < 133 and forestroom < 137 and vilroom < 141 and searoom < 152 and aattaroom < 147
-                and fieldroom < 149 and elephantroom < 147 and marketroom < 147 and ministerroom < 152
-                and palaceroom < 156 and queenroom < 153 and kingroom < 160 and after < forestroom - 4, got)
+                hub < 132 and bossroom < 134 and forestroom < 138 and vilroom < 142 and searoom < 153 and aattaroom < 148
+                and fieldroom < 150 and elephantroom < 148 and marketroom < 148 and ministerroom < 153
+                and palaceroom < 157 and queenroom < 154 and kingroom < 160 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:
