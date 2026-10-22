@@ -127,6 +127,8 @@ local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] 
 local MORE = { soldier = true, ink = true, scrap = true, vine = true, moth = true, wisp = true,
                crab = true, wave = true, gull = true, archer = true, thief = true,
                lampguard = true, mirror = true, cinder = true }
+-- the sheets of the puppets' shadows the King's shadow summons (king.lua)
+local SUMMONED = { "vil.kolam", "aatta.kolam", "yaanai.kolam", "mandhiri.kolam", "rani.kolam" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -231,10 +233,11 @@ function rooms.enter(name, from, body)
   -- and every boss is a shadow; before that, so is a saved puppet's
   local hard = run.hard()
   shadows.hard, body.harder = hard, hard and 1.5 or 1
-  shadows.shade = def.boss ~= nil and def.boss ~= "king" and (hard or run.saved(def.boss))
+  shadows.shade = def.boss ~= nil and (hard or (def.boss ~= "king" and run.saved(def.boss)))
   local more = 0
   fx.clear()
-  fight.arrows(def.arrows)                      -- (and clears those in flight)
+  -- (arrows; the King's shadow summons archers in every act)
+  fight.arrows(def.arrows or (def.boss == "king" and hard))   -- (and clears those in flight)
   rooms.stall_x, rooms.box_x, rooms.tear_x = nil, nil, nil
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
   local sx, sy = 40, 200
@@ -275,7 +278,10 @@ function rooms.enter(name, from, body)
     for _, m in pairs({ d.cast, d.boss, d.shop, d.pick and "pick" }) do if m then preload(m .. ".lua") end end
     if d.boss and d.boss ~= "king" then preload("role_" .. d.boss .. ".lua") end      -- the role he lends
     if d.boss_sheet then preload(d.boss_sheet) end
-    if d.arrows then preload("shots.lua") end
+    if d.boss == "king" and run.hard() then                 -- the puppets' shadows he summons
+      for _, sh in ipairs(SUMMONED) do preload(sh) end
+    end
+    if d.arrows or (d.boss == "king" and run.hard()) then preload("shots.lua") end
   end
   -- the room tables of the stories it is in and leads to are kept; the
   -- story's own words come with its rooms

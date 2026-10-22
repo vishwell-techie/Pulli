@@ -1459,8 +1459,8 @@ def main():
                 and got.get("blow") == ["18", "82"], f"{got} {r.err[-300:]}")
 
         # a boss is a shadow once his puppet is saved, and every one is in
-        # hard mode (not the King: his shadow is hard's last boss); a shadow
-        # torn lends no role, but leaves its oil
+        # hard mode (the King too: his shadow is hard's last boss, below); a
+        # shadow torn lends no role, but leaves its oil
         r, got = story('rooms.enter("boss.ooru", "s7.ooru", body) dbg("puppet", tostring(shadows.boss.shade)) '
                        'run.data.saved = { "veeran" } rooms.enter("boss.ooru", "s7.ooru", body) dbg("saved", tostring(shadows.boss.shade)) '
                        'run.data.saved = {} run.data.king = true rooms.enter("fboss.ooru", "f6.ooru", body) '
@@ -1469,9 +1469,9 @@ def main():
                        'run.data.king = false run.data.saved = { "veeran" } run.start(body, { "forest" }, "palace") '
                        '  rooms.enter("boss.ooru", "s7.ooru", body) st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true)', "",
                        'if f == 10 then dbg("torn", #fight.carried, tostring(run.lent.veeran), run.data.oil - st.oil) end', frames=12)
-        t.check("nizhalattam: a saved puppet's boss is its shadow, and in hard mode every boss but the King; a shadow lends no role",
+        t.check("nizhalattam: a saved puppet's boss is its shadow, and in hard mode every boss; a shadow lends no role",
                 got.get("puppet") == ["false"] and got.get("saved") == ["true"] and got.get("hard") == ["true", "225", "225"]
-                and got.get("king") == ["false"] and got.get("torn") == ["1", "nil", "8"], f"{got} {r.err[-300:]}")
+                and got.get("king") == ["true"] and got.get("torn") == ["1", "nil", "8"], f"{got} {r.err[-300:]}")
 
         # each boss's shadow has its stronger moves: watched for 2400 frames
         # with Komali walking to and fro, never falling (the blows' costs say
@@ -1500,6 +1500,31 @@ def main():
                 "leap" in v[0] and "16" in v[1] and v[3] == 5 and "rain" in a[0] and a[2] == 3 and "10" in d[1]
                 and e[4] == "true" and "10" in e[1] and m[2] >= 2 and "close" in q[0]
                 and not any(s[5] for s in shades.values()), shades)
+
+        # hard mode's last boss: the King's shadow, in three acts, with the
+        # puppets' moves; when he summons, a puppet's shadow comes out of the
+        # wings with his soldiers, each puppet in turn; torn in the third
+        # act, it is Ending B
+        hard_king = 'run.data.king = true run.data.saved = { "veeran", "vil", "aattakkaari", "yaanai", "mandhiri", "rani" } '
+        r, got = story(hard_king + 'local function moves(n) rooms.enter("p" .. n .. ".ooru", nil, body) local b = shadows.boss '
+                       '  local m = {} for _, x in ipairs(b.moves) do m[#m + 1] = x end table.sort(m) '
+                       '  dbg("act" .. b.act, tostring(b.shade), table.concat(m, ","), tostring(fight.shots ~= nil)) end '
+                       'moves(7) moves(8) moves(9) at(8, 208) local b = shadows.boss b.move, b.state, b.t = "summon", "wind", 1', "",
+                       'local b = shadows.boss if f == 4 then dbg("called", b.pk or "-", tostring(b.pt > 0), tostring(b.soldiers[1].on)) end '
+                       'if f == 200 then b.move, b.state, b.t = "summon", "wind", 1 end '
+                       'if f == 204 then dbg("next", b.pk or "-") end', frames=206)
+        t.check("nizhalattam: in hard mode the King is his shadow: each act has puppets' moves, and a summons brings a puppet's shadow",
+                got.get("act1") == ["true", "cape,dash,leap,summon,swing", "true"]
+                and got.get("act2") == ["true", "crown,pound,summon,swing,volley", "true"]
+                and got.get("act3") == ["true", "dash,leap,pound,ring,snare,summon,swing,volley", "true"]
+                and got.get("called") == ["veeran", "true", "true"] and got.get("next") == ["vil"], f"{got} {r.err[-300:]}")
+
+        r, got = story('run.start(body, { "forest" }, "palace") ' + hard_king + 'rooms.enter("p9.ooru", "p8.ooru", body)', "",
+                       'if f == 3 then local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                       'if f == 6 then dbg("choose", tostring(rooms.pick ~= nil and rooms.pick.is_open())) end '
+                       'if f == 300 then dbg("ending", tostring(run.data.ending_b), #run.data.saved, rooms.name) end', frames=305)
+        t.check("nizhalattam: the King's shadow torn in the third act is Ending B; no puppet is chosen, the run ends at the box",
+                got.get("choose") == ["false"] and got.get("ending") == ["true", "6", "map.ooru"], f"{got} {r.err[-300:]}")
 
         # A run is kept at every door: switched off and on again, the game
         # asks, and A takes it up where it was; falling lets it go.
@@ -1800,7 +1825,7 @@ def main():
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
                 hub < 130 and bossroom < 132 and forestroom < 136 and vilroom < 141 and searoom < 152 and aattaroom < 147
                 and fieldroom < 149 and elephantroom < 147 and marketroom < 147 and ministerroom < 152
-                and palaceroom < 156 and queenroom < 153 and kingroom < 156 and after < forestroom - 4, got)
+                and palaceroom < 156 and queenroom < 153 and kingroom < 160 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

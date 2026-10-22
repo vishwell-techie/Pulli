@@ -96,8 +96,9 @@ function shadows.add(x, y, kind)
   elseif kind == "scrap" then
     s.y, s.w, s.h, s.home = y - 6, 12, 6, y - 6
   elseif shadows.kinds[kind] then
+    s.shade = shadows.shade                          -- (known to the boss's own add)
     shadows.kinds[kind].add(s)
-    if s == shadows.boss then s.shade = shadows.shade end
+    if s ~= shadows.boss then s.shade = nil end
   end
   if shadows.hard and kind ~= "dummy" then
     s.hp = s.hp * 3 // 2

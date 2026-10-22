@@ -17,6 +17,15 @@
 --   dancer's dash, the elephant's pound, the minister's snare, the queen's
 --   ring of fire. With none saved the act is short.
 -- Each move shows a warning first, twice as long the first time.
+--
+-- In hard mode, with the King home, it is his shadow that waits here
+-- (s.shade), the last of the anger he was painted with: the first two acts
+-- have two puppets' moves each as well as their own, the third all six (all
+-- are saved by then), his lamps fall twice as
+-- often, and when he summons, with his soldiers comes a puppet's shadow,
+-- each in turn, which steps out of the wings, does its puppet's move once
+-- (a dash across the stage, or three shots), and tears away. Beaten in the
+-- third act, it brings Ending B (main.lua).
 
 local shadows = require("shadows")
 local fight   = require("fight")
@@ -44,6 +53,8 @@ local B = {
   snare = { hold = 50, n = 4, life = 300 },
   ring = { r = 64, frames = 36, n = 12 },
   rest = 40,
+  shade_lamps = 40,                                -- (the shadow's) lamps fall this often
+  puppet = { wait = 30, life = 140, gap = 14, count = 3, speed = 3.2, shot_life = 110 },
   mai = { 60, 70 },
   oil = 25,
 }
@@ -51,6 +62,19 @@ boss.B = B
 -- the move each puppet saved lends him in the third act
 local TAKEN = { veeran = "leap", vil = "volley", aattakkaari = "dash", yaanai = "pound", mandhiri = "snare",
                 rani = "ring" }
+local PUPPETS = { "veeran", "vil", "aattakkaari", "yaanai", "mandhiri", "rani" }
+-- a puppet's shadow, summoned by the King's: its sheet, the frame of its
+-- move, its size in cells, and the move: a dash (speed, blow) or shots
+-- (blow; an ink dart for the Minister)
+local SHADE = {
+  veeran = { sheet = "actors.kolam", frame = 1072, w = 6, dash = 2.6, n = 12 },
+  vil = { sheet = "vil.kolam", frame = 36, w = 6, n = 10 },
+  aattakkaari = { sheet = "aatta.kolam", frame = 54, w = 6, dash = 5, n = 14 },
+  yaanai = { sheet = "yaanai.kolam", frame = 48, w = 8, dash = 4.2, n = 16 },
+  mandhiri = { sheet = "mandhiri.kolam", frame = 30, w = 6, n = 10, ink = true },
+  rani = { sheet = "rani.kolam", frame = 36, w = 6, n = 10 },
+}
+boss.SHADE = SHADE
 
 -- Sprites in king.kolam (48x64, see art.py): on guard, walking (four),
 -- raising the sceptre, the swing, the cape, the throw; the leap, the
@@ -66,6 +90,12 @@ function kind.add(s)
   s.act, s.shown, s.think, s.turn, s.wt, s.ring, s.lamp = act, {}, 60, 0, 0, 0, B.lamps.every
   s.moves = act == 1 and { "swing", "cape", "summon" } or act == 2 and { "swing", "crown", "cape" } or { "swing" }
   local hp = B.hp[act]
+  s.role, s.pk, s.pt, s.calls = "king", nil, 0, 0               -- (a puppet's shadow summoned, its time)
+  if s.shade then                                  -- the shadow: two puppets' moves more in each act,
+    s.moves = act == 1 and { "swing", "leap", "cape", "dash", "summon" }     -- all six in the third,
+           or act == 2 and { "swing", "volley", "crown", "pound", "summon" } -- and he summons in each
+           or { "swing", "summon" }
+  end
   if act == 3 then
     for _, r in ipairs(run.data.saved) do
       if TAKEN[r] then s.moves[#s.moves + 1] = TAKEN[r] hp = hp + B.more end
@@ -76,7 +106,7 @@ function kind.add(s)
   shadows.boss, shadows.beaten = s, false
   -- the soldiers of the first act, made now, waiting in the wings
   s.soldiers = {}
-  if act == 1 then
+  if act == 1 or s.shade then
     for n = 1, 2 do
       local o = shadows.add(s.x, s.y + s.h, "soldier")
       o.on = false
@@ -92,6 +122,16 @@ end
 local function start(s, m)
   local x, y = s.x + s.w / 2, s.y + s.h
   s.state, s.t, s.landed = m, 0, false
+  if m == "summon" and s.shade and s.pt == 0 then
+    -- the shadow calls a puppet's shadow too, each in turn, into the wing
+    -- away from Komali
+    local w = require("rooms").w
+    s.calls = s.calls + 1
+    s.pk = PUPPETS[(s.calls - 1) % #PUPPETS + 1]
+    local far_left = require("body").k.x > w / 2
+    s.px, s.pf, s.pt, s.pc, s.pgot = far_left and 32 or w - 32, far_left and 1 or -1, B.puppet.life, 0, false
+    fx.tear(s.px, y - 20, 0)
+  end
   if m == "summon" then                            -- in from the wings, either side
     local w = require("rooms").w
     for n, o in ipairs(s.soldiers) do
@@ -128,7 +168,7 @@ function kind.update(s, body, k, dx)
     if s.think <= 0 or (dist < B.near and s.think < 30) then
       s.turn = s.turn + 1
       local m = dist < B.near and "swing" or s.moves[(s.turn - 1) % #s.moves + 1]
-      if m == "summon" and s.soldiers[1].on and s.soldiers[2].on then m = "swing" end
+      if m == "summon" and s.soldiers[1].on and s.soldiers[2].on and (not s.shade or s.pt > 0) then m = "swing" end
       s.move, s.state, s.vx, s.tx = m, "wind", 0, kx
       s.t = B.wind[m] * (s.shown[m] and 1 or 2)
       s.shown[m] = true
@@ -206,6 +246,30 @@ function kind.update(s, body, k, dx)
       shadows.hits = shadows.hits + 1
     end
   end
+  -- a puppet's shadow, summoned: it waits a moment in the wing, then does
+  -- its puppet's move once, and tears away
+  if s.pt > 0 then
+    s.pt = s.pt - 1
+    local P, D = B.puppet, SHADE[s.pk]
+    local age = P.life - s.pt
+    if age > P.wait then
+      if D.dash then
+        s.px = s.px + s.pf * D.dash
+        if not s.pgot and math.abs(kx - s.px) < 12 + D.w * 2 and math.abs(k.y + k.h - feet) < 30 and body.hurt(D.n, s.px) then
+          s.pgot = true
+          shadows.hits = shadows.hits + 1
+        end
+        if move.blocked(s.px + s.pf * D.w * 4, feet - 8, 1, 1) then s.pt = 0 end
+      elseif (age - P.wait) % P.gap == 1 and s.pc < P.count and fight.shots then
+        local hx, hy = s.px + s.pf * 12, feet - 30
+        local ex, ey = kx - hx, k.y + k.h / 2 - hy
+        local len = math.max(1, math.sqrt(ex * ex + ey * ey))
+        fight.shots.fire(hx, hy, ex / len * P.speed, ey / len * P.speed, P.shot_life, D.n, false, false, D.ink)
+        s.pc = s.pc + 1
+      end
+    end
+    if s.pt == 0 then fx.tear(s.px, feet - 20, 0) end
+  end
   -- the second act: lamps fall, a shadow on the floor first where each lands
   if s.act == 2 then
     s.lamp = s.lamp - 1
@@ -216,7 +280,7 @@ function kind.update(s, body, k, dx)
         if math.abs(kx - s.lx) < 10 and body.hurt(B.lamps.n, s.lx) then shadows.hits = shadows.hits + 1 end
         fx.spark(s.lx, feet - 2)
         fx.tear(s.lx, feet - 6, 0)
-        s.lamp = B.lamps.every
+        s.lamp = s.shade and B.shade_lamps or B.lamps.every
       end
     end
   end
@@ -263,7 +327,7 @@ function kind.torn(s)
   fx.tear(s.x + s.w / 2, s.y + 4, 0)
   fx.tear(s.x + s.w / 2, s.y + 16, 0)
   for _, o in ipairs(s.soldiers) do o.on = false end
-  s.cl, s.lt, s.wt, s.sl = 0, 0, 0, 0
+  s.cl, s.lt, s.wt, s.sl, s.pt = 0, 0, 0, 0, 0
 end
 
 function kind.draw(s)
@@ -286,6 +350,16 @@ function kind.draw(s)
   spr(n, math.floor(cx) - 24, math.floor(feet) - 63, 6, 8, s.face < 0)
   sheet.load("actors.kolam")
   pal()
+  if s.pt > 0 then                                 -- a puppet's shadow, from its own sheet, dark
+    local D, age = SHADE[s.pk], B.puppet.life - s.pt
+    if age > B.puppet.wait or f % 4 < 2 then
+      shadows.dark()
+      sheet.load(D.sheet)
+      spr(D.frame, math.floor(s.px) - D.w * 4, math.floor(feet) - 63, D.w, 8, s.pf < 0)
+      sheet.load("actors.kolam")
+      pal()
+    end
+  end
   if s.cl > 0 then                                 -- the crown, spinning
     local a = f * 0.4
     for p = 0, 4 do pset(s.cx + math.cos(a + p * 1.26) * 4, s.cy + math.sin(a + p * 1.26) * 2, C.lamp) end

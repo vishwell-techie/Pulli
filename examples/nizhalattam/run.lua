@@ -49,6 +49,7 @@ local function defaults()
            saved = {},                    -- the puppets brought home, by role name
            chosen = {},                   -- the saved puppets' roles carried from the start
            king = false,                  -- the Puppet King come home (all six saved, then him)
+           ending_b = false,              -- his shadow torn, in hard mode
            kept = false }                 -- the run in progress, kept at its last door
 end
 

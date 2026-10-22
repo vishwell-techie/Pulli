@@ -23,12 +23,12 @@ local C     = require("colours")
 local title = { skip = nil }
 
 -- what a slot holds: runs played through, oil, the puppets saved, a run
--- kept at a door, the King come home; nil if it is empty
+-- kept at a door, the King come home, his shadow torn; nil if it is empty
 local function peek(slot)
   local d = run.read(slot)
   if not d then return nil end
   return { played = d.played or 0, oil = d.oil or 0, saved = d.saved or {}, kept = d.kept and true or false,
-           king = d.king }
+           king = d.king, ending_b = d.ending_b }
 end
 title.peek = peek
 
@@ -83,6 +83,7 @@ local function card(n, x, y)
     circ(x + 12 + (k - 1) * 14, y + 45, 3, C.leather)
   end
   if p.king then circfill(x + 84, y + 8, 2, C.glow) end      -- the King come home
+  if p.ending_b then circfill(x + 76, y + 8, 2, C.sky) end   -- and his shadow torn
   if p.kept then                                   -- a run waiting at a door: a flame
     pset(x + 84, y + 20, C.glow) line(x + 83, y + 21, x + 85, y + 21, C.lamp) pset(x + 84, y + 22, C.saffron)
   end

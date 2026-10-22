@@ -130,11 +130,17 @@ local function title(r) return lines.role(r:sub(1, 1):upper() .. r:sub(2)) end
 
 -- The Puppet King beaten in an act: the curtain falls, and the door on
 -- opens. After the third he lets one puppet go, chosen by the player; with
--- all six home, he comes home himself.
+-- all six home, he comes home himself. In hard mode it is his shadow, and
+-- tearing it in the third act is Ending B.
 local function king_beaten(b)
   if b.act < 3 then say(lines.t("curtain")) return end
   run.cleared = run.cleared + 1
   run.add_oil(b.oil or 25)
+  if b.shade then                       -- hard: the King's shadow torn, Ending B
+    if not run.typed then run.data.ending_b = true run.keep() end
+    finish(lines.t("ending_b"), lines.t("ending_b2"))
+    return
+  end
   local left = 0
   for _, r in ipairs(require("pick").PUPPETS) do if not run.saved(r) then left = left + 1 end end
   if run.typed then finish(lines.t("done"))
