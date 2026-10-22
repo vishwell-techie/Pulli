@@ -80,6 +80,77 @@ def walkable_without_keys(name):
     return {k: (sum(i in seen for i in v), len(v)) for k, v in marks.items()}
 
 
+def nizhalattam_climbs(up=3, across=7):
+    """Whether, in every Nizhalattam room, each door can be reached from the
+    start and from each other door, climbing at most `up` tiles at a time (a
+    held jump rises 4.5) and jumping at most `across` tiles. A coarse walk
+    over the places Komali can stand (three clear tiles over a floor); a
+    boat's deck stands level with the quays, and a ferry's spans its water.
+    The grey tuning rooms test the jump's limits and are left out."""
+    import glob, xml.etree.ElementTree as ET
+    game = os.path.join(ROOT, "examples", "nizhalattam")
+    flags = {}
+    for tile in ET.parse(os.path.join(game, "sprites.tsx")).getroot().iter("tile"):
+        for prop in tile.iter("property"):
+            if prop.get("name") == "flags":
+                flags[int(tile.get("id"))] = int(prop.get("value"))
+    START, DOOR, BOAT, FERRY = 1000, 1002, 1016, 1017
+    stuck = []
+    for path in sorted(glob.glob(os.path.join(game, "*.tmx"))):
+        name = os.path.basename(path)[:-4]
+        if name in ("test", "climb"):
+            continue
+        root = ET.parse(path).getroot()
+        w, h = int(root.get("width")), int(root.get("height"))
+        ground, front = [[(int(v) & 0x0FFFFFFF) - 1 for v in layer.find("data").text.replace("\n", "").split(",")
+                          if v.strip()] for layer in root.iter("layer")]
+        flag = lambda x, y: 1 if not 0 <= x < w else 0 if not 0 <= y < h else flags.get(ground[y * w + x], 0)
+        decks = set()                          # cells a boat's deck holds Komali up in
+        for i, m in enumerate(front):
+            x, y = i % w, i // w
+            if m == BOAT:
+                decks |= {(c, y) for c in range(x - 2, x + 4)}
+            elif m == FERRY:
+                a = b = x
+                while not flag(a - 1, y + 1) & 1 and not flag(a - 1, y) & 1: a -= 1
+                while not flag(b + 1, y + 1) & 1 and not flag(b + 1, y) & 1: b += 1
+                decks |= {(c, y) for c in range(a, b + 1)}
+        solid = lambda x, y: flag(x, y) & 1
+        stand = lambda x, y: (0 <= x < w and 0 <= y < h and not any(solid(x, y - n) for n in range(3))
+                              and (flag(x, y + 1) & 3 or (x, y) in decks))
+
+        def nexts(x, y):
+            for dx in range(-across, across + 1):
+                lo, hi = sorted((x, x + dx))
+                for dy in range(-up, h - y):
+                    q = (x + dx, y + dy)
+                    top = min(y, q[1])             # the arc's lowest top: nothing solid in the way
+                    if stand(*q) and not any(solid(x, yy) for yy in range(top - 2, y + 1)) \
+                       and not any(solid(c, yy) for c in range(lo + 1, hi) for yy in range(y - up, top + 1)):
+                        yield q
+            if flag(x, y + 1) & 2 and not flag(x, y + 1) & 1:      # down + A through a thin floor
+                yy = y + 2
+                while yy < h and not stand(x, yy) and not solid(x, yy):
+                    yy += 1
+                if stand(x, yy):
+                    yield (x, yy)
+
+        def snap(x, y):
+            while y < h and not stand(x, y):
+                y += 1
+            return x, y
+        doors = [snap(i % w, i // w) for i, m in enumerate(front) if m == DOOR]
+        for s in [snap(i % w, i // w) for i, m in enumerate(front) if m == START] + doors:
+            seen, todo = {s}, [s]
+            while todo:
+                for q in nexts(*todo.pop()):
+                    if q not in seen:
+                        seen.add(q)
+                        todo.append(q)
+            stuck += [f"{name}: {s} to {d}" for d in doors if d not in seen]
+    return not stuck, stuck
+
+
 # Pong seeds its random numbers from the frame on which A is pressed. Pressed
 # on frame 6, the first serve goes to the console, which returns it: that
 # puts the console's paddle to work and gives a paddle hit to test against.
@@ -598,6 +669,8 @@ def main():
             tops[step] = got.get("on", ["?"])[0]
         t.check("nizhalattam: a held jump clears a step four tiles high, not five",
                 tops == {"4": "true", "5": "nil"}, tops)
+        t.check("nizhalattam: every room's doors are reached with climbs of three tiles at most, leaving a held jump room to spare",
+                *nizhalattam_climbs())
 
         late = {}
         for n in (4, 8):
