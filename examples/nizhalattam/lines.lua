@@ -7,10 +7,12 @@
 --
 -- The words are in lines_ta.lua and lines_en.lua, the same keys in both (a
 -- test checks). Only the language in use is kept in memory: changing it
--- lets the other go. A line may hold %s for a button's icon, %d for a
--- number.
+-- lets the other go. A story's own words (its hints) are in its rooms'
+-- file (rooms_forest.lua, ...), both languages, and only while Komali is in
+-- it: rooms.lua sets lines.story to them. A line may hold %s for a button's
+-- icon, %d for a number.
 
-local lines = { lang = nil }
+local lines = { lang = nil, story = nil }
 local L
 
 function lines.use(lang)
@@ -21,7 +23,7 @@ function lines.use(lang)
 end
 
 function lines.t(key, ...)
-  local s = L[key] or key
+  local s = L[key] or (lines.story and lines.story[lines.lang][key]) or key
   if select("#", ...) > 0 then return string.format(s, ...) end
   return s
 end

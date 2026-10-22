@@ -6,7 +6,8 @@
 -- story, the Screen, a lesson a room, with Veeran as its boss; and the
 -- second, the Painted Forest, with the Archer; the Leather Sea, with the
 -- Dancer; the Battlefield of Flags, with the Elephant; the Market of
--- Masks, with the Minister.
+-- Masks, with the Minister; and last the Lamp Palace, with the Queen and
+-- the Puppet King, who lets one puppet go when he is beaten.
 --
 --   body.lua      how Komali moves: running, jumping, dodging, walls, blows
 --   fight.lua     his roles and his blows; the freeze and the shake
@@ -16,11 +17,14 @@
 --   sea.lua       the sea's own: crab-shield, wave-cutter, gull; boats (in its rooms only)
 --   flags.lua     the battlefield's own: archer line, flag-bearer, war drum (in its rooms only)
 --   masks.lua     the market's own: mask thief, juggler, twin masks (in its rooms only)
+--   palace.lua    the palace's own: lamp guard, mirror shade, cinder (in its rooms only)
 --   veeran.lua    Veeran, the Screen's boss (loaded in his room only)
 --   vil.lua       Vil, the forest's boss (loaded in his room only)
 --   aattakkaari.lua  Aattakkaari, the sea's boss (loaded on her deck only)
 --   yaanai.lua    the Elephant, the battlefield's boss (loaded in his field only)
 --   mandhiri.lua  the Minister, the market's boss, and his decoys (in his court only)
+--   rani.lua      the Queen, the palace's boss (in her hall only)
+--   king.lua      the Puppet King, in three acts (on his stage only)
 --   rooms.lua     rooms and the doors between them; reading ahead
 --   stall.lua     the stall, where mai is spent (loaded in its rooms only)
 --   box.lua       the Aasaan's box: repairs, the roles to carry, a seed
@@ -91,6 +95,29 @@ local function summary()
   return lines.t("summary", string.format("%05d", run.seed or 0), run.clock(), run.cleared, #run.order)
 end
 
+-- the run played through: a card, then back to the Aasaan's box
+local freeing = false                   -- waiting for the player to choose who goes free
+local function finish(said)
+  if not run.typed then run.data.played = run.data.played + 1 run.keep() end
+  show_card(said, run.typed and lines.t("seeded") or nil, home, summary())
+end
+
+local function title(r) return lines.role(r:sub(1, 1):upper() .. r:sub(2)) end
+
+-- The Puppet King beaten in an act: the curtain falls, and the door on
+-- opens. After the third he lets one puppet go, chosen by the player; with
+-- all six home, he comes home himself.
+local function king_beaten(b)
+  if b.act < 3 then say(lines.t("curtain")) return end
+  run.cleared = run.cleared + 1
+  run.add_oil(b.oil or 25)
+  local left = 0
+  for _, r in ipairs(require("pick").PUPPETS) do if not run.saved(r) then left = left + 1 end end
+  if run.typed then finish(lines.t("done"))
+  elseif left == 0 then run.free("king") finish(lines.t("king_home"))
+  else rooms.want("pick").open("free") freeing = true end
+end
+
 -- The camera leads the way he faces, and follows up and down more slowly,
 -- catching up at once when he lands.
 local function follow()
@@ -154,6 +181,12 @@ function update(dt)
   local shop, pk = rooms.shop, rooms.pick
   if shop and shop.update(i, body) then return end
   if pk and pk ~= shop and pk.update(i, body) then return end
+  if freeing then                       -- chosen: that puppet goes home, and so does Komali
+    freeing = false
+    run.free(rooms.pick.freed)
+    finish(lines.t("freed", title(rooms.pick.freed)))
+    return
+  end
   if select_p then show = not show end
 
   if fight.freeze > 0 then
@@ -173,7 +206,7 @@ function update(dt)
   if rooms.update(i, body) then          -- through a door: the world waits
     if rooms.started then                -- into the first story: the run begins
       rooms.started = false
-      run.start(body, rooms.MIDDLE)
+      run.start(body, rooms.MIDDLE, rooms.LAST)
       if run.typed then say(lines.t("seeded")) end
     end
     if rooms.ended then
@@ -211,7 +244,10 @@ function update(dt)
   follow()
   -- the boss torn: his role lent, and oil
   local b = shadows.boss
-  if shadows.beaten and b then
+  if shadows.beaten and b and b.act then
+    shadows.beaten = false
+    king_beaten(b)
+  elseif shadows.beaten and b then
     shadows.beaten = false
     run.cleared = run.cleared + 1
     -- both places full: which role to give up for his, if any

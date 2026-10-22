@@ -316,6 +316,7 @@ function fight.draw(body)
     return
   end
   local col = atk.heavy and C.lamp or C.glow
+  if role.fire then col = stat("frame") % 4 < 2 and C.saffron or C.vermil end   -- the Queen's lamp-fire
   local r = atk.around and atk.w or atk.w
   local p = (f - atk.s) / atk.a
   for n = 0, 4 do

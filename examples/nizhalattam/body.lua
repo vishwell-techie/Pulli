@@ -67,7 +67,8 @@ body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 
                aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19,
                kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19,
                sweep1 = 14, sweep2 = 15, t_air = 16, charge = 17, pound = 18, stomp = 19,
-               dart = 14, dart2 = 15, m_air = 16, conjure = 17, snare = 18, m_spin = 19 }
+               dart = 14, dart2 = 15, m_air = 16, conjure = 17, snare = 18, m_spin = 19,
+               fire1 = 14, fire2 = 15, fire3 = 16, q_air = 17, lamp_up = 18, ring = 19 }
 
 -- Komali: his box is 10x20, his feet at (x + 5, y + 20).
 local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
@@ -84,6 +85,7 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             held = 0,           -- frames a shadow holds him still
             untouch = 0,        -- frames no blow reaches him
             steady = false,     -- no blow throws him back (set by fight.lua: the elephant)
+            ward = 0,           -- blows turned aside before any lands (the Queen's lamp shield)
             on = nil }          -- the moving floor he stands on, if any
 body.k = k
 
@@ -276,6 +278,7 @@ function body.hurt(n, from_x)
   if body.safe() then return false end
   local side = from_x < k.x + k.w / 2 and -1 or 1
   if k.guard < 0 and side == k.face then return false end   -- shield up, facing it
+  if k.ward > 0 then k.ward = k.ward - 1 return false end    -- the lamp shield takes it
   n = math.max(1, math.floor(n * (1 - math.max(0, k.guard)) + 0.5))
   k.health = math.max(0, k.health - n)
   k.struck, k.dodge = T.struck, 0

@@ -33,7 +33,8 @@ local function defaults()
   return { version = VERSION, lang = "ta", oil = 0, played = 0, falls = 0, runs = 0,
            repairs = {},                  -- the Aasaan's repairs: r_health, r_double, r_mai
            saved = {},                    -- the puppets brought home, by role name
-           chosen = {} }                  -- the saved puppets' roles carried from the start
+           chosen = {},                   -- the saved puppets' roles carried from the start
+           king = false }                 -- the Puppet King come home (all six saved, then him)
 end
 
 function run.load()
@@ -71,6 +72,7 @@ function run.begin(body)
   run.seed, run.typed, run.order, run.half, run.torn = nil, false, { "screen" }, 0, false
   run.cleared, run.time = 0, 0
   for k in pairs(run.lent) do run.lent[k] = nil end
+  if body then body.k.ward = 0 end
 end
 
 -- The run's own random numbers, from its seed (math.random is the
@@ -102,6 +104,15 @@ function run.start(body, middle, last)
     if run.saved(r) and #wear <= places then wear[#wear + 1] = r end
   end
   fight.wear(wear)
+end
+
+-- A puppet the Puppet King lets go: saved, from the next run on (not in a
+-- run from a typed seed). With all six saved, the King himself comes home.
+function run.free(name)
+  if run.typed then return end
+  if name == "king" then run.data.king = true
+  elseif not run.saved(name) then run.data.saved[#run.data.saved + 1] = name end
+  run.keep()
 end
 
 function run.charm(name)

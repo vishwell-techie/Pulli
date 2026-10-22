@@ -35,6 +35,7 @@
 -- ahead behind the doors too, and let go when Komali leaves.
 
 local shadows = require("shadows")
+local lines   = require("lines")
 local fight   = require("fight")
 local run     = require("run")
 local fx      = require("fx")
@@ -75,7 +76,7 @@ local ROOMS = {
 -- test rooms are always kept. A room's name says its story: its first
 -- letter, then a digit or "boss" (and "boss.ooru" is the Screen's).
 local FILE = "rooms_"                   -- (a name made, so pack does not take "rooms_" for a module)
-local LETTER = { s = "screen", f = "forest", k = "sea", b = "flags", m = "masks" }
+local LETTER = { s = "screen", f = "forest", k = "sea", b = "flags", m = "masks", p = "palace" }
 local held = {}                         -- the stories' room tables read now, by story
 
 local function story_of(name)
@@ -102,19 +103,21 @@ local function let_go(a, b, c)
 end
 
 rooms.STORIES = { screen = "s1.ooru", forest = "f1.ooru", sea = "k1.ooru", flags = "b1.ooru",
-                  masks = "m1.ooru" }               -- each story's first room
+                  masks = "m1.ooru", palace = "p1.ooru" }   -- each story's first room
 rooms.MIDDLE = { "forest", "sea", "flags", "masks" }     -- the stories between the Screen and the Palace
+rooms.LAST = "palace"
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, LAST = 1012, 1023
+local TEAR, LAST = 1012, 1026
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
                [1009] = "vine", [1010] = "moth", [1011] = "wisp",
                [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry",
                [1018] = "archer", [1019] = "flag", [1020] = "drum",
-               [1021] = "thief", [1022] = "juggler", [1023] = "twin" }
+               [1021] = "thief", [1022] = "juggler", [1023] = "twin",
+               [1024] = "lampguard", [1025] = "mirror", [1026] = "cinder" }
 local FADE = 12                                 -- frames out, and as many in
 
 local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
@@ -231,14 +234,16 @@ function rooms.enter(name, from, body)
     local d = ROOMS[to]
     preload(to, d.sheet, d.bg)
     for _, m in pairs({ d.cast, d.boss, d.shop, d.pick and "pick" }) do if m then preload(m .. ".lua") end end
-    if d.boss then preload("role_" .. d.boss .. ".lua") end      -- the role he lends
+    if d.boss and d.boss ~= "king" then preload("role_" .. d.boss .. ".lua") end      -- the role he lends
     if d.boss_sheet then preload(d.boss_sheet) end
     if d.arrows then preload("shots.lua") end
   end
-  -- the room tables of the stories it is in and leads to are kept
+  -- the room tables of the stories it is in and leads to are kept; the
+  -- story's own words come with its rooms
   local a = dto[1] and story_of(dto[1] == "end" and "map.ooru" or dto[1])
   local b = dto[2] and story_of(dto[2])
   let_go(def.story, a, b)
+  lines.story = held[def.story] and held[def.story].words
 end
 
 -- The door he stands at, if any.

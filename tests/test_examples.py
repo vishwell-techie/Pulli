@@ -1250,6 +1250,127 @@ def main():
         t.check("nizhalattam: the Minister torn lends his role and 11 oil",
                 got.get("lent") == ["2", "Mandhiri", "11"], f"{got} {r.err[-300:]}")
 
+        # Step 5f: the Lamp Palace, the Queen, the Puppet King, and the ending.
+        r, got = story('rooms.enter("p2.ooru", "p1.ooru", body)', "",
+                       'if f == 3 then dbg("palace", tostring(shadows.kinds.mirror ~= nil), tostring(shadows.kinds.cinder ~= nil)) '
+                       '  rooms.enter("p4.ooru", "p3.ooru", body) dbg("stall", tostring(shadows.kinds.mirror ~= nil), tostring(rooms.shop ~= nil)) '
+                       '  rooms.enter("pboss.ooru", "p6.ooru", body) dbg("hall", tostring(shadows.kinds.mirror ~= nil), tostring(shadows.kinds.rani ~= nil)) '
+                       '  rooms.enter("p7.ooru", "pboss.ooru", body) dbg("stage", tostring(shadows.kinds.rani ~= nil), tostring(shadows.kinds.king ~= nil)) '
+                       '  rooms.enter("map.ooru", nil, body) dbg("hub", tostring(shadows.kinds.mirror ~= nil), tostring(shadows.kinds.king ~= nil)) end', frames=5)
+        t.check("nizhalattam: the palace's shadows' code is there in its rooms only",
+                got.get("palace") == ["true", "true"] and got.get("stall") == ["false", "true"] and got.get("hall") == ["false", "true"]
+                and got.get("stage") == ["false", "true"] and got.get("hub") == ["false", "false"], f"{got} {r.err[-300:]}")
+
+        # the lamp guard: its shield turns a light blow from the front; its spear
+        # reaches 30 px (12) after a wind-up of 26
+        r, got = story('rooms.enter("p1.ooru", nil, body) at(36, 208)', "",
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "lampguard" and not st.g then st.g = s end end '
+                       '  for _, s in ipairs(shadows.list) do s.on = s == st.g end st.g.face = -1 '
+                       '  dbg("front", shadows.strike(st.g, 8, 1, false), st.g.hp) st.g.state = "walk" end '
+                       'if f > 2 and st.g.state == "wind" and not st.w then st.w = st.g.t dbg("gap", math.floor(st.g.x - (k.x + k.w))) end '
+                       'if k.health < 100 and not st.h then st.h = true dbg("thrust", k.health, st.w) end', frames=200)
+        gap = int(got.get("gap", ["0"])[0])
+        t.check("nizhalattam: a lamp guard's shield turns a light blow from the front; its spear reaches far (12) after 26 frames",
+                got.get("front") == ["blocked", "44"] and got.get("thrust") == ["88", "26"] and gap > 20, f"{got} {r.err[-300:]}")
+
+        # the mirror shade copies Komali's jump, then his blow, a moment later
+        r, got = story('rooms.enter("p2.ooru", "p1.ooru", body) at(10, 208)',
+                       "if f == 20 then i.jump, i.a = true, true end if f > 20 and f < 30 then i.a = true end if f == 100 then i.attack = true end",
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "mirror" and not st.m then st.m = s end end '
+                       '  for _, s in ipairs(shadows.list) do s.on = s == st.m end end '
+                       'k.health = 100 if f > 2 and st.m.state ~= st.last then st.last = st.m.state '
+                       '  if st.m.state == "jump" or st.m.state == "strike" then dbg(st.m.state, f) end end', frames=200)
+        jf, sf = int(got.get("jump", ["0"])[0]), int(got.get("strike", ["0"])[0])
+        t.check("nizhalattam: a mirror shade does what Komali did, a moment later: his jump, then his blow",
+                40 <= jf <= 50 and 120 <= sf <= 130, f"{got} {r.err[-300:]}")
+
+        # the cinder swells, then bursts (14), burning a shadow beside it too;
+        # struck, it bursts soon
+        r, got = story('rooms.enter("p3.ooru", "p2.ooru", body) at(10, 208)', "",
+                       'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "cinder" and not st.c then st.c = s end end '
+                       '  for _, s in ipairs(shadows.list) do s.on = s == st.c end '
+                       '  st.c.x, st.c.y = k.x + 30, k.y st.d = shadows.add(math.floor(k.x + 40), 208, "dummy") end '
+                       'if f > 2 and st.c.state == "wind" and not st.w then st.w = f end '
+                       'if k.health < 100 and not st.h then st.h = true dbg("burst", k.health, f - st.w, st.d.hp) end', frames=100)
+        r2, got2 = story('rooms.enter("p3.ooru", "p2.ooru", body) at(40, 208)', "",
+                         'if f == 2 then for _, s in ipairs(shadows.list) do if s.kind == "cinder" and not st.c then st.c = s end end '
+                         '  for _, s in ipairs(shadows.list) do s.on = s == st.c end '
+                         '  st.c.x, st.c.y = k.x + 100, k.y dbg("struck", tostring(shadows.strike(st.c, 2, 1, false))) end '
+                         'if f > 2 and not st.c.on and not st.g then st.g = true dbg("gone", f) end', frames=40)
+        t.check("nizhalattam: a cinder swells, then bursts (14), burning the shadows beside it; struck, it bursts soon",
+                got.get("burst", ["", ""])[0:2] == ["86", "36"] and got.get("burst", ["", "", "", "18"])[2] != "18"
+                and got2.get("struck") == ["nil"] and int(got2.get("gone", ["99"])[0]) <= 12, f"{got} {got2} {r.err[-300:]}")
+
+        # the Queen: each move first; lamp-fire (10); her shield turns three blows
+        # and she mends behind it
+        r, got = story('rooms.enter("pboss.ooru", "p6.ooru", body) at(8, 208)', "",
+                       'local b = shadows.boss if k.health < 100 and not st.h then st.h = true dbg("fire", k.health) end k.health = 100 '
+                       'if b.state == "wind" and not st.w then st.w = true st.seen = st.seen or {} '
+                       '  local m = b.move st.seen[m] = (st.seen[m] or 0) + 1 dbg(m .. st.seen[m], b.t) '
+                       'elseif b.state ~= "wind" then st.w = false end', frames=1500)
+        firsts = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("1")}
+        seconds = {k[:-1]: int(v[0]) for k, v in got.items() if k.endswith("2")}
+        wind = {"fire": 24, "shield": 16, "ring": 20}         # rani.lua's B.wind
+        t.check("nizhalattam: the Queen shows each move first, with a warning twice as long; her lamp-fire costs 10",
+                r.code == 0 and {"fire", "shield"} <= set(firsts) and all(v == 2 * wind[m] for m, v in firsts.items())
+                and len(seconds) >= 1 and all(seconds[m] == wind[m] for m in seconds) and got.get("fire") == ["90"], f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("pboss.ooru", "p6.ooru", body) at(8, 208)', "",
+                       'local b = shadows.boss if f == 2 then b.hp = 100 b.shown.shield, b.move, b.state, b.t = true, "shield", "wind", 1 end '
+                       'if f == 60 then dbg("mended", b.hp) local r = {} for n = 1, 4 do r[n] = shadows.strike(b, 5, 1, false) end '
+                       '  dbg("blows", table.concat(r, ","), b.state) end', frames=65)
+        t.check("nizhalattam: the Queen's lamp shield turns three blows, then breaks; she mends behind it",
+                got.get("mended") == ["102"] and got.get("blows") == ["blocked,blocked,blocked,hit", "rest"], f"{got} {r.err[-300:]}")
+
+        r, got = story('run.start(body, { "forest" }, "palace") rooms.enter("pboss.ooru", "p6.ooru", body)', "",
+                       'if f == 3 then st.oil = run.data.oil local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                       'if f == 10 then dbg("lent", #fight.carried, fight.carried[2] and fight.carried[2].name, run.data.oil - st.oil) end', frames=12)
+        t.check("nizhalattam: the Queen torn lends her role and 14 oil",
+                got.get("lent") == ["2", "Rani", "14"], f"{got} {r.err[-300:]}")
+
+        r, got = story('rooms.enter("s3.ooru", "s2.ooru", body) fight.wear({ "rani" }) at(8, 208)', "if f == 10 then i.skill = true end",
+                       'if f == 30 then k.health = 80 local r = {} for n = 1, 4 do r[n] = tostring(body.hurt(10, k.x + 20)) k.struck = 0 end '
+                       '  dbg("shield", table.concat(r, ","), k.health) end if f == 150 then dbg("mends", k.health) end', frames=155)
+        t.check("nizhalattam: as the Queen, X raises a lamp shield that turns three blows aside; behind it he mends",
+                got.get("shield") == ["false,false,false,10", "70"] and got.get("mends") == ["70"], f"{got} {r.err[-300:]}")
+        r, got = story('rooms.enter("s3.ooru", "s2.ooru", body) fight.wear({ "rani" }) at(8, 208)', "if f == 10 then i.skill = true end",
+                       'if f == 30 then k.health = 80 end if f == 130 then dbg("mends", k.health) end', frames=135)
+        t.check("nizhalattam: as the Queen, he mends while the lamp shield holds",
+                int(got.get("mends", ["0"])[0]) > 80, f"{got} {r.err[-300:]}")
+
+        # The Puppet King: act one calls in soldiers, and his cape turns blows back
+        r, got = story('rooms.enter("p7.ooru", "pboss.ooru", body) at(20, 208)', "",
+                       'local b = shadows.boss if f == 2 then b.shown.summon, b.move, b.state, b.t = true, "summon", "wind", 1 end '
+                       'if f == 5 then local n = 0 for _, s in ipairs(shadows.list) do if s.on and s.kind == "soldier" then n = n + 1 end end dbg("soldiers", n) '
+                       '  b.state, b.t, b.face, k.health, k.struck = "cape", 0, -1, 100, 0 dbg("cape", shadows.strike(b, 10, 1, false), k.health) '
+                       '  b.hp = 1 shadows.strike(b, 5, -1, true) n = 0 for _, s in ipairs(shadows.list) do if s.on then n = n + 1 end end dbg("after", n, tostring(rooms.locked())) end',
+                       frames=8)
+        t.check("nizhalattam: in act one the King calls soldiers in from the wings; his cape turns a blow back (6); beaten, the stage clears",
+                got.get("soldiers") == ["2"] and got.get("cape") == ["blocked", "94"] and got.get("after") == ["0", "false"], f"{got} {r.err[-300:]}")
+
+        # act three: a move from each puppet saved, and more health for each
+        r, got = story('run.data.saved = { "veeran", "yaanai" } rooms.enter("p9.ooru", "p8.ooru", body)', "",
+                       'if f == 2 then local b = shadows.boss dbg("saved2", table.concat(b.moves, ","), b.max) '
+                       '  run.data.saved = {} rooms.enter("p9.ooru", "p8.ooru", body) b = shadows.boss dbg("none", table.concat(b.moves, ","), b.max) end', frames=4)
+        t.check("nizhalattam: in act three the King fights with a move from each puppet saved, and has more health for each",
+                got.get("saved2") == ["swing,leap,pound", "120"] and got.get("none") == ["swing", "70"], f"{got} {r.err[-300:]}")
+
+        # The ending: the King beaten in act three lets one puppet go, chosen by
+        # the player; it is saved, and the run ends at the box. With all six saved,
+        # he comes home himself.
+        steps = "if f == 10 or f == 12 then i.right_p = true end if f == 14 then i.jump = true end"
+        r, got = story('run.start(body, { "forest" }, "palace") run.data.saved = { "veeran" } rooms.enter("p9.ooru", "p8.ooru", body)', steps,
+                       'if f == 3 then st.p = run.data.played local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                       'if f == 6 then dbg("choose", tostring(rooms.pick.is_open())) end '
+                       'if f == 300 then dbg("freed", table.concat(run.data.saved, ","), run.data.played - st.p, rooms.name) end', frames=305)
+        r2, got2 = story('run.start(body, { "forest" }, "palace") run.data.saved = { "veeran", "vil", "aattakkaari", "yaanai", "mandhiri", "rani" } '
+                         'rooms.enter("p9.ooru", "p8.ooru", body)', "",
+                         'if f == 3 then local b = shadows.boss b.hp = 1 shadows.strike(b, 5, -1, true) end '
+                         'if f == 300 then dbg("king", tostring(run.data.king), rooms.name) end', frames=305)
+        t.check("nizhalattam: the King beaten lets the puppet chosen go home (saved); the run ends at the box; with all six home, he comes",
+                got.get("choose") == ["true"] and got.get("freed") == ["veeran,yaanai", "1", "map.ooru"]
+                and got2.get("king") == ["true", "map.ooru"], f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
         # The run: a seed when Komali steps into the Screen; the stories
         # between the first and the last in an order from it; the halfway
         # tear after the middle one.
@@ -1260,7 +1381,8 @@ def main():
         begun = got.get("begun", [""] * 5)
         t.check("nizhalattam: a run begins as Komali steps into the Screen: a seed, the stories in order, counted",
                 got.get("before") == ["nil"] and begun[:2] == ["s1.ooru", "true"] and begun[3:] == ["1", "false"]
-                and begun[2].startswith("screen,") and sorted(begun[2].split(",")[1:]) == ["flags", "forest", "masks", "sea"], got)
+                and begun[2].startswith("screen,") and begun[2].endswith(",palace")
+                and sorted(begun[2].split(",")[1:-1]) == ["flags", "forest", "masks", "sea"], got)
 
         r, got = story("", "",
                        'if f == 3 then local m = { "forest", "sea", "flags", "masks" } local seen = {} '
@@ -1460,6 +1582,16 @@ def main():
         en = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_en.lua")).read(), re.M))
         ta = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_ta.lua")).read(), re.M))
         t.check("nizhalattam: every line is there in Tamil and in English", en == ta and len(en) > 30, en ^ ta)
+        # each story's own words, in its rooms' file: the same keys in both languages
+        uneven = {}
+        for name in sorted(os.listdir(os.path.join(ROOT, "examples", "nizhalattam"))):
+            if name.startswith("rooms_") and name.endswith(".lua"):
+                text = open(os.path.join(ROOT, "examples", "nizhalattam", name)).read()
+                langs = {lang: set(re.findall(r"^    (\w+) =", body, re.M))
+                         for lang, body in re.findall(r"^  (en|ta) = \{\n(.*?)^  \},", text, re.M | re.S)}
+                if not langs.get("en") or langs.get("en") != langs.get("ta"):
+                    uneven[name] = langs
+        t.check("nizhalattam: every story's own words are there in Tamil and in English", not uneven, uneven)
 
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",
@@ -1475,15 +1607,21 @@ def main():
                        '  rooms.enter("m6.ooru", "m5.ooru", body) end '
                        'if f == 270 then collectgarbage() dbg("market", stat("mem")) rooms.enter("mboss.ooru", "m6.ooru", body) end '
                        'if f == 300 then collectgarbage() dbg("minister", stat("mem")) fight.give_up("aattakkaari", "mandhiri") '
+                       '  rooms.enter("p6.ooru", "p5.ooru", body) end '
+                       'if f == 330 then collectgarbage() dbg("palace", stat("mem")) rooms.enter("pboss.ooru", "p6.ooru", body) end '
+                       'if f == 360 then collectgarbage() dbg("queen", stat("mem")) fight.give_up("yaanai", "rani") '
+                       '  run.data.saved = { "veeran", "vil", "aattakkaari", "yaanai", "mandhiri", "rani" } rooms.enter("p9.ooru", "p8.ooru", body) end '
+                       'if f == 390 then collectgarbage() dbg("king", stat("mem")) run.data.saved = {} '
                        '  run.begin(body) rooms.enter("map.ooru", nil, body) end '
-                       'if f == 330 then collectgarbage() dbg("after", stat("mem")) end', frames=340)
-        hub, bossroom, forestroom, vilroom, searoom, aattaroom, fieldroom, elephantroom, marketroom, ministerroom, after = (
-            float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
-                                                    "market", "minister", "after"))
+                       'if f == 420 then collectgarbage() dbg("after", stat("mem")) end', frames=430)
+        hub, bossroom, forestroom, vilroom, searoom, aattaroom, fieldroom, elephantroom, marketroom, ministerroom, \
+            palaceroom, queenroom, kingroom, after = (
+                float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
+                                                        "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
                 hub < 123 and bossroom < 127 and forestroom < 133 and vilroom < 137 and searoom < 147 and aattaroom < 140
                 and fieldroom < 145 and elephantroom < 141 and marketroom < 145 and ministerroom < 145
-                and after < forestroom - 4, got)
+                and palaceroom < 148 and queenroom < 145 and kingroom < 150 and after < forestroom - 4, got)
 
         if t.update:
             with open(path, "w") as f:

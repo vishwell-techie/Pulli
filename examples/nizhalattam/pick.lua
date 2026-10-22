@@ -4,7 +4,7 @@
 -- places are full (which to give up for it). rooms.lua reads it where it is
 -- wanted; at the tear it is the thing to press up at.
 --
---   pick.open("box") / pick.open("tear") / pick.open("lend", name)
+--   pick.open("box") / pick.open("tear") / pick.open("lend", name) / pick.open("free")
 --   pick.update(input, body)   once a frame while open; false once closed
 --   pick.draw()
 --
@@ -16,7 +16,9 @@
 -- choice; B leaves without changing anything. A place bought is for a saved
 -- puppet; a role lent in this run needs no place bought. Lent a role with
 -- both places full, the faces are the roles carried: A gives one up for it,
--- or on the cross keeps them.
+-- or on the cross keeps them. The Puppet King beaten, the faces are the
+-- puppets not yet saved: A lets that one go (pick.freed), and there is no
+-- leaving without choosing.
 
 local lines = require("lines")
 local fight = require("fight")
@@ -53,6 +55,9 @@ function pick.open(kind, name) -- (the tear's shop: open with no kind)
   clear(names) clear(marked)
   if how == "lend" then
     for n = 2, #fight.carried do names[#names + 1] = key(fight.carried[n]) end
+  elseif how == "free" then
+    for _, r in ipairs(PUPPETS) do if not run.saved(r) then names[#names + 1] = r end end
+    pick.freed = nil
   else
     for _, r in ipairs(PUPPETS) do names[#names + 1] = r end
     if how == "tear" then
@@ -93,6 +98,11 @@ end
 function pick.update(i, body)
   if not pick.open_ then return false end
   if note_t > 0 and note_t < 9999 then note_t = note_t - 1 end
+  if how == "free" then                         -- the faces only, and one must be chosen
+    at = shelf.near(i, at, #names)
+    if i.jump then pick.freed, pick.open_ = names[at], false end
+    return true
+  end
   at = shelf.near(i, at, #names + 1)            -- the faces, and Done (or Keep)
   if i.attack then pick.open_ = false return true end   -- B: as it was
   if i.jump then                                         -- A
@@ -109,10 +119,13 @@ end
 
 function pick.draw()
   if not pick.open_ then return end
-  local head = how == "lend" and lines.t("pick_lend", title(lent)) or lines.t(how == "box" and "pick_box" or "pick_tear")
+  local head = how == "lend" and lines.t("pick_lend", title(lent)) or how == "free" and lines.t("pick_free")
+               or lines.t(how == "box" and "pick_box" or "pick_tear")
   shelf.panel(head)
   -- along the top: Komali, and his places (the one lending, when lending)
-  if how == "lend" then
+  if how == "free" then
+    shelf.card(147, 64, I.f_komali, false)
+  elseif how == "lend" then
     shelf.card(147, 64, face(lent), true)
   else
     shelf.card(98, 64, I.f_komali, false)
@@ -125,14 +138,14 @@ function pick.draw()
     end
   end
   -- below: the faces to choose from, then Done (or Keep)
-  local n = #names + 1
+  local n = how == "free" and #names or #names + 1
   local x0 = 160 - n * 17
   for k = 1, n do
     local x = x0 + (k - 1) * 34
     if k > #names then shelf.card(x, 108, how == "lend" and I.keep or I.done, k == at)
     else
       local r = names[k]
-      shelf.card(x, 108, face(r), k == at, how ~= "lend" and not free(r))
+      shelf.card(x, 108, face(r), k == at, how ~= "lend" and how ~= "free" and not free(r))
       if has(marked, r) then circfill(x + 22, 111, 3, C.marigold) circ(x + 22, 111, 3, C.ink) end
     end
   end
@@ -140,6 +153,7 @@ function pick.draw()
   local y, said = 142, nil
   if at > #names then said = lines.t(how == "lend" and "keep_roles" or "done_pick")
   elseif how == "lend" then said = lines.t("give_up", title(names[at]))
+  elseif how == "free" then said = title(names[at])
   elseif free(names[at]) then said = title(names[at])
   else said = lines.t("not_saved") end
   y = shelf.say(said, y, C.lamp)
