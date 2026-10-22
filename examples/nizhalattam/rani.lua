@@ -22,6 +22,7 @@ local shadows = require("shadows")
 local move    = require("move")
 local fx      = require("fx")
 local C       = require("colours")
+local sound   = require("sound")
 
 local boss = { kinds = { "rani" } }
 
@@ -102,7 +103,7 @@ function kind.update(s, body, k, dx)
     s.t = s.t - 1
     if s.t <= 0 then
       s.state, s.t, s.count = s.move, 0, 0
-      if s.move == "shield" then s.count = B.shield.blows end
+      if s.move == "shield" then s.count = B.shield.blows sound.play("shield") end
       if s.move == "ring" or s.move == "close" then s.landed = false end
     end
   elseif st == "fire" then

@@ -38,6 +38,7 @@
 local move = require("move")
 local fx   = require("fx")
 local C    = require("colours")
+local sound = require("sound")
 
 local shadows = { list = {}, hits = 0, soft = 1, kinds = {}, hard = false, shade = false }
 
@@ -243,6 +244,10 @@ function shadows.update(body)
         if hy then s.vy = 0 end
         s.step = s.step + math.abs(s.vx)
       end
+      if s == shadows.boss then                       -- a boss getting ready: the bell warns
+        if s.state == "wind" and s.was ~= "wind" then sound.play("warn") end
+        s.was = s.state
+      end
       if (s.slow or 0) > 0 then                       -- inked: half as far across
         s.slow = s.slow - 1
         s.x = x0 + (s.x - x0) / 2
@@ -253,6 +258,7 @@ end
 
 local function tear(s, mai)
   s.on = false
+  sound.play("torn")
   fx.tear(s.x + s.w / 2, s.y + s.h / 2, math.random(mai[1], mai[2]))
   if s.kids then                         -- an inkblot splits in two
     for n, c in ipairs(s.kids) do

@@ -23,6 +23,9 @@
 --                             a room (not when a room is entered otherwise):
 --                             main.lua keeps the run there; rooms.from is
 --                             the room he came from
+--   rooms.music(n), music_stop(ms)   a track, coming in over the one playing
+--                             (rooms.playing: which)
+--                             (if it is another); none
 --   rooms.STORIES, MIDDLE     the stories: their first rooms; those made so
 --                             far that come between the first and the last
 --
@@ -48,6 +51,7 @@ local fx      = require("fx")
 local move    = require("move")
 local C       = require("colours")
 local PLACES  = require("places")
+local sound   = require("sound")
 
 local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = nil, floor_y = 0 }
 
@@ -129,6 +133,25 @@ local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] 
 local MORE = { soldier = true, ink = true, scrap = true, vine = true, moth = true, wisp = true,
                crab = true, wave = true, gull = true, archer = true, thief = true,
                lampguard = true, mirror = true, cinder = true }
+-- The music (music/, in order of name): the title's, the Courtyard's, each
+-- story's, the bosses', the King's, the endings'. A room plays its place's
+-- track, or the boss's; a new track comes in over the old one.
+local TRACK = { court = 1, screen = 2, forest = 3, sea = 4, flags = 5, masks = 6, palace = 7 }
+rooms.TITLE, rooms.ENDING = 0, 10
+local playing                                   -- the track playing, if any
+local function track_of(def)
+  if def.boss == "king" then return 9 elseif def.boss then return 8 end
+  if def.story == "tear" then return 1 end
+  return TRACK[def.place] or 1
+end
+function rooms.music(n)
+  if n ~= playing then music(n, 600) playing, rooms.playing = n, n end
+end
+function rooms.music_stop(ms)
+  music_stop(ms)
+  playing, rooms.playing = nil, nil
+end
+
 -- the sheets of the puppets' shadows the King's shadow summons (king.lua)
 local SUMMONED = { "vil.kolam", "aatta.kolam", "yaanai.kolam", "mandhiri.kolam", "rani.kolam" }
 local FADE = 12                                 -- frames out, and as many in
@@ -225,6 +248,7 @@ function rooms.enter(name, from, body)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
   rooms.dress(def.place, def.bg)
+  rooms.music(track_of(def))
   rooms.name = name
   local w, h = map.size()
   rooms.w, rooms.h = w * 8, h * 8
@@ -286,6 +310,7 @@ function rooms.enter(name, from, body)
       for _, sh in ipairs(SUMMONED) do preload(sh) end
     end
     if d.arrows or (d.boss == "king" and run.hard()) then preload("shots.lua") end
+    if track_of(d) ~= playing then preload("music " .. track_of(d)) end    -- its music, if it is another
   end
   -- the room tables of the stories it is in and leads to are kept; the
   -- story's own words come with its rooms
@@ -320,6 +345,7 @@ function rooms.update(i, body)
     if n and not rooms.locked() then
       if dto[n] == "end" then rooms.ended = true return true end
       going, fade_t = dto[n], 0
+      sound.play("door")
       return true
     end
   end

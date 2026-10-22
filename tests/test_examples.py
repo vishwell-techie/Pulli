@@ -80,6 +80,12 @@ def walkable_without_keys(name):
     return {k: (sum(i in seen for i in v), len(v)) for k, v in marks.items()}
 
 
+# Nizhalattam's music is some 20 MB of WAV, and packing it takes a minute:
+# the copies the tests play leave it out (music() then does nothing), and
+# one test packs the game whole.
+NO_MUSIC = shutil.ignore_patterns("music")
+
+
 def nizhalattam_climbs(up=3, across=7):
     """Whether, in every Nizhalattam room, each door can be reached from the
     start and from each other door, climbing at most `up` tiles at a time (a
@@ -659,7 +665,7 @@ def main():
                      f'function update(dt) if stat("frame") == 1 then rooms.enter("test.ooru", nil, body) fight.wear({{ "komali", "veeran" }}) {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
-                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames)
@@ -848,7 +854,7 @@ def main():
                            f'function update(dt) local k, f = body.k, stat("frame") if f == 1 then {setup} end up(dt)\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
-                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames, saves=saves)
@@ -1904,6 +1910,53 @@ def main():
                     uneven[name] = langs
         t.check("nizhalattam: every story's own words are there in Tamil and in English", not uneven, uneven)
 
+        # The music: a track for the title, the Courtyard, each story, the
+        # bosses, the King and the endings; a room plays its own (a boss's
+        # room the bosses'), each coming in over the last
+        r, got = story('local function play(room, from) rooms.enter(room, from, body) return rooms.playing end '
+                       'dbg("tracks", rooms.playing, play("s1.ooru", "map.ooru"), play("boss.ooru", "s7.ooru"), play("f1.ooru"), '
+                       '  play("k1.ooru"), play("b1.ooru"), play("m1.ooru"), play("p1.ooru"), play("pboss.ooru"), play("p7.ooru"), '
+                       '  play("tear.ooru"))', "", "", frames=3)
+        r2, got2 = story("", "", 'if f == 2 then dbg("title", rooms.playing) end', frames=3, title=True)
+        t.check("nizhalattam: each place plays its track, a boss's room the bosses', the King's his own, the title its own",
+                got.get("tracks") == ["1", "2", "8", "3", "4", "5", "6", "7", "8", "9", "1"] and got2.get("title") == ["0"],
+                f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
+        # sound effects: each thing done has its own (sound.lua names them)
+        heard = ('local N = require("sound").N local named = {} for k, v in pairs(N) do named[v] = k end '
+                 'sfx = function(n) st.heard = st.heard or {} st.heard[named[n]] = true end ')
+        r, got = story(heard + 'rooms.enter("s2.ooru", "s1.ooru", body) at(16, 208) k.face = 1 '
+                       'for _, s in ipairs(shadows.list) do if s.kind == "dummy" then s.hp = 1 end end',
+                       'if f == 5 then i.jump = true end if f >= 5 and f < 30 then i.a = true end '
+                       'if f >= 60 and f % 14 == 0 then i.attack = true end '
+                       'if f == 200 then i.dodge = true end',
+                       'if f == 260 then rooms.enter("boss.ooru", "s7.ooru", body) at(8, 208) end '
+                       'if f == 480 then local h = {} for k in pairs(st.heard or {}) do h[#h + 1] = k end table.sort(h) '
+                       '  dbg("heard", table.concat(h, ",")) end', frames=482)
+        heard_ = set(got.get("heard", [""])[0].split(","))
+        t.check("nizhalattam: jumping, landing, blows landing, tearing, dodging and a boss getting ready each have their sound",
+                {"jump", "land", "slap", "hit", "torn", "dodge", "warn"} <= heard_, f"{got} {r.err[-300:]}")
+
+        # the whole game, its music packed (once: a minute's work): eleven
+        # tracks of 44.1 kHz stereo, squeezed; a story's track and a boss's
+        # coming in over it stay inside the 6 MB a game may hold
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = os.path.join(tmp, "n")
+            shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+            with open(os.path.join(folder, "main.lua"), "a") as f:
+                f.write('\nrequire("title").skip = 1\nlocal body, rooms = require("body"), require("rooms")\nlocal up = update\n'
+                        'function update(dt) local f = stat("frame") if f == 2 then rooms.enter("s5.ooru", "s4.ooru", body) end '
+                        'if f == 100 then rooms.enter("boss.ooru", "s7.ooru", body) end up(dt) '
+                        'local a = stat("active") if a > (_G.most or 0) then _G.most = a end '
+                        'if f == 200 then dbg("active", _G.most) end end\n')
+            data = pulli.build(folder)
+            clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
+            r = t.run_package(data, frames=205)
+        active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999"])
+        t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB",
+                len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
+                and r.code == 0 and float(active[0]) < 6144, f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
+
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",
                        'if f == 30 then collectgarbage() dbg("hub", stat("mem")) rooms.enter("boss.ooru", "s7.ooru", body) end '
@@ -1930,9 +1983,9 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 138 and bossroom < 138 and forestroom < 143 and vilroom < 147 and searoom < 158 and aattaroom < 152
-                and fieldroom < 155 and elephantroom < 152 and marketroom < 152 and ministerroom < 157
-                and palaceroom < 161 and queenroom < 158 and kingroom < 165
+                hub < 142 and bossroom < 142 and forestroom < 147 and vilroom < 151 and searoom < 162 and aattaroom < 156
+                and fieldroom < 159 and elephantroom < 156 and marketroom < 156 and ministerroom < 161
+                and palaceroom < 165 and queenroom < 162 and kingroom < 169
                 # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
                 and after < hub + 7, got)
 

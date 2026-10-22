@@ -30,6 +30,7 @@
 local move  = require("move")
 local C     = require("colours")
 local fx    = require("fx")
+local sound = require("sound")
 
 local fight = { freeze = 0, shake_px = 0, shake_t = 0, worn = 1, carried = {}, swing = 0,
                 mai = 0,         -- the ink picked up this run
@@ -163,12 +164,14 @@ function fight.cooldown() return cool end
 function fight.shorten(n) cool = math.max(0, cool - n) end      -- (the King's summons comes sooner)
 
 -- a blow lands: the world stops for a moment, and shakes
-function fight.hit(heavy)
+function fight.hit(heavy, quiet)
+  if not quiet then sound.play(heavy and "heavy" or "hit") end
   fight.freeze = math.max(fight.freeze, (heavy and 6 or 3) + (has("drum") and 2 or 0))   -- the drum skin: longer
   fight.shake_px, fight.shake_t = heavy and 3 or 1, heavy and 10 or 4
 end
 
 local function start(m)
+  if m and not m.speed then sound.play(fight.role().fire and "fire" or "slap") end
   atk, f, queued = m, 0, false
   fight.swing = fight.swing + 1
 end
@@ -209,6 +212,7 @@ function fight.update(i, body, shadows)
     role = fight.role()
     k.dodge_wait, k.guard = role.dodge_wait, role.guard
     step, charge, skill_t = 0, 0, 0
+    sound.play("swap")
     start(role.swap)
     if role.swap.leap then k.vy, k.vx, k.ground = -3.2, -k.face * 2.6, false end
     if role.on_swap then role.on_swap(k) end
@@ -217,6 +221,7 @@ function fight.update(i, body, shadows)
   -- the skill
   if i.skill and cool == 0 and k.dodge == 0 and skill_t == 0 then
     cool, atk = role.wait, nil
+    sound.play("skill")
     if role.skill == "pratfall" then
       skill_t = PRATFALL
       k.struck = PRATFALL                      -- flat on the floor: nothing touches him
@@ -272,7 +277,7 @@ function fight.update(i, body, shadows)
     if i.attack then queued = true end
     if role.bow and f < atk.s then aim = i.up and -1 or i.down and 1 or 0 end
     f = f + 1
-    if atk.speed and f == atk.s then role.loose(k, atk, aim) end
+    if atk.speed and f == atk.s then role.loose(k, atk, aim) sound.play("arrow") end
     local x, y, w, h = reach(k, atk)
     if x then
       for _, s in ipairs(shadows.list) do
@@ -283,6 +288,7 @@ function fight.update(i, body, shadows)
           if fight.first and has("torn") then n = n * 2 end          -- the torn page: the room's first blow, double
           local r = shadows.strike(s, n, dir, atk.heavy)
           if r == "hit" or r == "torn" then fight.hit(atk.heavy) fight.first = false end
+          if r == "blocked" then sound.play("blocked") end
           if r == "torn" and has("soot") then                        -- lamp soot: it burns those near it
             for _, o in ipairs(shadows.list) do
               if o.on and not o.prop and o ~= shadows.boss and math.abs(o.x - s.x) < 32 and math.abs(o.y - s.y) < 24 then

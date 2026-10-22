@@ -26,6 +26,7 @@
 -- hold Komali up from above, and down + A drops him through.
 
 local move = require("move")
+local sound = require("sound")
 
 local body = { floors = {},
                harder = 1 }    -- what every blow costs him, times this (hard mode: 1.5)
@@ -203,6 +204,7 @@ function body.update(i)
   -- the dodge: a quick roll, straight ahead, gravity held off
   if i.dodge and k.dodge == 0 and k.wait == 0 then
     k.dodge, k.vy = T.dodge, 0
+    sound.play("dodge")
   end
   if k.dodge > 0 then
     k.dodge = k.dodge - 1
@@ -219,15 +221,18 @@ function body.update(i)
     if k.buf > 0 and k.walljump and k.wall ~= 0 and not k.ground then
       -- the wall jump: up, and away from the wall he slides down
       k.vy, k.vx, k.buf, k.face, k.kick = -T.jump * T.wall_jump, -k.wall * T.wall_push, 0, -k.wall, T.kick
+      sound.play("jump")
       k.from, k.top = k.y, k.y
     elseif k.buf > 0 and not (k.ground or k.air <= T.coyote) and k.jumps > 0 then
       k.vy, k.buf, k.jumps = -T.jump * T.again, 0, k.jumps - 1     -- the double jump
+      sound.play("jump")
       k.from, k.top = k.y, k.y
     elseif k.buf > 0 and (k.ground or k.air <= T.coyote) then
       if i.down and k.ground and (on_thin() or k.on) then
         k.drop, k.buf = T.drop, 0
       else
         k.vy, k.buf, k.ground, k.air = -T.jump, 0, false, T.coyote + 1
+        sound.play("jump")
         k.from, k.top = k.y, k.y
       end
     end
@@ -264,7 +269,10 @@ function body.update(i)
   if was_ground and not k.ground and k.vy >= 0 then k.from, k.top = k.y, k.y end   -- walked off
   if k.ground then
     k.air, k.jumps = 0, k.double and 1 or 0
-    if not was_ground then k.peak = k.from - k.top end   -- how high the last jump rose
+    if not was_ground then
+      k.peak = k.from - k.top                    -- how high the last jump rose
+      if k.y - k.top > 16 then sound.play("land") end   -- (fell some way)
+    end
     -- a safe place to come back to: firm ground under him and a tile
     -- either side, so he does not come back on the very edge of the pit
     local feet = k.y + k.h
@@ -280,6 +288,7 @@ function body.update(i)
   local _, mh = map.size()
   if k.y > mh * 8 + 16 then
     if not k.pit_free then k.health = math.max(1, k.health - T.pit) end
+    sound.play("fall")
     k.x, k.y, k.vx, k.vy, k.dodge = k.safe_x, k.safe_y, 0, 0, 0
   end
   k.step = k.step + math.abs(k.vx)
@@ -302,6 +311,7 @@ function body.hurt(n, from_x)
   if k.ward > 0 then k.ward = k.ward - 1 return false end    -- the lamp shield takes it
   n = math.max(1, math.floor(n * body.harder * (1 - math.max(0, k.guard)) + 0.5))
   k.health = math.max(0, k.health - n)
+  sound.play("hurt")
   k.struck, k.dodge = T.struck, 0
   if not k.steady then k.vx, k.vy, k.ground = -side * T.thrown, -1.6, false end   -- (the elephant stands)
   return n

@@ -18,6 +18,7 @@ local run   = require("run")
 local shelf = require("shelf")
 local I     = require("icons")
 local C     = require("colours")
+local sound = require("sound")
 
 local stall = { open_ = false }
 
@@ -54,7 +55,7 @@ function stall.open()
 end
 function stall.is_open() return stall.open_ end
 
-local function say(key) note, note_t = key, 90 end
+local function say(key) note, note_t = key, 90 sound.play("no") end
 
 local function buy(item, body)
   local k, role = body.k, fight.role()
@@ -63,6 +64,7 @@ local function buy(item, body)
   if item.charm and #run.charms >= places() then say("full") return end
   if fight.mai < item.price then say("no_mai") return end
   fight.mai = fight.mai - item.price
+  sound.play("buy")
   if item.key == "mend" then k.health = math.min(k.max, k.health + 25 + 10 * (run.data.repairs.r_mend or 0))
   elseif item.key == "sharpen" then run.sharp[role.name] = true
   else run.charms[#run.charms + 1] = item.key end

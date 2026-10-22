@@ -22,6 +22,7 @@ local rooms = require("rooms")
 local shelf = require("shelf")
 local I     = require("icons")
 local C     = require("colours")
+local sound = require("sound")
 
 local box = { open_ = false }
 
@@ -65,13 +66,14 @@ local function buy(item)
     return
   end
   local done = steps(item)
-  if done >= #item.prices then note, note_t = "done_r", 90 return end
+  if done >= #item.prices then note, note_t = "done_r", 90 sound.play("no") return end
   local price = item.prices[done + 1]
-  if run.data.oil < price then note, note_t = "no_oil", 90 return end
+  if run.data.oil < price then note, note_t = "no_oil", 90 sound.play("no") return end
   run.data.oil = run.data.oil - price
   run.data.repairs[item.key] = done + 1
   run.keep()
   note, note_t = "bought_r", 90
+  sound.play("buy")
 end
 
 local function seed_update(i)
