@@ -1940,22 +1940,27 @@ def main():
         # the whole game, its music packed (once: a minute's work): eleven
         # tracks of 44.1 kHz stereo, squeezed; a story's track and a boss's
         # coming in over it stay inside the 6 MB a game may hold
-        with tempfile.TemporaryDirectory() as tmp:
-            folder = os.path.join(tmp, "n")
-            shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
-            with open(os.path.join(folder, "main.lua"), "a") as f:
-                f.write('\nrequire("title").skip = 1\nlocal body, rooms = require("body"), require("rooms")\nlocal up = update\n'
-                        'function update(dt) local f = stat("frame") if f == 2 then rooms.enter("s5.ooru", "s4.ooru", body) end '
-                        'if f == 100 then rooms.enter("boss.ooru", "s7.ooru", body) end up(dt) '
-                        'local a = stat("active") if a > (_G.most or 0) then _G.most = a end '
-                        'if f == 200 then dbg("active", _G.most) end end\n')
-            data = pulli.build(folder)
-            clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
-            r = t.run_package(data, frames=205)
-        active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999"])
-        t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB",
-                len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
-                and r.code == 0 and float(active[0]) < 6144, f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
+        # (the music is not in git until it is final: without it, skipped)
+        if not os.path.isdir(os.path.join(ROOT, "examples", "nizhalattam", "music")):
+            t.skipped += 1
+            print("  SKIP  nizhalattam: its music (examples/nizhalattam/music is not here)")
+        else:
+            with tempfile.TemporaryDirectory() as tmp:
+                folder = os.path.join(tmp, "n")
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                with open(os.path.join(folder, "main.lua"), "a") as f:
+                    f.write('\nrequire("title").skip = 1\nlocal body, rooms = require("body"), require("rooms")\nlocal up = update\n'
+                            'function update(dt) local f = stat("frame") if f == 2 then rooms.enter("s5.ooru", "s4.ooru", body) end '
+                            'if f == 100 then rooms.enter("boss.ooru", "s7.ooru", body) end up(dt) '
+                            'local a = stat("active") if a > (_G.most or 0) then _G.most = a end '
+                            'if f == 200 then dbg("active", _G.most) end end\n')
+                data = pulli.build(folder)
+                clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
+                r = t.run_package(data, frames=205)
+            active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999"])
+            t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB",
+                    len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
+                    and r.code == 0 and float(active[0]) < 6144, f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
 
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",

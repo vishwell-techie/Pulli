@@ -11,3 +11,7 @@ private/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+
+# Nizhalattam's music (some 70 MB of WAV): kept out of git until it is
+# final, then committed as plain git or Git LFS
+examples/nizhalattam/music/
