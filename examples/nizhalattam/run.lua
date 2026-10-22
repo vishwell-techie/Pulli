@@ -105,6 +105,9 @@ function run.begin(body)
   if body then
     body.k.max = 100 + 15 * (r.r_health or 0)
     body.k.double = (r.r_double or 0) > 0
+    body.k.walljump = (r.r_wall or 0) > 0
+    body.k.second = (r.r_dodge or 0) > 0
+    body.k.spare = body.k.second
   end
   for n = #run.charms, 1, -1 do run.charms[n] = nil end
   for k in pairs(run.sharp) do run.sharp[k] = nil end

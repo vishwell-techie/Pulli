@@ -240,6 +240,7 @@ function rooms.enter(name, from, body)
   fx.clear()
   -- (arrows; the King's shadow summons archers in every act)
   fight.arrows(def.arrows or (def.boss == "king" and hard))   -- (and clears those in flight)
+  fight.first = true                            -- (the torn page: the first blow in a room)
   rooms.stall_x, rooms.box_x, rooms.tear_x, rooms.page_x = nil, nil, nil, nil
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
   local sx, sy = 40, 200

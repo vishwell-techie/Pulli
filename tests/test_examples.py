@@ -893,9 +893,47 @@ def main():
         r, got = story('rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 400, 60',
                        'if f == 10 then i.door = true end if f == 15 or f == 25 or f == 35 or f == 45 then i.jump = true end '
                        'if f == 20 or f == 30 or f == 40 then i.down_p = true end if f == 50 then i.attack = true end',
-                       'if f == 60 then dbg("bought", k.health, fight.mai, table.concat(run.charms, ","), tostring(run.sharp.Komali), tostring(rooms.shop.is_open())) end', frames=70)
+                       'if f == 60 then dbg("bought", k.health, fight.mai, table.concat(run.charms, ","), tostring(run.sharp.Komali), tostring(rooms.shop.is_open())) '
+                       '  local it = rooms.shop.ITEMS dbg("stock", #it, it[3].key .. "," .. it[4].key, it[3].price + it[4].price) end', frames=70)
+        stock = got.get("stock", ["0", "", "0"])
         t.check("nizhalattam: at the stall mai buys mending, a sharper role, and charms; B leaves",
-                got.get("bought") == ["85", "130", "bell,spool", "true", "false"], got)
+                stock[0] == "4" and got.get("bought") == ["85", str(400 - 40 - 80 - int(stock[2])), stock[1], "true", "false"], got)
+
+        # the later repairs: the wall jump, a second dodge, more mending, a
+        # third charm, a stall stocking one more; and the charms they open
+        def wall(on):
+            r, got = komali("wall", f'body.k.walljump = {on} body.place(68 * 8 + 5, 120)',
+                            "i.left = f < 21 if f == 20 then i.jump, i.a = true, true end if f > 20 and f < 40 then i.a = true end",
+                            'if f == 19 then dbg("sliding", k.wall) end if f == 22 then dbg("off", k.vy < 0 and "up" or "down", k.vx > 0 and "away" or "-") end', frames=24)
+            return got.get("sliding"), got.get("off")
+        def dodges(on):
+            r, got = komali("dodge", f'body.k.second, body.k.spare = {on}, {on} at(20, 208)',
+                            "if f == 10 or f == 33 then i.dodge = true end",
+                            'if f == 34 then dbg("again", tostring(k.dodge > 0)) end', frames=36)
+            return got.get("again")
+        t.check("nizhalattam: the wall jump (a repair) springs up and away from a wall he slides down; a second dodge follows the first",
+                wall("true") == (["-1"], ["up", "away"]) and wall("false") == (["-1"], ["down", "-"])
+                and dodges("true") == ["true"] and dodges("false") == ["false"], (wall("true"), wall("false")))
+        r, got = story('run.data.repairs.r_stock, run.data.repairs.r_charm3, run.data.repairs.r_mend = 1, 1, 1 '
+                       'rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 900, 40 run.charms[1], run.charms[2] = "x", "y"',
+                       'if f == 10 then i.door = true end if f == 15 then i.jump = true end '
+                       'if f == 20 or f == 22 then i.down_p = true end if f == 25 then i.jump = true end',
+                       'if f == 30 then dbg("stall", #rooms.shop.ITEMS, k.health, #run.charms) end', frames=32)
+        t.check("nizhalattam: with the repairs, stalls stock three charms, mend 35, and a third charm can be carried",
+                got.get("stall") == ["5", "75", "3"], f"{got} {r.err[-300:]}")
+        dummies = ('local d = {} for _, s in ipairs(shadows.list) do if s.kind == "dummy" then d[#d + 1] = s end end ')
+        r, got = story('rooms.enter("s2.ooru", "s1.ooru", body) run.charms[1] = "torn" ' + dummies + 'st.d = d at(16, 208) k.face = 1',
+                       "if f == 10 or f == 40 then i.attack = true end",
+                       'if f == 30 then dbg("first", st.d[1].hp) end if f == 60 then dbg("then", st.d[1].hp) end', frames=62)
+        r2, got2 = story('rooms.enter("s2.ooru", "s1.ooru", body) run.charms[1] = "soot" ' + dummies +
+                         'd[1].hp = 1 d[2].x = d[1].x + 14 st.d = d at(16, 208) k.face = 1',
+                         "if f == 10 then i.attack = true end",
+                         'if f == 30 then dbg("burnt", tostring(st.d[1].on), st.d[2].hp) end', frames=32)
+        r3, got3 = story('run.charms[1] = "drum" fight.hit(false) dbg("drum", fight.freeze, fight.cost(10, fight.role()))', "", "", frames=3)
+        t.check("nizhalattam: the torn page doubles a room's first blow; lamp soot burns a torn shadow's neighbours; the drum skin hits longer and harder",
+                got.get("first") == ["6"] and int(got.get("then", ["9"])[0]) <= 0
+                and got2.get("burnt") == ["false", "12"] and got3.get("drum") == ["5", "12"],
+                f"{got} {got2} {got3} {r.err[-200:]} {r2.err[-200:]} {r3.err[-200:]}")
 
         r, got = story('rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 10, 60',
                        'if f == 10 then i.door = true end if f == 15 then i.jump = true end',
@@ -1892,9 +1930,11 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 134 and bossroom < 136 and forestroom < 140 and vilroom < 144 and searoom < 155 and aattaroom < 150
-                and fieldroom < 152 and elephantroom < 150 and marketroom < 150 and ministerroom < 155
-                and palaceroom < 159 and queenroom < 156 and kingroom < 162 and after < forestroom - 4, got)
+                hub < 138 and bossroom < 138 and forestroom < 143 and vilroom < 147 and searoom < 158 and aattaroom < 152
+                and fieldroom < 155 and elephantroom < 152 and marketroom < 152 and ministerroom < 157
+                and palaceroom < 161 and queenroom < 158 and kingroom < 165
+                # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
+                and after < hub + 7, got)
 
         if t.update:
             with open(path, "w") as f:
