@@ -1,0 +1,311 @@
+-- body.lua — how Komali moves: running, jumping, dodging, sliding down walls.
+--
+--   local body = require("body")
+--   body.place(x, y)          -- feet at (x, y), in map pixels
+--   body.update(input)        -- once a frame; input from body.read()
+--   body.hurt(n, from_x)      -- struck: false if he could not be touched
+--   body.draw(c, pose, base, moves, sheet)  -- c: the role's colours,
+--                             swapped in (pal); pose: a frame of a blow
+--                             (body.FRAME), or nil; base: where the role's
+--                             frames start, or nil; moves: where its blows'
+--                             frames start, if it has only those; sheet: the
+--                             sheet they are on, if not the actors' own
+--
+-- k.held, set by a shadow that grabs him (the vine-hand), holds him still
+-- for that many frames; A, Y and B shake him free sooner. k.untouch, set by
+-- a role's move (the dancer's dash), keeps blows off him for that many.
+--
+-- body.floors: floors that move (the sea's boats), each { x, y, w, dx, dy }:
+-- its top at y, and how far it moved last frame. He lands on one from above
+-- as on a thin floor, rides it while he stands on it (k.on), and drops
+-- through with down + A. rooms.lua empties the list as a room is entered.
+--
+-- Every number that decides how it feels is in body.T, in pixels and
+-- frames (the game runs at a fixed 60 frames a second), so it can be tuned
+-- in one place. Walls are tiles with flag 1; thin floors have flag 2: they
+-- hold Komali up from above, and down + A drops him through.
+
+local move = require("move")
+
+local body = { floors = {},
+               harder = 1 }    -- what every blow costs him, times this (hard mode: 1.5)
+
+local T = {
+  run = 1.6,          -- top running speed, pixels a frame (96 a second)
+  accel = 0.4,        -- on the ground: full speed in 4 frames
+  stop = 0.55,        --   and stopped in 3
+  air_accel = 0.3,    -- in the air: a little less grip
+  air_stop = 0.2,
+  jump = 3.7,         -- the jump's starting speed: 36 px (4.5 tiles) held
+  rise = 0.18,        -- gravity while rising with A held
+  fall = 0.3,         -- gravity falling, or rising with A let go: snappier
+  cut = 2.5,          -- letting go of A caps the climb: a tap rises 1.5 tiles
+  max_fall = 5,
+  coyote = 6,         -- frames after leaving a ledge he can still jump
+  again = 0.85,       -- the double jump (a repair): this much of the first
+  buffer = 6,         -- frames A is remembered before landing
+  dodge = 18,         -- frames a dodge lasts
+  dodge_safe = { 2, 11 },  -- the frames of it he cannot be touched (10)
+  dodge_speed = 3.2,
+  dodge_wait = 30,    -- frames after a dodge before the next
+  slide = 1.0,        -- falling speed against a wall
+  drop = 12,          -- frames thin floors are ignored after down + A
+  shake = 8,          -- frames of being held each A, Y or B shakes off
+  pit = 10,           -- health a fall into a pit costs
+  struck = 60,        -- frames he cannot be touched after a blow
+  thrown = 2.2,       -- how hard a blow throws him back
+}
+body.T = T
+
+local SOLID, THIN = 1, 2
+-- Komali's frames in actors.png, 24x32 each: frame k is sprite 3k, or
+-- 256 + 3k with a sword in hand (the warrior's role), or 1536 + 3k with a
+-- bow (the archer's, whose frames 14-19 are his own). A role may have only
+-- frames 14-19 of its own (the dancer's, at 500 + 3k), and wear his for the
+-- rest. See art.py.
+local IDLE, RUN, JUMP, FALL, DODGE, WALL, HURT = 0, 2, 8, 9, 10, 12, 13
+body.FRAME = { slap1 = 14, slap2 = 15, slap3 = 16, spin = 17, flat = 18, cart = 19, gather = 9,
+               aim = 14, aim_up = 15, aim_down = 16, air = 17, rain = 18, leap = 19,
+               kick1 = 14, kick2 = 15, kick3 = 16, kick_air = 17, dash = 18, whirl = 19,
+               sweep1 = 14, sweep2 = 15, t_air = 16, charge = 17, pound = 18, stomp = 19,
+               dart = 14, dart2 = 15, m_air = 16, conjure = 17, snare = 18, m_spin = 19,
+               fire1 = 14, fire2 = 15, fire3 = 16, q_air = 17, lamp_up = 18, ring = 19,
+               sceptre1 = 14, sceptre2 = 15, sceptre3 = 16, k_air = 17, summon = 18, cape = 19 }
+
+-- Komali: his box is 10x20, his feet at (x + 5, y + 20).
+local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
+            ground = false, air = 0, buf = 0, dodge = 0, wait = 0, drop = 0,
+            wall = 0, health = 100, safe_x = 0, safe_y = 0, step = 0,
+            peak = 0, top = 0, from = 0,
+            slow = 1,          -- how fast he may run while striking (set by fight.lua)
+            dodge_wait = 1,    -- how long he waits between dodges (his own role: half)
+            struck = 0, guard = 0,
+            pit_free = false,   -- the thread spool: a pit costs nothing
+            max = 100,          -- health at full (more with the Aasaan's repairs)
+            jumps = 0,          -- jumps left in the air (1 with the double jump)
+            double = false,
+            held = 0,           -- frames a shadow holds him still
+            untouch = 0,        -- frames no blow reaches him
+            steady = false,     -- no blow throws him back (set by fight.lua: the elephant)
+            ward = 0,           -- blows turned aside before any lands (the Queen's lamp shield)
+            on = nil }          -- the moving floor he stands on, if any
+body.k = k
+
+move.solid, move.edges = SOLID, false
+
+function body.place(x, y)
+  k.x, k.y, k.vx, k.vy = x - 5, y - k.h, 0, 0
+  k.safe_x, k.safe_y, k.dodge, k.wait, k.held, k.on, k.untouch = k.x, k.y, 0, 0, 0, nil, 0
+end
+
+-- The buttons this frame. Kept apart from the moving, so tests and the
+-- benchmark can drive Komali without the pad.
+local was = {}
+local function pressed(b)
+  local now = btn(b)
+  local p = now and not was[b]
+  was[b] = now
+  return p
+end
+local I = {}            -- filled in afresh each frame, never made again
+function body.read()
+  I.left, I.right, I.down, I.up = btn("left"), btn("right"), btn("down"), btn("up")
+  I.a, I.b = btn("a"), btn("b")
+  I.jump, I.dodge, I.attack, I.skill = pressed("a"), pressed("y"), pressed("b"), pressed("x")
+  I.swap = (pressed("r") and 1 or 0) - (pressed("l") and 1 or 0)
+  I.door = pressed("up")                -- up at a door goes through it
+  I.down_p = pressed("down")
+  I.left_p, I.right_p = pressed("left"), pressed("right")
+  I.pause = pressed("start")
+  return I
+end
+
+local function flags_at(cx, cy) return map.flags(map.get(0, cx, cy)) end
+
+-- A thin floor right under his feet?
+local function on_thin()
+  local feet = k.y + k.h
+  if feet % 8 ~= 0 or k.drop > 0 then return false end
+  local cy = feet // 8
+  for cx = math.floor(k.x) // 8, math.floor(k.x + k.w - 1) // 8 do
+    if flags_at(cx, cy) & THIN ~= 0 then return true end
+  end
+  return false
+end
+
+-- Falling by dy: the first thin floor his feet would pass, if any.
+local function thin_below(dy)
+  if dy <= 0 or k.drop > 0 then return nil end
+  local feet = k.y + k.h
+  for cy = math.ceil(feet / 8), (feet + dy) // 8 do
+    if cy * 8 >= feet then
+      for cx = math.floor(k.x) // 8, math.floor(k.x + k.w - 1) // 8 do
+        if flags_at(cx, cy) & THIN ~= 0 then return cy * 8 end
+      end
+    end
+  end
+end
+
+-- The moving floor right under his feet, if any.
+local function on_floor()
+  if k.drop > 0 then return nil end
+  local feet = k.y + k.h
+  for _, f in ipairs(body.floors) do
+    if math.abs(feet - f.y) < 0.6 and k.x < f.x + f.w and f.x < k.x + k.w then return f end
+  end
+end
+
+-- Falling by dy: the top of the first moving floor his feet would pass.
+local function floor_below(dy)
+  if dy < 0 or k.drop > 0 then return nil end
+  local feet, top = k.y + k.h, nil
+  for _, f in ipairs(body.floors) do
+    if feet <= f.y + 0.6 and feet + dy >= f.y and k.x < f.x + f.w and f.x < k.x + k.w
+       and (not top or f.y < top) then top = f.y end
+  end
+  return top
+end
+
+local function toward(v, goal, by)
+  if v < goal then return math.min(goal, v + by) end
+  return math.max(goal, v - by)
+end
+
+function body.update(i)
+  local was_ground = k.ground
+  if k.wait > 0 then k.wait = k.wait - 1 end
+  if k.struck > 0 then k.struck = k.struck - 1 end
+  if k.drop > 0 then k.drop = k.drop - 1 end
+  if k.untouch > 0 then k.untouch = k.untouch - 1 end
+  if k.on then move.by(k, k.on.dx, k.on.dy) end      -- carried by the boat he stands on
+  k.buf = i.jump and T.buffer or math.max(0, k.buf - 1)
+
+  local dir = (i.right and 1 or 0) - (i.left and 1 or 0)
+  if k.struck > T.struck - 12 then dir = 0 end      -- thrown back: no steering yet
+  if k.held > 0 then                                -- held: still, unless shaken free
+    k.held = k.held - 1 - ((i.jump or i.dodge or i.attack) and T.shake or 0)
+    if k.held < 0 then k.held = 0 end
+    dir, k.buf, i.dodge = 0, 0, false
+  end
+  if dir ~= 0 and k.dodge == 0 and k.slow == 1 then k.face = dir end
+
+  -- the dodge: a quick roll, straight ahead, gravity held off
+  if i.dodge and k.dodge == 0 and k.wait == 0 then
+    k.dodge, k.vy = T.dodge, 0
+  end
+  if k.dodge > 0 then
+    k.dodge = k.dodge - 1
+    k.vx = k.face * T.dodge_speed
+    if k.dodge == 0 then k.wait, k.vx = math.floor(T.dodge_wait * k.dodge_wait), k.face * T.run end
+  else
+    local grip = k.ground and (dir ~= 0 and T.accel or T.stop) or (dir ~= 0 and T.air_accel or T.air_stop)
+    k.vx = toward(k.vx, dir * T.run * k.slow, grip)
+    -- jumping: on the ground, or just off it; down + A on a thin floor drops
+    if k.buf > 0 and not (k.ground or k.air <= T.coyote) and k.jumps > 0 then
+      k.vy, k.buf, k.jumps = -T.jump * T.again, 0, k.jumps - 1     -- the double jump
+      k.from, k.top = k.y, k.y
+    elseif k.buf > 0 and (k.ground or k.air <= T.coyote) then
+      if i.down and k.ground and (on_thin() or k.on) then
+        k.drop, k.buf = T.drop, 0
+      else
+        k.vy, k.buf, k.ground, k.air = -T.jump, 0, false, T.coyote + 1
+        k.from, k.top = k.y, k.y
+      end
+    end
+    if k.ground and k.vy >= 0 then
+      k.vy = 0                                   -- standing: no falling
+    else
+      local g = (k.vy < 0 and i.a) and T.rise or T.fall
+      if k.vy < 0 and not i.a and k.vy < -T.cut then k.vy = -T.cut end
+      k.vy = math.min(k.vy + g, T.max_fall)
+    end
+  end
+
+  -- against a wall, falling, pressing into it: slide slowly
+  k.wall = 0
+  if not k.ground and k.dodge == 0 and dir ~= 0 and k.vy > 0
+     and move.blocked(k.x + dir, k.y, k.w, k.h) then
+    k.wall, k.vy = dir, math.min(k.vy, T.slide)
+  end
+
+  -- move: across, then down, landing on thin floors from above
+  local dy = k.vy
+  local land, top = thin_below(dy), floor_below(dy)
+  if top and (not land or top < land) then land = top end
+  if land then dy = land - (k.y + k.h) end
+  local hit_x, hit_y = move.by(k, k.vx, dy)
+  if hit_x then k.vx = 0 end
+  if land and math.abs(k.y + k.h - land) < 0.01 then k.y, k.vy = land - k.h, 0 end
+  if hit_y then
+    if k.vy > 0 then k.y = math.floor(k.y) end       -- feet on a whole pixel
+    k.vy = 0
+  end
+  k.on = on_floor()
+  k.ground = move.blocked(k.x, k.y + k.h, k.w, 1) or on_thin() or k.on ~= nil
+  if was_ground and not k.ground and k.vy >= 0 then k.from, k.top = k.y, k.y end   -- walked off
+  if k.ground then
+    k.air, k.jumps = 0, k.double and 1 or 0
+    if not was_ground then k.peak = k.from - k.top end   -- how high the last jump rose
+    -- a safe place to come back to: firm ground under him and a tile
+    -- either side, so he does not come back on the very edge of the pit
+    local feet = k.y + k.h
+    if move.blocked(k.x - 8, feet, 1, 1) and move.blocked(k.x, feet, 1, 1)
+       and move.blocked(k.x + k.w - 1, feet, 1, 1) and move.blocked(k.x + k.w + 7, feet, 1, 1) then
+      k.safe_x, k.safe_y = k.x, k.y
+    end
+  else
+    k.air = k.air + 1
+    k.top = math.min(k.top, k.y)
+  end
+  -- into a pit: back on the last safe ledge, a little hurt
+  local _, mh = map.size()
+  if k.y > mh * 8 + 16 then
+    if not k.pit_free then k.health = math.max(1, k.health - T.pit) end
+    k.x, k.y, k.vx, k.vy, k.dodge = k.safe_x, k.safe_y, 0, 0, 0
+  end
+  k.step = k.step + math.abs(k.vx)
+end
+
+-- Can he be touched this frame? Not in the heart of a dodge, nor just
+-- after a blow.
+function body.safe()
+  local f = T.dodge - k.dodge
+  return k.struck > 0 or k.untouch > 0 or (k.dodge > 0 and f >= T.dodge_safe[1] and f <= T.dodge_safe[2])
+end
+
+-- A blow of n from the side of from_x. k.guard, set by fight.lua, takes
+-- off part of every blow (the warrior's), or all of one from the front
+-- (a shield). Returns how much it cost, or false if it did not land.
+function body.hurt(n, from_x)
+  if body.safe() then return false end
+  local side = from_x < k.x + k.w / 2 and -1 or 1
+  if k.guard < 0 and side == k.face then return false end   -- shield up, facing it
+  if k.ward > 0 then k.ward = k.ward - 1 return false end    -- the lamp shield takes it
+  n = math.max(1, math.floor(n * body.harder * (1 - math.max(0, k.guard)) + 0.5))
+  k.health = math.max(0, k.health - n)
+  k.struck, k.dodge = T.struck, 0
+  if not k.steady then k.vx, k.vy, k.ground = -side * T.thrown, -1.6, false end   -- (the elephant stands)
+  return n
+end
+
+function body.draw(c, pose, base, moves, sheet_)
+  local f
+  if pose then f = pose
+  elseif k.dodge > 0 then f = DODGE + k.dodge // 4 % 2
+  elseif k.struck > T.struck - 12 then f = HURT
+  elseif k.wall ~= 0 then f = WALL
+  elseif not k.ground then f = k.vy < 0 and JUMP or FALL
+  elseif math.abs(k.vx) > 0.2 then f = RUN + k.step // 8 % 6
+  else f = IDLE + stat("frame") // 40 % 2 end
+  local flip = k.face < 0
+  if k.wall ~= 0 then flip = k.wall < 0 end
+  if k.struck > 0 and k.struck < T.struck - 12 and k.struck // 4 % 2 == 0 then return end   -- flashing
+  if c then for n = 1, #c, 2 do pal(c[n], c[n + 1]) end end
+  local own = pose and moves and sheet_
+  if own then sheet.load(sheet_) end
+  spr((pose and moves or base or 0) + f * 3, math.floor(k.x) - 7, math.floor(k.y) - 12, 3, 4, flip)
+  if own then sheet.load("actors.kolam") end
+  pal()
+end
+
+return body
