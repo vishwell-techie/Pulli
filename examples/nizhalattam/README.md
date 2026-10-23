@@ -1,5 +1,7 @@
 # Nizhalattam (நிழலாட்டம்)
 
+**தமிழ்:** [README.ta.md](README.ta.md)
+
 *Nizhalattam* means "shadow play". It is Pulli's platformer showcase: a
 side-scrolling action game with a run-based structure, in Tamil and English,
 built to push the console as far as it goes: six stories and a courtyard,
