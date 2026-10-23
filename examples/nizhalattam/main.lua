@@ -368,6 +368,17 @@ function update(dt)
     hint, hint2 = table.concat(text.wrap(lines.t(def.taught, table.unpack(keys)), 36), "\n"), nil
     font()
   end
+  -- fallen in a challenge room: back out at its secret door, as he went in
+  -- (the run goes on)
+  if body.k.health <= 0 and rooms.def().challenge then
+    local h = rooms.shop.health
+    rooms.enter(rooms.def().doors[1], "challenge.ooru", body)
+    body.k.health, body.k.struck = h, 0
+    cam.x, cam.y = body.k.x + 5 - 160, body.k.y + 10 - 140
+    sound.play("fall")
+    say(lines.t("thrown_back"))
+    return
+  end
   -- fallen: the run ends; he wakes on the Aasaan's box
   if body.k.health <= 0 then
     run.drop()

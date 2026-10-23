@@ -15,7 +15,8 @@
 -- jump, higher steps and wider pits; with the wall jump, a cliff climbed
 -- between two walls; with the second dodge, a long pit under a low roof.
 -- What he lacks is never asked of him. The shadows here leave nothing when
--- torn (shadows.nodrop). The reward is oil, mai or a charm; in hard mode,
+-- torn (shadows.nodrop). Fallen here, the run does not end: he is back
+-- out at the secret door with the health he went in with (main.lua). The reward is oil, mai or a charm; in hard mode,
 -- while the story's page is not yet found, the page, and nothing else.
 
 local run   = require("run")
@@ -125,6 +126,7 @@ local function dress()
 end
 
 function challenge.build(def, k)
+  challenge.health = k.health                  -- (fallen here, he is put back out with this)
   for y = 0, H - 1 do for x = 0, W - 1 do map.set(0, x, y, 0) map.set(1, x, y, 0) end end
   for y = 0, H - 1 do set(0, y, SOLID) set(1, y, SOLID) set(W - 2, y, SOLID) set(W - 1, y, SOLID) end
   local seed = (run.seed or 0) * 31

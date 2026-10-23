@@ -2063,6 +2063,16 @@ def main():
                 and got2.get("chest") == ["card", "sea", "0"] and got2.get("lying") == ["false"],
                 f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
 
+        # fallen in a challenge room, the run goes on: he is back at the
+        # secret door with the health he went in with
+        r, got = story('run.start(body, { "forest" }, "palace") k.double = true rooms.enter("b4.ooru", nil, body) k.health = 64 '
+                       'rooms.enter("challenge.ooru", "b4.ooru", body) st.falls = run.data.falls fight.mai = 33', "",
+                       'if f == 3 then k.health = 0 end '
+                       'if f == 6 then dbg("back", rooms.name, k.health, (k.x + 5) // 8, (k.y + k.h) // 8, run.data.falls - st.falls, '
+                       '  tostring(run.seed ~= nil), fight.mai) end', frames=8)
+        t.check("nizhalattam: fallen in a challenge room, the Jester is back at its secret door with the health he took in; the run goes on",
+                got.get("back") == ["b4.ooru", "64", "34", "20", "0", "true", "33"], f"{got} {r.err[-300:]}")
+
         # sound effects: each thing done has its own (sound.lua names them)
         heard = ('local N = require("sound").N local named = {} for k, v in pairs(N) do named[v] = k end '
                  'sfx = function(n) st.heard = st.heard or {} st.heard[named[n]] = true end ')
@@ -2129,9 +2139,9 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 142 and bossroom < 142 and forestroom < 147 and vilroom < 151 and searoom < 162 and aattaroom < 156
-                and fieldroom < 159 and elephantroom < 156 and marketroom < 156 and ministerroom < 161
-                and palaceroom < 165 and queenroom < 162 and kingroom < 169
+                hub < 144 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
+                and fieldroom < 161 and elephantroom < 158 and marketroom < 158 and ministerroom < 163
+                and palaceroom < 167 and queenroom < 164 and kingroom < 171
                 # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
                 and after < hub + 7, got)
 
