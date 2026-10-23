@@ -14,6 +14,7 @@
 --                             within that many pixels take half of a blow
 --   s.slow                    frames a shadow moves at half speed (an ink
 --                             dart, shots.lua)
+--   shadows.nodrop            a challenge room's: torn, they leave no ink
 --   shadows.hard              hard mode: every shadow has half as much health
 --                             again (and hits harder: body.lua)
 --   shadows.shade             the room's boss is a shadow of his puppet (one
@@ -259,7 +260,7 @@ end
 local function tear(s, mai)
   s.on = false
   sound.play("torn")
-  fx.tear(s.x + s.w / 2, s.y + s.h / 2, math.random(mai[1], mai[2]))
+  fx.tear(s.x + s.w / 2, s.y + s.h / 2, shadows.nodrop and 0 or math.random(mai[1], mai[2]))
   if s.kids then                         -- an inkblot splits in two
     for n, c in ipairs(s.kids) do
       c.on, c.x, c.y, c.vx, c.vy, c.state = true, s.x + (n == 1 and 0 or 6), s.y + 1, n == 1 and -1.5 or 1.5, -2, "reel"

@@ -285,7 +285,7 @@ function update(dt)
     end
     if rooms.came then                   -- through a door in a run: keep it here
       rooms.came = false
-      if run.seed then run.keep_at(body, rooms.name, rooms.from) end
+      if run.seed and not rooms.def().challenge then run.keep_at(body, rooms.name, rooms.from) end   -- (not in a challenge room: built, not kept)
       local b = shadows.boss
       if b and b.shade then say(lines.t("shade_in", title(b.role))) end
     end
@@ -300,7 +300,11 @@ function update(dt)
     follow()
     return
   end
-  if shop and i.door and rooms.near(rooms.shop_x, body.k) then shop.open() return end
+  if shop and i.door and rooms.near(rooms.shop_x, body.k) then
+    local how, a, b = shop.open()                -- (a challenge room's chest says what it held)
+    if how == "card" then show_card(a, b, nil, nil, 900) elseif how == "say" then say(a) sound.play("oil") end
+    return
+  end
 
   local before = body.k.health
   body.k.pit_free = run.charm("spool")

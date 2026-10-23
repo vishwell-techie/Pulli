@@ -78,6 +78,7 @@ return {
   to_title = "%s back to the title",
   shade_torn = "A shadow, torn: it lends no role",
   hard = "Hard",
+  h_challenge = "A challenge room, made for your skills: %s at the chest at the far end",
   page_n = "Page %d of %d",
   r_pages = "Read the pages found",
   no_pages = "No pages found yet",

@@ -26,6 +26,8 @@
 --   rooms.music(n), music_stop(ms)   a track, coming in over the one playing
 --                             (rooms.playing: which)
 --                             (if it is another); none
+--   rooms.chest_x             a challenge room's chest (challenge.lua is the
+--                             room's shop); a secret door leads there
 --   rooms.STORIES, MIDDLE     the stories: their first rooms; those made so
 --                             far that come between the first and the last
 --
@@ -122,7 +124,7 @@ rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own she
 
 -- markers on layer 1
 local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, PAGE, LAST = 1012, 1027, 1027
+local TEAR, PAGE, SECRET, CHEST, LAST = 1012, 1027, 1028, 1029, 1029
 local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
                [1009] = "vine", [1010] = "moth", [1011] = "wisp",
                [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry",
@@ -156,7 +158,18 @@ end
 local SUMMONED = { "vil.kolam", "aatta.kolam", "yaanai.kolam", "mandhiri.kolam", "rani.kolam" }
 local FADE = 12                                 -- frames out, and as many in
 
-local dx, dy, dto = {}, {}, {}                  -- the room's doors: cell, and where to
+local dx, dy, dto, dsecret = {}, {}, {}, {}    -- the room's doors: cell, where to, and whether secret
+
+-- A story's challenge room (challenge.lua), behind the secret door in its
+-- stall room: it takes the story's look and shadows, and both its doors
+-- lead back to the room it was entered from.
+local CH = { doors = {}, challenge = true, shop = "challenge", hint = "h_challenge", keys = "up" }
+local function challenge_of(def, name)
+  local story = getmetatable(def) and getmetatable(def).__index or def
+  CH.place, CH.sheet, CH.bg, CH.story, CH.cast = def.place, def.sheet, def.bg, def.story, story.cast
+  CH.doors[1], CH.doors[2] = name, name
+  rawset(ROOMS, "challenge.ooru", CH)
+end
 local fade_t, going = 0, nil
 
 function rooms.def() return ROOMS[rooms.name] end
@@ -245,6 +258,7 @@ function rooms.enter(name, from, body)
   rooms.shop, rooms.pick = def.shop and code[def.shop], code.pick
   if def.start and from == "map.ooru" then rooms.started = true end
   map.load(name)
+  if def.challenge then code[def.shop].build(def, body.k) end      -- (laid out now, then read as any room)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
   rooms.dress(def.place, def.bg)
@@ -255,6 +269,7 @@ function rooms.enter(name, from, body)
   shadows.clear()
   for n = #body.floors, 1, -1 do body.floors[n] = nil end
   shadows.soft = def.soft and 0.33 or 1
+  shadows.nodrop = def.challenge                -- (the shadows of a challenge room leave nothing)
   -- hard mode: shadows hit harder, have more health, come more of them,
   -- and every boss is a shadow; before that, so is a saved puppet's
   local hard = run.hard()
@@ -265,8 +280,9 @@ function rooms.enter(name, from, body)
   -- (arrows; the King's shadow summons archers in every act)
   fight.arrows(def.arrows or (def.boss == "king" and hard))   -- (and clears those in flight)
   fight.first = true                            -- (the torn page: the first blow in a room)
-  rooms.stall_x, rooms.box_x, rooms.tear_x, rooms.page_x = nil, nil, nil, nil
-  for n = #dx, 1, -1 do dx[n], dy[n], dto[n] = nil, nil, nil end
+  rooms.stall_x, rooms.box_x, rooms.tear_x, rooms.page_x, rooms.chest_x = nil, nil, nil, nil, nil
+  for n = #dx, 1, -1 do dx[n], dy[n], dto[n], dsecret[n] = nil, nil, nil, nil end
+  local nd = 0                                  -- the doors ROOMS names (not the secret ones)
   local sx, sy = 40, 200
   for cy = 0, h - 1 do
     for cx = 0, w - 1 do
@@ -283,19 +299,28 @@ function rooms.enter(name, from, body)
       elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
       elseif m == BOX then rooms.box_x, rooms.floor_y = x, y
       elseif m == TEAR then rooms.tear_x, rooms.floor_y = x, y
-      elseif m == PAGE and run.data and not run.page_found(def.story) then rooms.page_x, rooms.page_y = x, y
+      elseif m == PAGE and run.data and not run.page_found(def.story) and not run.hard() then   -- (hard: in the challenge room)
+        rooms.page_x, rooms.page_y = x, y
+      elseif m == CHEST then rooms.chest_x, rooms.floor_y = x, y
+      elseif m == SECRET then
+        local n = #dx + 1
+        dx[n], dy[n], dto[n], dsecret[n] = cx, cy, "challenge.ooru", true
+        challenge_of(def, name)
       elseif m == DOOR then
         local n = #dx + 1
-        dx[n], dy[n], dto[n] = cx, cy, def.doors[n] == "next" and rooms.after(def.story) or def.doors[n]
+        nd = nd + 1
+        dx[n], dy[n], dto[n] = cx, cy, def.doors[nd] == "next" and rooms.after(def.story) or def.doors[nd]
       end
       if m >= START and m <= LAST then map.set(1, cx, cy, 0) end
     end
   end
   -- in at the door from where he came
+  -- (of two doors back to the same room, the leftmost: a challenge room's start)
+  local best
   for n = 1, #dx do
-    if from and dto[n] == from then sx, sy = dx[n] * 8 + 4, dy[n] * 8 + 8 end
+    if from and dto[n] == from and (not best or dx[n] < best) then best, sx, sy = dx[n], dx[n] * 8 + 4, dy[n] * 8 + 8 end
   end
-  rooms.shop_x = rooms.stall_x or rooms.box_x or rooms.tear_x
+  rooms.shop_x = rooms.stall_x or rooms.box_x or rooms.tear_x or rooms.chest_x
   body.place(sx, sy)
   -- the rooms beyond this one's doors, their sheets and their code, read
   -- ahead (past the last door, the Courtyard)
@@ -366,9 +391,11 @@ function rooms.draw_doors()
     rectfill(x, y + 4, 20, 28, C.wood)
     rectfill(x + 2, y + 2, 16, 4, C.wood)
     rectfill(x + 4, y, 12, 4, C.wood)
-    rectfill(x + 2, y + 6, 16, 26, shut and C.ink or C.lamp)
-    rectfill(x + 3, y + 6, 6, 26, shut and C.navy or C.red)      -- the curtains, drawn aside
-    rectfill(x + 11, y + 6, 6, 26, shut and C.navy or C.red)
+    local glow, curtain = C.lamp, C.red
+    if dsecret[n] then glow, curtain = stat("frame") // 12 % 2 == 0 and C.sky or C.glow, C.blue end   -- a secret door
+    rectfill(x + 2, y + 6, 16, 26, shut and C.ink or glow)
+    rectfill(x + 3, y + 6, 6, 26, shut and C.navy or curtain)      -- the curtains, drawn aside
+    rectfill(x + 11, y + 6, 6, 26, shut and C.navy or curtain)
     for c = 0, 2 do line(x + 4 + c * 2, y + 7, x + 4 + c * 2, y + 31, shut and C.ink or C.oxblood) end
     line(x + 2, y + 5, x + 17, y + 5, C.marigold)
     pset(x + 9, y + 1, C.lamp) pset(x + 10, y + 1, C.lamp)
@@ -392,6 +419,13 @@ function rooms.draw_things()
     end
   end
   if rooms.stall_x then spr(774, rooms.stall_x - 16, rooms.floor_y - 32, 4, 4) end
+  if rooms.chest_x then                         -- a challenge room's chest: aglow until opened
+    local shut = not run.claimed[rooms.def().story]
+    if shut then circ(rooms.chest_x, rooms.floor_y - 8, 14 + stat("frame") // 10 % 2, C.lamp)
+    else pal(C.marigold, C.wood) pal(C.lamp, C.tan) end
+    spr(771, rooms.chest_x - 12, rooms.floor_y - 16, 3, 2)
+    pal()
+  end
   if rooms.page_x then                          -- a page of the King's story, drifting, aglow
     local f = stat("frame")
     local y = rooms.page_y - 14 + math.sin(f * 0.06) * 2

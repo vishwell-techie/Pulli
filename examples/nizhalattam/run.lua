@@ -39,6 +39,7 @@ local lines = require("lines")
 local fight = require("fight")
 
 local run = { charms = {}, sharp = {}, seed = nil, typed = false, next_seed = nil, lent = {},
+              claimed = {},              -- the stories whose challenge chest is opened, this run
               order = { "screen" }, half = 0, torn = false, cleared = 0, time = 0 }
 local SLOT, OLD, VERSION = "slot", "progress", 1   -- (the one save from before there were slots: slot 1)
 run.SLOT, run.OLD = SLOT, OLD
@@ -115,6 +116,7 @@ function run.begin(body)
   fight.sharp, fight.charms = run.sharp, run.charms
   run.seed, run.typed, run.order, run.half, run.torn = nil, false, { "screen" }, 0, false
   run.cleared, run.time = 0, 0
+  for k in pairs(run.claimed) do run.claimed[k] = nil end
   for k in pairs(run.lent) do run.lent[k] = nil end
   if body then body.k.ward = 0 end
 end
@@ -142,6 +144,7 @@ function run.start(body, middle, last)
   for _, s in ipairs(middle) do table.insert(order, rand(#order) + 1, s) end
   if last then order[#order + 1] = last end
   run.order, run.half, run.torn, run.cleared, run.time = order, #order // 2, false, 0, 0
+  for k in pairs(run.claimed) do run.claimed[k] = nil end
   for k in pairs(run.lent) do run.lent[k] = nil end
   local wear, places = { "komali" }, run.data.repairs.r_slot or 0
   for _, r in ipairs(run.data.chosen) do
@@ -171,7 +174,7 @@ function run.keep_at(body, room, from)
     seed = run.seed, typed = run.typed, order = copy(run.order), half = run.half, torn = run.torn,
     cleared = run.cleared, time = run.time, room = room, from = from,
     health = body.k.health, mai = fight.mai, charms = copy(run.charms), sharp = list(run.sharp),
-    roles = roles, worn = fight.worn, lent = list(run.lent),
+    roles = roles, worn = fight.worn, lent = list(run.lent), claimed = list(run.claimed),
   }
   run.keep()
   save_commit()                          -- a door is a checkpoint: written now, not at the next interval
