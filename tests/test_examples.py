@@ -92,7 +92,7 @@ def nizhalattam_climbs(up=3, across=7):
     held jump rises 4.5) and jumping at most `across` tiles. A coarse walk
     over the places Komali can stand (three clear tiles over a floor); a
     boat's deck stands level with the quays, and a ferry's spans its water.
-    The grey tuning rooms test the jump's limits and are left out."""
+    The grey test rooms too: they are behind a door in the Courtyard."""
     import glob, xml.etree.ElementTree as ET
     game = os.path.join(ROOT, "examples", "nizhalattam")
     flags = {}
@@ -104,8 +104,6 @@ def nizhalattam_climbs(up=3, across=7):
     stuck = []
     for path in sorted(glob.glob(os.path.join(game, "*.tmx"))):
         name = os.path.basename(path)[:-4]
-        if name in ("test", "climb"):
-            continue
         root = ET.parse(path).getroot()
         w, h = int(root.get("width")), int(root.get("height"))
         ground, front = [[(int(v) & 0x0FFFFFFF) - 1 for v in layer.find("data").text.replace("\n", "").split(",")
@@ -730,9 +728,9 @@ def main():
                         'if f == 110 then dbg("up", k.y + k.h, tostring(k.ground)) end '
                         'if f == 200 then dbg("down", k.y + k.h, tostring(k.ground)) end')
         t.check("nizhalattam: he lands on a thin floor from below, and down + A drops him through",
-                got.get("up") == ["176", "true"] and got.get("down") == ["208", "true"], got)
+                got.get("up") == ["184", "true"] and got.get("down") == ["208", "true"], got)       # (the stack's first, row 23)
 
-        r, got = komali("wall", "at(70, 80)", "i.left = true",
+        r, got = komali("wall", "at(70, 150)", "i.left = true",        # (below the pillar's top: down its side)
                         'if k.wall ~= 0 then st.n = (st.n or 0) + 1 st.v = math.max(st.v or 0, k.vy) end '
                         'if f == 200 then dbg("slid", st.n or 0, st.v or 0) end')
         slid = got.get("slid", ["0", "9"])
