@@ -878,7 +878,7 @@ def main():
         # Through every room, by their doors: each map and sheet is read
         # ahead before it is first used, and a frame changes sheets twice.
         ahead = ('local ready, pre, ml, sl = {}, preload, map.load, sheet.load\n'
-                 'ready["map.ooru"], ready["sprites.kolam"] = true, true\n'
+                 'ready["map.ooru"], ready["sprites.kolam"], ready["test.ooru"] = true, true, true\n'   # (the test enters it itself)
                  'function preload(...) for _, n in ipairs({ ... }) do ready[n] = true end return pre(...) end\n'
                  'function map.load(n) if not ready[n] then dbg("late", n) end return ml(n) end\n'
                  'local loads = 0\n'
@@ -2072,6 +2072,15 @@ def main():
                        '  tostring(run.seed ~= nil), fight.mai) end', frames=8)
         t.check("nizhalattam: fallen in a challenge room, the Jester is back at its secret door with the health he took in; the run goes on",
                 got.get("back") == ["b4.ooru", "64", "34", "20", "0", "true", "33"], f"{got} {r.err[-300:]}")
+
+        # the Courtyard has one way into the stories, the theatre's screen (no
+        # side door to the test rooms); standing at a way in, it glows and
+        # the button shows (rooms.at_entry): at a door, at the box, not between
+        r, got = story('dbg("doors", #rooms.def().doors, rooms.def().doors[1]) '
+                       'local function at(cx) body.place(cx * 8 + 4, 208) k.ground = true return tostring(rooms.at_entry(k) ~= nil) end '
+                       'dbg("entry", at(34), at(7), at(20))', "", "", frames=3)
+        t.check("nizhalattam: the Courtyard's one door is the theatre's screen; a way in glows, with its button, only while he stands at it",
+                got.get("doors") == ["1", "s1.ooru"] and got.get("entry") == ["true", "true", "false"], f"{got} {r.err[-300:]}")
 
         # sound effects: each thing done has its own (sound.lua names them)
         heard = ('local N = require("sound").N local named = {} for k, v in pairs(N) do named[v] = k end '

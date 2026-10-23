@@ -497,7 +497,7 @@ function draw()
   -- pass 1: the room, from its tile sheet
   sheet.load(def.sheet)
   map.draw(0)
-  rooms.draw_doors()
+  rooms.draw_doors(body.k)
   -- pass 2: the things in it, the shadows and Komali, from theirs
   sheet.load(rooms.ACTORS)
   rooms.draw_things()
@@ -507,6 +507,7 @@ function draw()
   body.draw(role.colours, pose and body.FRAME[pose], role.frames, role.moves, role.sheet)
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- body.draw resets pal
   fight.draw(body)
+  rooms.draw_prompt(body.k)
   if fight.shots then fight.shots.draw() end
   fx.draw()
   camera()

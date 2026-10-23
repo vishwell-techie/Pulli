@@ -4,7 +4,9 @@
 --                             `from`, or at its start marker
 --   rooms.update(input, body) once a frame: up at a door goes through it.
 --                             True while the screen fades (the world waits)
---   rooms.draw_doors()        the doors, with the room's tiles
+--   rooms.draw_doors(k)       the doors, with the room's tiles; a light where
+--                             Komali (k) stands at a way in
+--   rooms.draw_prompt(k)      and the button for it, over him
 --   rooms.draw_things()       the stall and the Aasaan's box, with the actors
 --   rooms.fade()              0 to 1, how dark the screen is
 --   rooms.ended               set when Komali goes through the last door of
@@ -71,14 +73,14 @@ local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = 
 local SCREEN = { __index = { place = "screen", sheet = "screen.kolam", bg = "bg_screen.kolam", story = "screen" } }
 local S = function(def) return setmetatable(def, SCREEN) end
 local ROOMS = {
-  ["map.ooru"]   = S{ place = "court", sheet = "court.kolam", bg = "bg_court.kolam", doors = { "test.ooru", "s1.ooru" },
-                      hidden = 2,                -- the booth's glowing screen in the backdrop is the door
+  ["map.ooru"]   = S{ place = "court", sheet = "court.kolam", bg = "bg_court.kolam", doors = { "s1.ooru" },
+                      hidden = 1,                -- the booth's glowing screen in the backdrop is the door
                       shop = "box", pick = true, -- (pick: read ahead, wanted later)
                       hint = "h_door", keys = "up" },
   -- the halfway tear, after the middle story: the roles carried may be
   -- changed here, once a run
   ["tear.ooru"]  = S{ doors = { "next" }, story = "tear", shop = "pick", pick = true, hint = "h_tear", keys = "up" },
-  -- the test rooms, off the Courtyard's side door
+  -- the test rooms: no door leads to them (the tests go there directly)
   ["test.ooru"]  = S{ sheet = "sprites.kolam", doors = { "climb.ooru" } },
   ["climb.ooru"] = S{ doors = { "arena.ooru", "test.ooru" } },
   ["arena.ooru"] = S{ doors = { "climb.ooru", "test.ooru" }, fight = true },
@@ -353,6 +355,16 @@ local function at_door(k)
   end
 end
 
+-- What he stands at that up would use: an open door, or the room's stall,
+-- box, tear or chest. Where it is (its middle, and the floor).
+local function at_entry(k)
+  if not k.ground then return nil end
+  local n = at_door(k)
+  if n and not rooms.locked() then return dx[n] * 8 + 4, dy[n] * 8 + 8 end
+  if rooms.shop_x and rooms.near(rooms.shop_x, k) then return rooms.shop_x, rooms.floor_y end
+end
+rooms.at_entry = at_entry
+
 function rooms.update(i, body)
   if going then
     fade_t = fade_t + 1
@@ -384,7 +396,33 @@ end
 
 -- a door: a curtained arch in a carved frame, lamplight through the gap;
 -- barred while it is shut
-function rooms.draw_doors()
+-- the light where he stands at a way in: a warm glow breathing behind it,
+-- rays spilling out (drawn before the doors and the things, behind him)
+local function draw_light(k)
+  local x, feet = at_entry(k)
+  if not x then return end
+  local f, cy = stat("frame"), feet - 16
+  local p = f // 6 % 4
+  circ(x, cy, 21 + p, C.marigold)
+  circ(x, cy, 18 + p, C.lamp)
+  for a = 0, 7 do
+    local ang = a * 0.785 + f * 0.02
+    line(x + math.cos(ang) * (14 + p), cy + math.sin(ang) * (14 + p), x + math.cos(ang) * (24 + p * 2),
+         cy + math.sin(ang) * (24 + p * 2), a % 2 == 0 and C.glow or C.lamp)
+  end
+end
+
+-- the button to press, above the way in he stands at, bobbing (drawn over him)
+function rooms.draw_prompt(k)
+  local x, feet = at_entry(k)
+  if not x then return end
+  local text = require("text")
+  local s, y = buttons.up, feet - 48 + stat("frame") // 12 % 2 * 2
+  text.outline(s, x - text.width(s) // 2, y, C.glow, C.ink)
+end
+
+function rooms.draw_doors(k)
+  if k then draw_light(k) end
   local shut = rooms.locked()
   for n = 1, #dx do if n ~= rooms.def().hidden then
     local x, y = dx[n] * 8 - 6, dy[n] * 8 - 24
