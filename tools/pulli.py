@@ -16,7 +16,7 @@
                                                            game's own, for a paint program
     python3 tools/pulli.py add    [<dir> helper...]        copy SDK helpers into a game to
                                                            change them; alone, list them
-    python3 tools/pulli.py cart   <game.pulli> <out.img> [MB]
+    python3 tools/pulli.py cart   <game.pulli> <out.img> [8|16|32|64]
                                                            a cartridge's flash: the package,
                                                            then room, then 512 KB for saves
 
@@ -945,19 +945,23 @@ def _launch(name, target, extra):
 
 
 CART_SAVE_AREA = 512 * 1024
+CART_SIZES = (8, 16, 32, 64)            # MB: one chip, or two of half the size (SPEC §2)
 
 
 def cart_image(package: bytes, megabytes: int = None) -> bytes:
-    """A cartridge's flash, as `pulli-headless --cart` reads it: the package
-    and its seal at the start, erased flash (0xFF) after, and the last 512 KB
-    kept for saves (SPEC §2, "Cartridges"). The size is the smallest power of
-    two megabytes that holds them, unless one is given."""
+    """A cartridge's flash, as `pulli-headless --cart` reads it: its one or
+    two chips as one range, the package and its seal at the start, erased
+    flash (0xFF) after, and the last 512 KB kept for saves (SPEC §2,
+    "Cartridges"). The size is the smallest cartridge (8, 16, 32 or 64 MB)
+    that holds them, unless one is given."""
     parse(package)
     need = len(package) + CART_SAVE_AREA
     if megabytes is None:
-        megabytes = 1
-        while megabytes * 1024 * 1024 < need:
-            megabytes *= 2
+        megabytes = next((m for m in CART_SIZES if m * 1024 * 1024 >= need), None)
+        if megabytes is None:
+            raise PackageError(f"no cartridge holds it: the package and the save area take {need} bytes, more than 64 MB")
+    if megabytes not in CART_SIZES:
+        raise PackageError(f"a cartridge is 8, 16, 32 or 64 MB, not {megabytes}")
     size = megabytes * 1024 * 1024
     if size < need:
         raise PackageError(f"{megabytes} MB is too small: the package and the save area take {need} bytes")
@@ -969,7 +973,9 @@ def cmd_cart(path, out, megabytes=None):
         image = cart_image(f.read(), int(megabytes) if megabytes else None)
     with open(out, "wb") as f:
         f.write(image)
-    print(f"cartridge image -> {out} ({len(image) // (1024 * 1024)} MB, saves in the last 512 KB)")
+    mb = len(image) // (1024 * 1024)
+    chips = "two chips" if mb in (16, 64) else "one chip"
+    print(f"cartridge image -> {out} ({mb} MB, {chips}, saves in the last 512 KB)")
 
 
 def cmd_run(target, *options):
