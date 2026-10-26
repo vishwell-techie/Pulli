@@ -10,7 +10,10 @@ Run: python3 tests/test_pattarai.py
   - Isai's scales: the 72 melakartas, the swaras of each raga, the
     notation read and written both ways, and a song plays the same every
     time;
-  - the server lets the page reach the game's files and nothing else.
+  - Vidhi, the code editor, colours Lua, finds the asset a call names and
+    numbers sounds as pack does, and its functions are the spec's;
+  - the server lets the page reach the game's files and nothing else, and
+    its check runs the game and reports errors by line.
 
 The library checks need node (any recent version); they are skipped,
 loudly, without it.
@@ -110,6 +113,22 @@ def library(t):
         fresh = ooru(r["fresh"], "new.tmx")
         t.check("a new map and its tileset are what pack reads", fresh[:2] == (10, 6) and len(fresh[2]) == 2 and
                 fresh[2][1][3] == 2 and sum(map(sum, fresh[2])) == 2, fresh[:2])
+    vidhi(t, r)
+
+
+def vidhi(t, r):
+    spec = open(os.path.join(ROOT, "docs", "SPEC.md")).read()
+    t.check("every function Vidhi knows is in the spec", all(re.search(r"^" + re.escape(n) + r"\(", spec, re.M)
+                                                             for n in r["api"]), r["api"])
+    t.check("the call under the cursor names its asset", r["calls"] == [
+        {"fn": "spr", "arg": 12}, {"fn": "sfx", "arg": 3}, {"fn": "map.load", "arg": "hall.ooru"},
+        {"fn": "sfx", "arg": 7}, None, {"fn": "sheet.load", "arg": "actors.kolam"}], r["calls"])
+    t.check("the nearest call is the one under the cursor", r["callFar"] == {"fn": "music", "arg": 1}, r["callFar"])
+    t.check("Lua is coloured: keywords, strings, comments, the API, numbers", r["lit"] ==
+            '<span class="k">local</span> s = <span class="s">"a"</span> <span class="c">-- c</span>\n'
+            '<span class="f">spr</span>(<span class="n">1</span>) x = <span class="n">0x1f</span>\n\n', r["lit"])
+    t.check("sounds are numbered as pack numbers them: the folder's WAV files by name",
+            r["numbered"] == ["sfx/10.wav", "sfx/a.WAV", "sfx/b.wav"], r["numbered"])
 
 
 def palette(t):
@@ -153,20 +172,35 @@ def server(t):
                     ask("GET", "/api/files", host="evil.example:80")[0] == 403)
             status, body = ask("GET", "/api/files")
             t.check("the files list holds what the editors open, and no hidden files",
-                    status == 200 and json.loads(body)["files"] == ["map.tmx", "music/a.json", "sprites.png"], body)
+                    status == 200 and json.loads(body)["files"] == ["main.lua", "map.tmx", "music/a.json", "sprites.png"], body)
             t.check("a file is read", ask("GET", "/api/file?path=map.tmx") == (200, b"<map/>"))
             t.check("a file outside the game is not read",
                     ask("GET", "/api/file?path=../secret.png")[0] == 404 and
                     ask("GET", "/api/file?path=" + os.path.join(tmp, "secret.png"))[0] == 404)
             t.check("a song is written, its folder made", ask("PUT", "/api/file?path=music/new/b.json", b"{1}")[0] == 200
                     and open(os.path.join(game, "music", "new", "b.json")).read() == "{1}")
-            t.check("Lua, hidden files and places outside the game are never written",
-                    ask("PUT", "/api/file?path=main.lua", b"evil")[0] == 403 and
+            t.check("Lua is written", ask("PUT", "/api/file?path=main.lua", b"function draw() end\n")[0] == 200)
+            t.check("other kinds, hidden files and places outside the game are never written",
+                    ask("PUT", "/api/file?path=run.py", b"evil")[0] == 403 and
+                    ask("PUT", "/api/file?path=x.lua.sh", b"evil")[0] == 403 and
                     ask("PUT", "/api/file?path=.x.png", b"x")[0] == 403 and
                     ask("PUT", "/api/file?path=../out.png", b"x")[0] == 403 and
                     ask("PUT", "/api/file?path=map.tmx", b"x", key="guess")[0] == 403 and
-                    open(os.path.join(game, "main.lua")).read() == "function draw() end\n" and
+                    not os.path.exists(os.path.join(game, "run.py")) and
                     not os.path.exists(os.path.join(tmp, "out.png")))
+            t.check("the game cannot be checked without the key", ask("POST", "/api/check", key="guess")[0] == 403)
+            if t.need_runtime("checking a game from the page"):
+                with open(os.path.join(game, "manifest.lua"), "w") as f:
+                    f.write('return { id = "test.edit", title = "Edit", spec = 1 }\n')
+                os.remove(os.path.join(game, "sprites.png"))
+                os.remove(os.path.join(game, "map.tmx"))
+                os.environ["PULLI_HOST_DIR"] = os.path.dirname(t.headless)
+                status, body = ask("POST", "/api/check")
+                good = json.loads(body)
+                ask("PUT", "/api/file?path=main.lua", b"function init()\nend\nfunction draw()\n  local x = nil + 1\nend\n")
+                bad = json.loads(ask("POST", "/api/check")[1])
+                t.check("a check of a sound game passes; of a broken one names the file and line",
+                        good["ok"] and not bad["ok"] and "main.lua:4:" in bad["out"], (good, bad))
         finally:
             srv.shutdown()
             srv.server_close()

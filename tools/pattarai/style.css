@@ -48,3 +48,19 @@ canvas { image-rendering: pixelated; display: block; }
 .keys { display: flex; gap: 3px; flex-wrap: wrap; }
 .keys button { min-width: 42px; padding: 6px 4px; font-family: ui-monospace, monospace; }
 .wide { flex: 1; min-width: 320px; }
+.code { display: flex; border: 1px solid var(--line); border-radius: 6px; background: #14151b; height: calc(100vh - 230px);
+  min-height: 300px; overflow: hidden; font: 13px/1.5 ui-monospace, "Noto Sans Mono", monospace; }
+.code-gutter { margin: 0; padding: 8px 8px 8px 10px; color: #5c5f72; text-align: right; overflow: hidden; user-select: none;
+  border-right: 1px solid var(--line); min-width: 44px; font: inherit; }
+.code-box { position: relative; flex: 1; min-width: 0; }
+.code-out, .code-in { position: absolute; inset: 0; margin: 0; padding: 8px 10px; font: inherit; white-space: pre;
+  overflow: auto; tab-size: 2; border: 0; border-radius: 0; }
+.code-out { color: var(--text); pointer-events: none; overflow: hidden; }
+.code-in { color: transparent; background: transparent; caret-color: var(--accent); resize: none; outline: none; }
+.code-in::selection { background: #f0a33040; }
+.code-out .k { color: #e0789a; } .code-out .s { color: #9ccc65; } .code-out .n { color: #f0a330; }
+.code-out .c { color: #6b6f86; font-style: italic; } .code-out .f { color: #4fb3a9; }
+.linkcard { min-height: 40px; }
+.linkcard .err, .problems .err { color: var(--bad); }
+.problems { font: 12px/1.5 ui-monospace, monospace; margin-top: 6px; max-height: 120px; overflow: auto; }
+.problems .link { cursor: pointer; text-decoration: underline dotted; }

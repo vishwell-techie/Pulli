@@ -5,6 +5,7 @@ import { encodePNG } from "./lib/png.js";
 import { kolam } from "./kolam.js";
 import { ooru } from "./ooru.js";
 import { isai } from "./isai.js";
+import { vidhi } from "./vidhi.js";
 
 const token = location.hash.slice(1);
 
@@ -119,9 +120,11 @@ async function start() {
     await refreshFiles();
     const pal = shared.files.find((f) => f === "palette.hex" || f === "palette.gpl");
     if (pal) shared.palette = parsePalette(await api.readText(pal));
+    vidhi(document.getElementById("vidhi"));
     kolam(document.getElementById("kolam"));
     ooru(document.getElementById("ooru"));
     isai(document.getElementById("isai"));
+    shared.changed("files");                       // the editors were made after the files were listed
     if (shared.files.includes("sprites.png")) await loadSheet("sprites.png");
     status(`Editing ${document.getElementById("game").textContent}: ${shared.files.length} files the editors can open.`);
   } catch (e) {

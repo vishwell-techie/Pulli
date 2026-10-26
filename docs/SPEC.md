@@ -1085,7 +1085,10 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `collectgarbage("count")` is not scaled.
 32. **Pattarai, the editors** (§6), awaiting approval. `pulli edit <dir>`
    serves the editors in `tools/pattarai` to a web browser on the same
-   computer and opens it: **Kolam** draws the game's `.png` sprite sheets
+   computer and opens it: **Vidhi** edits the game's Lua, puts a sprite,
+   sound, track, map or sheet in as the call that uses it, shows what the
+   call under the cursor names, and checks the game (two seconds with no
+   window) listing errors by line; **Kolam** draws the game's `.png` sprite sheets
    in its 64 colours, **Ooru** paints Tiled `.tmx` maps with the sheet's
    tiles (two layers, flips), and **Isai** writes music in western scales
    or Carnatic ragas (the 72 melakartas and common janyas, sargam or note
@@ -1094,6 +1097,6 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    the files `pack` already reads, so no format changes; a map saved by
    Ooru keeps everything else Tiled put in it. The server answers only on
    127.0.0.1, only to requests addressed to it there, only with a key made
-   for each run, and writes only pictures, maps, tilesets, sounds, songs
-   and palettes inside the game's folder. A Run button packs the game and
+   for each run, and writes only Lua, pictures, maps, tilesets, sounds,
+   songs and palettes inside the game's folder. A Run button packs the game and
    plays it in the emulator.

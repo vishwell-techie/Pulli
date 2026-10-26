@@ -992,7 +992,7 @@ def cmd_check(target, *options):
 # open in the same browser cannot reach the files; the server answers
 # only on 127.0.0.1 and only to requests addressed to it there.
 
-EDIT_TYPES = {".png": "image/png", ".tmx": "application/xml", ".tsx": "application/xml", ".wav": "audio/wav",
+EDIT_TYPES = {".lua": "text/plain; charset=utf-8", ".png": "image/png", ".tmx": "application/xml", ".tsx": "application/xml", ".wav": "audio/wav",
               ".json": "application/json", ".hex": "text/plain", ".gpl": "text/plain"}
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
@@ -1091,7 +1091,7 @@ def edit_server(game: str, port: int = 0, token: str = None):
             path = edit_path(game, urllib.parse.parse_qs(url.query).get("path", [""])[0])
             size = int(self.headers.get("Content-Length", "-1"))
             if not path:
-                return self.reply(403, "the editors may only write pictures, maps, sounds and songs in the game")
+                return self.reply(403, "the editors may only write code, pictures, maps, sounds and songs in the game")
             if not 0 <= size <= EDIT_MAX:
                 return self.reply(413, "too big")
             data = self.rfile.read(size)
@@ -1104,7 +1104,28 @@ def edit_server(game: str, port: int = 0, token: str = None):
         def do_POST(self):
             if not self.allowed() or not self.authorised():
                 return
-            if urllib.parse.urlsplit(self.path).path != "/api/run":
+            call = urllib.parse.urlsplit(self.path).path
+            if call == "/api/check":
+                # run the game for two seconds with no window, line numbers kept
+                try:
+                    notes = []
+                    data = build(game, notes=notes)
+                    host = find_host("pulli-headless")
+                except (PackageError, OSError) as e:
+                    return self.reply(200, json.dumps({"ok": False, "out": str(e)}), "application/json")
+                with tempfile.TemporaryDirectory() as tmp:
+                    pkg = os.path.join(tmp, os.path.basename(game) + EXT)
+                    with open(pkg, "wb") as f:
+                        f.write(data)
+                    try:
+                        r = subprocess.run([host, pkg, "--frames", "120", "--debug"], capture_output=True,
+                                           text=True, timeout=60)
+                        out, ok = (r.stdout + r.stderr).strip(), r.returncode == 0
+                    except subprocess.TimeoutExpired:
+                        out, ok = "the game did not finish two seconds of frames within a minute", False
+                return self.reply(200, json.dumps({"ok": ok, "out": "\n".join(notes + [out]).strip()}),
+                                  "application/json")
+            if call != "/api/run":
                 return self.reply(404, "no such call")
             try:
                 notes = []
