@@ -247,7 +247,7 @@ when the run ends.
 
 | At a stall | Mai |
 |---|---|
-| Mend 25 health (35, 45 with the repair) | 40 |
+| Mend 25 health (35, 45 with the repair) | 30 |
 | Sharpen the role worn: its blows 20% stronger, for the run | 80 |
 | A charm (two carried, three with the repair) | 60 to 100 |
 

@@ -955,7 +955,7 @@ def main():
                        '  local it = rooms.shop.ITEMS dbg("stock", #it, it[3].key .. "," .. it[4].key, it[3].price + it[4].price) end', frames=70)
         stock = got.get("stock", ["0", "", "0"])
         t.check("nizhalattam: at the stall mai buys mending, a sharper role, and charms; B leaves",
-                stock[0] == "4" and got.get("bought") == ["85", str(400 - 40 - 80 - int(stock[2])), stock[1], "true", "false"], got)
+                stock[0] == "4" and got.get("bought") == ["85", str(400 - 30 - 80 - int(stock[2])), stock[1], "true", "false"], got)
 
         # the later repairs: the wall jump, a second dodge, more mending, a
         # third charm, a stall stocking one more; and the charms they open
@@ -999,6 +999,24 @@ def main():
         t.check("nizhalattam: without the mai, nothing is bought",
                 got.get("poor") == ["60", "10"], got)
 
+        # the Screen's shadows before its stall leave, at the least, enough
+        # for the stall's cheapest good: the first stall is never out of reach
+        import xml.etree.ElementTree as ET
+        nz = os.path.join(ROOT, "examples", "nizhalattam")
+        src = open(os.path.join(nz, "shadows.lua")).read()
+        least = {"soldier": int(re.search(r"mai = \{ (\d+), \d+ \},\s+-- drops of ink he leaves", src).group(1))}
+        for kind in ("dummy", "ink", "scrap"):
+            least[kind] = int(re.search(kind + r" = \{[^}]*mai = \{ (\d+),", src).group(1))
+        marker = {1001: "soldier", 1003: "dummy", 1004: "ink", 1005: "scrap"}
+        earned = 0
+        for n in range(1, 6):
+            root = ET.parse(os.path.join(nz, f"s{n}.tmx")).getroot()
+            cells = root.findall("layer")[1].find("data").text.replace("\n", "").split(",")
+            earned += sum(least[marker[int(c) - 1]] for c in cells if c.strip() and int(c) - 1 in marker)
+        prices = [int(p) for p in re.findall(r"price = (\d+)", open(os.path.join(nz, "stall.lua")).read())]
+        t.check("nizhalattam: the Screen's shadows leave enough mai for something at its stall",
+                earned >= min(prices), f"{earned} {min(prices)}")
+
         r, got = story('rooms.enter("s7.ooru", "s6.ooru", body) run.charms[1] = "spool" at(18, 208) '
                        'for _, s in ipairs(shadows.list) do s.on = false end',
                        "if f < 60 then i.right = true end",
@@ -1019,6 +1037,16 @@ def main():
         t.check("nizhalattam: Veeran shows each move first, with a wind-up twice as long",
                 r.code == 0 and len(firsts) >= 2 and all(v == 2 * wind[m] for m, v in firsts.items())
                 and len(shown) >= 1 and all(seconds[m] == wind[m] for m in seconds), got)
+
+        # his walk is drawn a whole frame at a time (48 px: 6 cells apart),
+        # never half of one and half of the next
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body) local o = spr nz_bad, nz_walk = 0, 0 '
+                       'spr = function(n, ...) if n >= 1024 and n < 1084 then '
+                       '  if (n - 1024) % 6 ~= 0 then nz_bad = nz_bad + 1 elseif n > 1024 and n < 1054 then nz_walk = nz_walk + 1 end end '
+                       '  return o(n, ...) end', "",
+                       'k.health = 100 if f == 600 then dbg("walk", nz_walk > 0, nz_bad) end', frames=610)
+        t.check("nizhalattam: Veeran's walk is drawn in whole frames",
+                got.get("walk") == ["true", "0"], f"{got} {r.err[-300:]}")
 
         # (a run of two stories: the halfway tear comes after the first)
         r, got = story('run.start(body, { "forest" }) rooms.enter("boss.ooru", "s7.ooru", body)',

@@ -60,15 +60,15 @@ local S = {
   rest = 40,           -- frames after it, open to blows
   reel = 14,           -- frames knocked back by a blow that lands
   blow = 12,           -- what his blow costs Komali
-  mai = { 1, 5 },      -- drops of ink he leaves
+  mai = { 3, 6 },      -- drops of ink he leaves
 }
 shadows.S = S
 -- the others: health, what touching them costs, the mai they leave
 local K = {
-  dummy = { hp = 18, mai = { 1, 2 } },
-  ink = { hp = 10, touch = 6, speed = 0.35, mai = { 1, 2 } },
+  dummy = { hp = 18, mai = { 2, 3 } },
+  ink = { hp = 10, touch = 6, speed = 0.35, mai = { 2, 4 } },
   small = { hp = 5, touch = 4, speed = 0.5, mai = { 1, 1 } },
-  scrap = { hp = 6, touch = 6, dive = 2.2, mai = { 1, 3 } },
+  scrap = { hp = 6, touch = 6, dive = 2.2, mai = { 2, 4 } },
 }
 shadows.K = K
 

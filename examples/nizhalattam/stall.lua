@@ -6,7 +6,7 @@
 --
 -- A card each (shelf.lua): left and right (or up and down) choose, A buys,
 -- B leaves. What is bought lasts the run:
--- mending (25, more with the Aasaan's repair), a sharper edge for the role
+-- mending (30 mai: 25 health, more with the Aasaan's repair), a sharper edge for the role
 -- worn (its blows 20% stronger), and charms, at most two carried (three with
 -- the repair). Each stall stocks two of the five charms, three with the
 -- repair, chosen by the run's seed and the story: the same run, the same
@@ -23,7 +23,7 @@ local sound = require("sound")
 local stall = { open_ = false }
 
 local GOODS = {
-  { key = "mend", price = 40, icon = I.mend },
+  { key = "mend", price = 30, icon = I.mend },
   { key = "sharpen", price = 80, icon = I.sharpen },
 }
 local CHARMS = {
