@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pattarai</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <strong class="brand">Pattarai</strong>
+  <span id="game" class="muted"></span>
+  <nav>
+    <button data-tab="kolam" class="tab on">Kolam <small>sprites</small></button>
+    <button data-tab="ooru" class="tab">Ooru <small>maps</small></button>
+    <button data-tab="isai" class="tab">Isai <small>music</small></button>
+  </nav>
+  <button id="run" title="Pack the game and play it in the emulator">▶ Run game</button>
+</header>
+<main>
+  <section id="kolam" class="panel on"></section>
+  <section id="ooru" class="panel"></section>
+  <section id="isai" class="panel"></section>
+</main>
+<footer id="status">Ready.</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -19,6 +19,8 @@
     python3 tools/pulli.py cart   <game.pulli> <out.img> [MB]
                                                            a cartridge's flash: the package,
                                                            then room, then 512 KB for saves
+    python3 tools/pulli.py edit   <dir> [port]             Pattarai, the sprite, map and music
+                                                           editors, in a browser
 
 Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
@@ -984,10 +986,175 @@ def cmd_check(target, *options):
     return _launch("pulli-headless", target, ["--frames", frames] + debug)
 
 
+# ---- Pattarai: the editors, served to a browser on this computer only -------
+# The page (tools/pattarai) reads and writes the game folder's files through
+# a small API. Each run makes a secret the page must send, so a web site
+# open in the same browser cannot reach the files; the server answers
+# only on 127.0.0.1 and only to requests addressed to it there.
+
+EDIT_TYPES = {".png": "image/png", ".tmx": "application/xml", ".tsx": "application/xml", ".wav": "audio/wav",
+              ".json": "application/json", ".hex": "text/plain", ".gpl": "text/plain"}
+STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
+EDIT_MAX = 64 * 1024 * 1024
+
+
+def edit_path(game: str, rel: str):
+    """The file `rel` names inside the game folder, or None if it names a
+    place outside it, a hidden file, or a kind the editors do not write."""
+    if not rel or "\\" in rel or rel.startswith("/") or any(p in ("", ".", "..") or p.startswith(".")
+                                                         for p in rel.split("/")):
+        return None
+    if os.path.splitext(rel)[1].lower() not in EDIT_TYPES:
+        return None
+    path = os.path.realpath(os.path.join(game, *rel.split("/")))
+    root = os.path.realpath(game)
+    return path if path.startswith(root + os.sep) else None
+
+
+def edit_server(game: str, port: int = 0, token: str = None):
+    """An HTTP server for Pattarai on 127.0.0.1 (port 0: any free one).
+    Returns (server, token); call serve_forever() on it."""
+    import http.server, hmac, json, secrets, threading, urllib.parse
+    token = token or secrets.token_urlsafe(24)
+    here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pattarai")
+    game = os.path.abspath(game)
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def reply(self, code, body=b"", kind="text/plain; charset=utf-8"):
+            if isinstance(body, str):
+                body = body.encode()
+            self.send_response(code)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def allowed(self):
+            host = self.headers.get("Host", "")
+            if host not in (f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"):
+                self.reply(403, "wrong host")
+                return False
+            return True
+
+        def authorised(self):
+            if not hmac.compare_digest(self.headers.get("X-Pulli-Token", ""), token):
+                self.reply(403, "the page's key is missing or wrong: open the address pulli edit printed")
+                return False
+            return True
+
+        def do_GET(self):
+            if not self.allowed():
+                return
+            url = urllib.parse.urlsplit(self.path)
+            q = urllib.parse.parse_qs(url.query)
+            if url.path == "/":
+                url = url._replace(path="/index.html")
+            if url.path.startswith("/api/"):
+                if not self.authorised():
+                    return
+                if url.path == "/api/files":
+                    found = []
+                    for top, dirs, files in os.walk(game):
+                        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and top == game)
+                        for f in sorted(files):
+                            rel = os.path.relpath(os.path.join(top, f), game).replace(os.sep, "/")
+                            if edit_path(game, rel):
+                                found.append(rel)
+                    return self.reply(200, json.dumps({"game": os.path.basename(game), "files": sorted(found)}),
+                                      "application/json")
+                if url.path == "/api/file":
+                    path = edit_path(game, q.get("path", [""])[0])
+                    if not path or not os.path.isfile(path):
+                        return self.reply(404, "no such file")
+                    with open(path, "rb") as f:
+                        return self.reply(200, f.read(), EDIT_TYPES[os.path.splitext(path)[1].lower()])
+                return self.reply(404, "no such call")
+            rel = url.path.lstrip("/")
+            path = os.path.realpath(os.path.join(here, *rel.split("/")))
+            kind = STATIC_TYPES.get(os.path.splitext(path)[1].lower())
+            if not kind or not path.startswith(os.path.realpath(here) + os.sep) or not os.path.isfile(path):
+                return self.reply(404, "not found")
+            with open(path, "rb") as f:
+                self.reply(200, f.read(), kind)
+
+        def do_PUT(self):
+            if not self.allowed() or not self.authorised():
+                return
+            url = urllib.parse.urlsplit(self.path)
+            if url.path != "/api/file":
+                return self.reply(404, "no such call")
+            path = edit_path(game, urllib.parse.parse_qs(url.query).get("path", [""])[0])
+            size = int(self.headers.get("Content-Length", "-1"))
+            if not path:
+                return self.reply(403, "the editors may only write pictures, maps, sounds and songs in the game")
+            if not 0 <= size <= EDIT_MAX:
+                return self.reply(413, "too big")
+            data = self.rfile.read(size)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path + ".part", "wb") as f:
+                f.write(data)
+            os.replace(path + ".part", path)
+            self.reply(200, "saved")
+
+        def do_POST(self):
+            if not self.allowed() or not self.authorised():
+                return
+            if urllib.parse.urlsplit(self.path).path != "/api/run":
+                return self.reply(404, "no such call")
+            try:
+                notes = []
+                data = build(game, notes=notes)
+                host = find_host("pulli-host")
+            except (PackageError, OSError) as e:
+                return self.reply(400, str(e))
+            tmp = tempfile.mkdtemp()
+            pkg = os.path.join(tmp, os.path.basename(game) + EXT)
+            with open(pkg, "wb") as f:
+                f.write(data)
+
+            def play():
+                subprocess.call([host, pkg])
+                shutil.rmtree(tmp, ignore_errors=True)
+            threading.Thread(target=play, daemon=True).start()
+            self.reply(200, "\n".join(notes) or "running")
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return server, token
+
+
+def cmd_edit(srcdir, port="0"):
+    if not os.path.isdir(srcdir):
+        raise PackageError(f"{srcdir} is not a directory")
+    if not port.isdigit():
+        raise PackageError("the port is a number")
+    server, token = edit_server(srcdir, int(port))
+    url = f"http://127.0.0.1:{server.server_port}/#{token}"
+    print(f"Pattarai is editing {os.path.abspath(srcdir)}\nopen {url}\n(Ctrl+C to stop)", flush=True)
+    # a window to open it in: not on a Linux with no desktop, where Python
+    # would start a text browser in this terminal
+    if os.name == "nt" or sys.platform == "darwin" or os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception:
+            pass
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
 COMMANDS = {
     "new": (cmd_new, 1, 1), "pack": (cmd_pack, 1, 2), "list": (cmd_list, 1, 1),
     "unpack": (cmd_unpack, 2, 2), "run": (cmd_run, 1, 5), "check": (cmd_check, 1, 3),
     "palette": (cmd_palette, 1, 2), "add": (cmd_add, 0, 9), "cart": (cmd_cart, 2, 3),
+    "edit": (cmd_edit, 1, 2),
 }
 
 

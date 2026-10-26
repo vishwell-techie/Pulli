@@ -895,7 +895,8 @@ and `run` work, as do `palette` (write the palette for a paint program),
 `cart` (a cartridge's flash as a file, which `pulli-headless --cart` runs
 like a console runs the cartridge, saves included); `check`
 runs the game with no window and reports errors and peak memory, without the
-static checks yet; hot reload and `flash` do not exist yet.
+static checks yet; hot reload and `flash` do not exist yet. `edit` opens
+Pattarai, the editors, in a web browser (§10 item 32).
 
 ---
 
@@ -1082,3 +1083,17 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `lua_heap` cap are in the console's bytes, within about 1% of a Pico 2
    for whole games and never under it. Lua's own
    `collectgarbage("count")` is not scaled.
+32. **Pattarai, the editors** (§6), awaiting approval. `pulli edit <dir>`
+   serves the editors in `tools/pattarai` to a web browser on the same
+   computer and opens it: **Kolam** draws the game's `.png` sprite sheets
+   in its 64 colours, **Ooru** paints Tiled `.tmx` maps with the sheet's
+   tiles (two layers, flips), and **Isai** writes music in western scales
+   or Carnatic ragas (the 72 melakartas and common janyas, sargam or note
+   names, a tala, a synthesised band) and makes it into
+   `music/<name>.wav`, keeping the song as `music/<name>.json`. They write
+   the files `pack` already reads, so no format changes; a map saved by
+   Ooru keeps everything else Tiled put in it. The server answers only on
+   127.0.0.1, only to requests addressed to it there, only with a key made
+   for each run, and writes only pictures, maps, tilesets, sounds, songs
+   and palettes inside the game's folder. A Run button packs the game and
+   plays it in the emulator.
