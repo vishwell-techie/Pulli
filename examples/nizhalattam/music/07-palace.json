@@ -1,0 +1,89 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Hanumatodi",
+ "sa": 130.8,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 84,
+ "steps": 4,
+ "cycles": 6,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "mridangam",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.9,
+   "pan": 0.12,
+   "text": "G , , , M , P/ , D , P , M/ , G , R , G , M , , , G/ , R , S~ , , , | N. , S , R , G , M/ , G , R , S/ , D. , N. , S~ , , , , , , , , , , , | M , , , G , R , M , , , P~ , , , M , G , P , , , P~ , , , , , , , | G'~ , , , S' , R' , G' , , , R'~ , , , N , S' , R'~ , , , P~ , , , , , , , | G~ , , , M , P/ , D/ , P , M/ , G , R , G/ , M~ , , , G/ , R/ , S~ , , , | N. , S , R/ , G/ , M , G , R , S , D. , N./ , S~ , , , , , , , , , , ,"
+  },
+  {
+   "name": "answer",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.45,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - M/ , G , P , , , P , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | S , , , R , G , M , G , R , S , N. , S , R , , , S , N. , D. , , , | P. , D. , N. , S , R , S , N. , D. , M. , P. , D. , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 1",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.2,
+   "text": "S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 2",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.07,
+   "text": "P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 3",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.06,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 4",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.19,
+   "text": "G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "mridangam",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "thom - - ki!8 tha - ki!8 - tha - ki!6 - tha ki!6 ki!8 - thom - ki!6 - tha - dhi!8 - thom - - - tha ki!6 ki!8 - | thom - - ki!8 tha - ki!8 - tha - ki!6 - tha ki!6 ki!8 - thom - ki!6 - tha - dhi!8 - thom - - - tha ki!6 ki!8 - | thom - - ki!8 tha - ki!8 - tha - ki!6 - tha ki!6 ki!8 - thom - ki!6 - tha - dhi!8 - thom - - - tha ki!6 ki!8 - | thom - - ki!8 tha - - - tha ki!8 ki!6 - tha - ki!8 - thom ki!8 - - tha ki!6 ki!8 ki!6 ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - - ki!8 tha - ki!8 - tha - ki!6 - tha ki!6 ki!8 - thom - ki!6 - tha - dhi!8 - thom - - - tha ki!6 ki!8 - | thom - - ki!8 tha - ki!8 - tha - ki!6 - tha ki!6 ki!8 - thom - ki!6 - tha - dhi!8 - thom - - - tha ki!6 ki!8 -"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Nizhalattam: The palace",
+ "about": "Hanumatodi, Adi (8). The theme follows the opening of Koluvamaregatha, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
+ "made": {
+  "engine": 1,
+  "wav": "6880c475eeed0cb8c541dfcb1a4a8d96c0d7368f91c7f9761bdade78c03650be",
+  "song": "c227d61adebcceb2d0e554401328797acfba1174f7ca6eccb898f78c5c0638de",
+  "current": true
+ }
+}

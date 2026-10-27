@@ -1,0 +1,97 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Mayamalavagowla",
+ "sa": 146.8,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 124,
+ "steps": 4,
+ "cycles": 10,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "thavil",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.9,
+   "pan": 0.12,
+   "text": "S~ , , , R/ , G , M~ , , , P~ , , , D~ , , , P/ , M/ , G , R , S , , , | G , M , P , D , N/ , S'~ , , , , , N/ , D , P , M , G , R , S , , , | R~ , , , S~ , , , G~ , , , R~ , , , M~ , , , G/ , , , P , , , , , , , | G'/ , , , R'~ , , , R'~ , , , S' , , , S'~ , , , N~ , , , P/ , , , , , , , | S~ , , , R , G , M~ , , , P/ , , , D~ , , , P , M , G , R , S , , , | G , M , P , D , N , S'/ , , , , , N , D , P , M , G , R , S , , , | G'~ , , , R'~ , , , R'~ , , , S'~ , , , S'~ , , , N~ , , , P , , , , , , , | S/ , , , R/ , G , M~ , , , P , , , D~ , , , P , M , G , R , S~ , , , | G/ , M , P , D , N , S'/ , , , , , N , D , P , M , G , R , S , , , | R~ , , , S~ , , , G~ , , , R~ , , , M/ , , , G , , , P~ , , , , , , ,"
+  },
+  {
+   "name": "answer",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.45,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - M~ , , , G~ , , , P , , , , , , , | S' , , , N , , , N , , , D , , , D , , , P , , , G , , , , , , , | D. , , , N. , S , R , , , G , , , M , , , G , R , S , N. , D. , , , | S , R , G , M , P , D , , , , , P , M , G , R , S , N. , D. , , , | S' , , , N , , , N , , , D , , , D , , , P , , , G , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - M , , , G , , , P~ , , , , , , ,"
+  },
+  {
+   "name": "chord 1",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.2,
+   "text": "S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 2",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.07,
+   "text": "P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 3",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.06,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 4",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.19,
+   "text": "G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "drive",
+   "instrument": "harmonium",
+   "octave": -1,
+   "gain": 0.3,
+   "pan": 0,
+   "text": "S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | P - P - N - P - P' - P - N - P. - P - P - N - P - P' - P - N - P. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | P - P - N - P - P' - P - N - P. - P - P - N - P - P' - P - N - P. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. -"
+  },
+  {
+   "name": "thavil",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - ki!6 - tha - ki!8 - tha ki!8 ki!6 - tha - ki!8 - thom ki!8 ki!6 - tha ki!6 ki!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - ki!6 - tha - ki!8 - tha ki!8 ki!6 - tha - ki!8 - thom ki!8 ki!6 - tha ki!6 ki!8 - thom ki!8 dhi!6 - tha ki!6 ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Nizhalattam: The flags",
+ "about": "Mayamalavagowla, Adi (8). The theme follows the opening of Tulasi Dala, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
+ "made": {
+  "engine": 1,
+  "wav": "df2b475ac43ff997704f11f7d54e8d81753730199b122fe0acb8b9f29f53c923",
+  "song": "6d898c53c480897d7701f89d3d2f072c5b0af1a76fbfa792d21fb3290fa12f3f",
+  "current": true
+ }
+}

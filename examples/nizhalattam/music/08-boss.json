@@ -1,0 +1,97 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Chintamani",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 144,
+ "steps": 4,
+ "cycles": 12,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "thavil",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.9,
+   "pan": 0.12,
+   "text": "S , , , G , R , G/ , M , P , D , N , D , P , M , G , , , R/ , , , | G , M/ , P , D , P , M , G , R/ , S~ , , , , , , , , , , , , , , , | R/ , , , R , G , R/ , , , G , , , G , M , G , , , P~ , , , , , , , | S' , , , R' , G'/ , S' , , , N , , , S' , R'/ , N , , , P , , , , , , , | S , , , G , R , G , M , P , D , N , D , P/ , M , G , , , R , , , | G , M , P , D , P , M , G , R , S~ , , , , , , , , , , , , , , , | S' , , , R' , G' , S' , , , N , , , S' , R'/ , N , , , P , , , , , , , | S , , , G , R , G , M , P , D , N/ , D , P , M , G , , , R , , , | G , M , P , D/ , P , M , G/ , R , S , , , , , , , , , , , , , , , | R , , , R , G , R , , , G/ , , , G , M/ , G , , , P~ , , , , , , , | S' , , , R' , G' , S' , , , N , , , S' , R' , N , , , P~ , , , , , , , | S , , , G , R , G , M , P , D , N , D , P , M , G , , , R , , ,"
+  },
+  {
+   "name": "answer",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.45,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - G , M , G , , , P~ , , , , , , , | D , , , N , S' , D , , , P , , , D , N , P , , , G , , , , , , , | D. , , , S , N. , S , R , G , M , P , M , G , R , S , , , N. , , , | S , R , G , M , G , R , S , N. , D. , , , , , , , , , , , , , , , | D , , , N , S' , D , , , P , , , D , N , P , , , G , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - G , M , G , , , P , , , , , , , | D , , , N , S' , D , , , P , , , D , N , P , , , G , , , , , , , | D. , , , S , N. , S , R , G , M , P , M , G , R , S , , , N. , , ,"
+  },
+  {
+   "name": "chord 1",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.2,
+   "text": "S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 2",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.07,
+   "text": "P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 3",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.06,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 4",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.19,
+   "text": "G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "drive",
+   "instrument": "harmonium",
+   "octave": -1,
+   "gain": 0.3,
+   "pan": 0,
+   "text": "S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | P - P - R' - P - P' - P - R' - P. - P - P - R' - P - P' - P - R' - P. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | P - P - R' - P - P' - P - R' - P. - P - P - R' - P - P' - P - R' - P. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. - | P - P - R' - P - P' - P - R' - P. - P - P - R' - P - P' - P - R' - P. - | S - S - P - S - S' - S - P - S. - S - S - P - S - S' - S - P - S. -"
+  },
+  {
+   "name": "thavil",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - ki!6 ki!8 tha - ki!8 ki!6 tha ki!8 ki!6 ki!8 tha ki!6 ki!8 - thom - dhi!6 - tha ki!6 ki!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - ki!6 ki!8 tha - ki!8 ki!6 tha ki!8 ki!6 ki!8 tha ki!6 ki!8 - thom - dhi!6 - tha ki!6 ki!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - ki!6 ki!8 tha - ki!8 ki!6 tha ki!8 ki!6 ki!8 tha ki!6 ki!8 - thom - dhi!6 - tha ki!6 ki!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Nizhalattam: A boss",
+ "about": "Chintamani, Adi (8). The theme follows the opening of Devi Brova Samayamide, Syama Sastri (a placeholder shape, to be replaced with the kriti's own notation).",
+ "made": {
+  "engine": 1,
+  "wav": "b689b0a07c5cde6b9300883fe6f861009ce02c4820ec72349ea7670b902f176d",
+  "song": "982e7bc19bf4612c3457436e52237d5b045aeb9dd110c7cd3066bd8e00af872a",
+  "current": true
+ }
+}

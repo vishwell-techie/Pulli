@@ -659,7 +659,8 @@ def main():
                      f'function update(dt) if stat("frame") == 1 then rooms.enter("test.ooru", nil, body) fight.wear({{ "komali", "veeran" }}) {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
-                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder,  # its songs' WAVs are made, not kept
+                                ignore=shutil.ignore_patterns("music"))
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames)
@@ -848,7 +849,8 @@ def main():
                            f'function update(dt) local k, f = body.k, stat("frame") if f == 1 then {setup} end up(dt)\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
-                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder,  # its songs' WAVs are made, not kept
+                                ignore=shutil.ignore_patterns("music"))
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames, saves=saves)

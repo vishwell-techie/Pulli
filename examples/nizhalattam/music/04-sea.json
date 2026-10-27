@@ -1,0 +1,89 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Natabhairavi",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Khanda Chapu (5)",
+ "tempo": 100,
+ "steps": 4,
+ "cycles": 12,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "mridangam",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.9,
+   "pan": 0.12,
+   "text": "S , , , R , G , M~ , , , P , , , M , G , | R~ , , , S~ , , , N. , S/ , R/ , G , M , P , | D~ , , , P/ , M , G , R , S~ , , , , , , , | R , S , G , R , G , R/ , P , , , , , , , | G' , S' , N , G' , R'/ , N , P , , , , , , , | S~ , , , R/ , G , M~ , , , P~ , , , M , G , | R , , , S , , , N. , S , R , G/ , M , P , | D , , , P/ , M , G , R , S~ , , , , , , , | G' , S' , N , G' , R' , N , P~ , , , , , , , | S~ , , , R , G , M , , , P~ , , , M , G/ , | R , , , S , , , N./ , S , R , G , M , P , | D~ , , , P , M/ , G , R/ , S/ , , , , , , ,"
+  },
+  {
+   "name": "answer",
+   "instrument": "veena",
+   "octave": 1,
+   "gain": 0.6,
+   "pan": -0.45,
+   "text": "- - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - R , P , , , , , , , | - - - - - - - - - - - - - - - - - - - - | D. , , , N. , S , R , , , G , , , R , S , | N. , , , D. , , , P. , D. , N. , S , R , G , | M , , , G , R , S , N. , D. , , , , , , , | - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - -"
+  },
+  {
+   "name": "chord 1",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.2,
+   "text": "S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 2",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.07,
+   "text": "P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 3",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.06,
+   "text": "S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 4",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.19,
+   "text": "G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "mridangam",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - ki tha!6 ki!8 tha!6 ki tha!8 ki!6 thom!8 | thom - - ki!8 tha - ki!8 ki!6 thom ki!8 ki!6 - tha - ki!8 ki!6 tha ki!8 ki!6 - | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - ki tha!6 ki!8 tha!6 ki tha!8 ki!6 thom!8 | thom - - ki!8 tha - ki!8 ki!6 thom ki!8 ki!6 - tha - ki!8 ki!6 tha ki!8 ki!6 - | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - tha - ki!8 - tha - ki!6 ki!8 | thom - ki!6 ki!8 tha - ki!8 - thom - dhi!6 - ki tha!6 ki!8 tha!6 ki tha!8 ki!6 thom!8"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Nizhalattam: The sea",
+ "about": "Natabhairavi, Khanda Chapu (5). The theme follows the opening of Sri Nilotpala Nayike, Dikshitar (a placeholder shape, to be replaced with the kriti's own notation).",
+ "made": {
+  "engine": 1,
+  "wav": "81572565fc89a8929ea7552b2ebdbe16e1b33c192902217b6b4a0cd45249c03a",
+  "song": "5909654037bd4f44a47d3861afeb1534a7e0bec7918db5a42838db0b60ad81c2",
+  "current": true
+ }
+}
