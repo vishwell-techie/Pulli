@@ -23,6 +23,7 @@ local shadows = require("shadows")
 local move    = require("move")
 local fx      = require("fx")
 local C       = require("colours")
+local sound   = require("sound")
 
 local boss = { kinds = { "yaanai" } }
 
@@ -89,6 +90,7 @@ function kind.update(s, body, k, dx)
           sx[n], sy[n], sv[n], sd[n] = k.x + k.w / 2 + (n - 2) * S.spread, 0, 0, 10 + (n - 1) * S.gap
         end
       end
+      if s.move == "pound" then sound.play("pound") end
       if s.move == "pound" then                     -- the shockwave, either way from his feet
         s.wl, s.wr, s.wt, s.hitl, s.hitr = s.x + s.w / 2, s.x + s.w / 2, B.pound.life, false, false
         fx.spark(s.x + s.w / 2 + s.face * 20, s.y + s.h - 2)

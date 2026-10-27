@@ -26,6 +26,7 @@
 -- hold Komali up from above, and down + A drops him through.
 
 local move = require("move")
+local sound = require("sound")
 
 local body = { floors = {},
                harder = 1 }    -- what every blow costs him, times this (hard mode: 1.5)
@@ -43,6 +44,10 @@ local T = {
   max_fall = 5,
   coyote = 6,         -- frames after leaving a ledge he can still jump
   again = 0.85,       -- the double jump (a repair): this much of the first
+  wall_jump = 0.95,   -- the wall jump (a repair): this much of a jump, up and away
+  wall_push = 2.4,    --   thrown this fast from the wall,
+  kick = 8,           --   and not steered for these frames
+  spare = 4,          -- the second dodge (a repair): frames before it may follow the first
   buffer = 6,         -- frames A is remembered before landing
   dodge = 18,         -- frames a dodge lasts
   dodge_safe = { 2, 11 },  -- the frames of it he cannot be touched (10)
@@ -84,6 +89,9 @@ local k = { x = 0, y = 0, w = 10, h = 20, vx = 0, vy = 0, face = 1,
             max = 100,          -- health at full (more with the Aasaan's repairs)
             jumps = 0,          -- jumps left in the air (1 with the double jump)
             double = false,
+            walljump = false,   -- the wall jump (a repair)
+            second = false,     -- the second dodge (a repair); spare: it is there to use
+            spare = false, full = false, kick = 0,
             held = 0,           -- frames a shadow holds him still
             untouch = 0,        -- frames no blow reaches him
             steady = false,     -- no blow throws him back (set by fight.lua: the elephant)
@@ -173,7 +181,11 @@ end
 
 function body.update(i)
   local was_ground = k.ground
-  if k.wait > 0 then k.wait = k.wait - 1 end
+  if k.wait > 0 then
+    k.wait = k.wait - 1
+    if k.wait == 0 and k.full then k.full, k.spare = false, k.second end    -- a whole wait: the second dodge back
+  end
+  if k.kick > 0 then k.kick = k.kick - 1 end
   if k.struck > 0 then k.struck = k.struck - 1 end
   if k.drop > 0 then k.drop = k.drop - 1 end
   if k.untouch > 0 then k.untouch = k.untouch - 1 end
@@ -181,7 +193,7 @@ function body.update(i)
   k.buf = i.jump and T.buffer or math.max(0, k.buf - 1)
 
   local dir = (i.right and 1 or 0) - (i.left and 1 or 0)
-  if k.struck > T.struck - 12 then dir = 0 end      -- thrown back: no steering yet
+  if k.struck > T.struck - 12 or k.kick > 0 then dir = 0 end   -- thrown back, or off a wall: no steering yet
   if k.held > 0 then                                -- held: still, unless shaken free
     k.held = k.held - 1 - ((i.jump or i.dodge or i.attack) and T.shake or 0)
     if k.held < 0 then k.held = 0 end
@@ -192,23 +204,35 @@ function body.update(i)
   -- the dodge: a quick roll, straight ahead, gravity held off
   if i.dodge and k.dodge == 0 and k.wait == 0 then
     k.dodge, k.vy = T.dodge, 0
+    sound.play("dodge")
   end
   if k.dodge > 0 then
     k.dodge = k.dodge - 1
     k.vx = k.face * T.dodge_speed
-    if k.dodge == 0 then k.wait, k.vx = math.floor(T.dodge_wait * k.dodge_wait), k.face * T.run end
+    if k.dodge == 0 then
+      k.vx = k.face * T.run
+      if k.spare then k.spare, k.wait = false, T.spare                  -- the second dodge may follow
+      else k.wait, k.full = math.floor(T.dodge_wait * k.dodge_wait), true end
+    end
   else
     local grip = k.ground and (dir ~= 0 and T.accel or T.stop) or (dir ~= 0 and T.air_accel or T.air_stop)
     k.vx = toward(k.vx, dir * T.run * k.slow, grip)
     -- jumping: on the ground, or just off it; down + A on a thin floor drops
-    if k.buf > 0 and not (k.ground or k.air <= T.coyote) and k.jumps > 0 then
+    if k.buf > 0 and k.walljump and k.wall ~= 0 and not k.ground then
+      -- the wall jump: up, and away from the wall he slides down
+      k.vy, k.vx, k.buf, k.face, k.kick = -T.jump * T.wall_jump, -k.wall * T.wall_push, 0, -k.wall, T.kick
+      sound.play("jump")
+      k.from, k.top = k.y, k.y
+    elseif k.buf > 0 and not (k.ground or k.air <= T.coyote) and k.jumps > 0 then
       k.vy, k.buf, k.jumps = -T.jump * T.again, 0, k.jumps - 1     -- the double jump
+      sound.play("jump")
       k.from, k.top = k.y, k.y
     elseif k.buf > 0 and (k.ground or k.air <= T.coyote) then
       if i.down and k.ground and (on_thin() or k.on) then
         k.drop, k.buf = T.drop, 0
       else
         k.vy, k.buf, k.ground, k.air = -T.jump, 0, false, T.coyote + 1
+        sound.play("jump")
         k.from, k.top = k.y, k.y
       end
     end
@@ -245,7 +269,10 @@ function body.update(i)
   if was_ground and not k.ground and k.vy >= 0 then k.from, k.top = k.y, k.y end   -- walked off
   if k.ground then
     k.air, k.jumps = 0, k.double and 1 or 0
-    if not was_ground then k.peak = k.from - k.top end   -- how high the last jump rose
+    if not was_ground then
+      k.peak = k.from - k.top                    -- how high the last jump rose
+      if k.y - k.top > 16 then sound.play("land") end   -- (fell some way)
+    end
     -- a safe place to come back to: firm ground under him and a tile
     -- either side, so he does not come back on the very edge of the pit
     local feet = k.y + k.h
@@ -261,6 +288,7 @@ function body.update(i)
   local _, mh = map.size()
   if k.y > mh * 8 + 16 then
     if not k.pit_free then k.health = math.max(1, k.health - T.pit) end
+    sound.play("fall")
     k.x, k.y, k.vx, k.vy, k.dodge = k.safe_x, k.safe_y, 0, 0, 0
   end
   k.step = k.step + math.abs(k.vx)
@@ -283,6 +311,7 @@ function body.hurt(n, from_x)
   if k.ward > 0 then k.ward = k.ward - 1 return false end    -- the lamp shield takes it
   n = math.max(1, math.floor(n * body.harder * (1 - math.max(0, k.guard)) + 0.5))
   k.health = math.max(0, k.health - n)
+  sound.play("hurt")
   k.struck, k.dodge = T.struck, 0
   if not k.steady then k.vx, k.vy, k.ground = -side * T.thrown, -1.6, false end   -- (the elephant stands)
   return n

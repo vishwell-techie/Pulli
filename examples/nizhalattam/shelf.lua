@@ -12,6 +12,7 @@
 
 local text = require("text")
 local C    = require("colours")
+local sound = require("sound")
 
 local shelf = {}
 
@@ -46,8 +47,8 @@ function shelf.say(s, y, c)
 end
 
 function shelf.near(i, at, n)
-  if i.left_p or i.door then at = (at - 2) % n + 1 end
-  if i.right_p or i.down_p then at = at % n + 1 end
+  if i.left_p or i.door then at = (at - 2) % n + 1 sound.play("select") end
+  if i.right_p or i.down_p then at = at % n + 1 sound.play("select") end
   return at
 end
 

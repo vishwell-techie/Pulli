@@ -34,6 +34,9 @@
 --   title.lua     the title: the theatre, and three save slots (then let go)
 --   lines.lua     every word, in Tamil and English
 --   fx.lua        scraps, sparks, and the drops of ink (mai)
+--   ending.lua    the two endings, as scenes (then let go)
+--   pages.lua     the pages of the King's story (read when wanted)
+--   sound.lua     the sound effects by name; the music is rooms.lua's
 --
 -- A frame starts from the place's still background (backdrop), then is
 -- drawn in passes, a sprite sheet each: the room's tiles from its sheet,
@@ -50,6 +53,7 @@ local run     = require("run")
 local lines   = require("lines")
 local text    = require("text")
 local C       = require("colours")
+local sound   = require("sound")
 
 local cam = { x = 0, y = 0 }
 local show = false
@@ -238,9 +242,10 @@ function update(dt)
     return
   end
   if mode == "pause" then
-    if i.pause then mode = "play" end
+    if i.pause then mode = "play" music_pause(false) end
     if select_p then run.set_language(lines.lang == "ta" and "en" or "ta") end
     if i.attack then                    -- back to the title (the run stays kept at its last door)
+      music_pause(false)
       run.keep()
       save_commit()
       to_title()
@@ -270,7 +275,7 @@ function update(dt)
   if held_swap ~= 0 then i.swap = held_swap end
   held_jump, held_dodge, held_attack, held_skill, held_swap = false, false, false, false, 0
 
-  if i.pause then mode = "pause" return end
+  if i.pause then mode = "pause" music_pause(true) return end
   run.time = run.time + 1
   if rooms.update(i, body) then          -- through a door: the world waits
     if rooms.started then                -- into the first story: the run begins
@@ -280,7 +285,7 @@ function update(dt)
     end
     if rooms.came then                   -- through a door in a run: keep it here
       rooms.came = false
-      if run.seed then run.keep_at(body, rooms.name, rooms.from) end
+      if run.seed and not rooms.def().challenge then run.keep_at(body, rooms.name, rooms.from) end   -- (not in a challenge room: built, not kept)
       local b = shadows.boss
       if b and b.shade then say(lines.t("shade_in", title(b.role))) end
     end
@@ -295,14 +300,18 @@ function update(dt)
     follow()
     return
   end
-  if shop and i.door and rooms.near(rooms.shop_x, body.k) then shop.open() return end
+  if shop and i.door and rooms.near(rooms.shop_x, body.k) then
+    local how, a, b = shop.open()                -- (a challenge room's chest says what it held)
+    if how == "card" then show_card(a, b, nil, nil, 900) elseif how == "say" then say(a) sound.play("oil") end
+    return
+  end
 
   local before = body.k.health
   body.k.pit_free = run.charm("spool")
   body.update(i)
   fight.update(i, body, shadows)
   shadows.update(body)
-  if body.k.health < before then fight.hit(false) end   -- struck: the world stops too
+  if body.k.health < before then fight.hit(false, true) end   -- struck: the world stops too (body.lua says ow)
   -- Veeran is too big to pass through, rolling or not: Komali is pushed
   -- back out to the side he came from, and bounces off his crown
   local b = shadows.boss
@@ -316,13 +325,15 @@ function update(dt)
       k.vx = 0
     end
   end
-  fight.mai = fight.mai + fx.update(body.k)
+  local got = fx.update(body.k)
+  if got > 0 then fight.mai = fight.mai + got sound.play("mai") end
   follow()
   -- a page of the King's story: picked up, and read
   local px = rooms.page_x
   if px and math.abs(body.k.x + body.k.w / 2 - px) < 10 and math.abs(body.k.y + body.k.h - rooms.page_y) < 20 then
     rooms.page_x = nil
     local n, pages = run.find_page(rooms.def().story), require("pages")
+    sound.play("page")
     show_card(lines.t("page_n", n, pages.COUNT), pages.text(n), nil, nil, 900)    -- (time to read it)
     unrequire("pages")
     return
@@ -336,6 +347,7 @@ function update(dt)
     shadows.beaten = false
     run.cleared = run.cleared + 1
     run.add_oil(b.oil)
+    sound.play("oil")
     say(lines.t("shade_torn") .. "   " .. lines.t("oil", b.oil))
   elseif shadows.beaten and b then
     shadows.beaten = false
@@ -346,6 +358,7 @@ function update(dt)
     run.lent[b.role] = true
     if full then rooms.want("pick").open("lend", b.role) else fight.lend(b.role) end
     run.add_oil(b.oil)
+    sound.play("oil")
     say(full and lines.t("oil", b.oil) or lines.t("lent", lines.role(fight.ROLES[b.role].name)) .. "   " .. lines.t("oil", b.oil))
     -- what his role does, in place of the room's hint
     local def = rooms.def()
@@ -355,9 +368,22 @@ function update(dt)
     hint, hint2 = table.concat(text.wrap(lines.t(def.taught, table.unpack(keys)), 36), "\n"), nil
     font()
   end
+  -- fallen in a challenge room: back out at its secret door, as he went in
+  -- (the run goes on)
+  if body.k.health <= 0 and rooms.def().challenge then
+    local h = rooms.shop.health
+    rooms.enter(rooms.def().doors[1], "challenge.ooru", body)
+    body.k.health, body.k.struck = h, 0
+    cam.x, cam.y = body.k.x + 5 - 160, body.k.y + 10 - 140
+    sound.play("fall")
+    say(lines.t("thrown_back"))
+    return
+  end
   -- fallen: the run ends; he wakes on the Aasaan's box
   if body.k.health <= 0 then
     run.drop()
+    rooms.music_stop(1500)
+    sound.play("fallen")
     if not run.typed then run.data.falls = run.data.falls + 1 run.keep() end
     show_card(lines.t("fallen"), lines.t("woke"), home, run.seed and summary())
   end
@@ -471,7 +497,7 @@ function draw()
   -- pass 1: the room, from its tile sheet
   sheet.load(def.sheet)
   map.draw(0)
-  rooms.draw_doors()
+  rooms.draw_doors(body.k)
   -- pass 2: the things in it, the shadows and Komali, from theirs
   sheet.load(rooms.ACTORS)
   rooms.draw_things()
@@ -481,6 +507,7 @@ function draw()
   body.draw(role.colours, pose and body.FRAME[pose], role.frames, role.moves, role.sheet)
   if fade > 0.33 then for c = 0, 31 do pal(c, c + 32) end end   -- body.draw resets pal
   fight.draw(body)
+  rooms.draw_prompt(body.k)
   if fight.shots then fight.shots.draw() end
   fx.draw()
   camera()

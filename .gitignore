@@ -12,5 +12,6 @@ CLAUDE.md
 CLAUDE.local.md
 .claude/
 
-# made from the songs by Isai or make-wavs.mjs
+# Nizhalattam's music: the songs (music/*.json) are kept; their WAVs
+# (some 70 MB) are made from them by Isai or tools/pattarai/make-wavs.mjs
 examples/nizhalattam/music/*.wav
