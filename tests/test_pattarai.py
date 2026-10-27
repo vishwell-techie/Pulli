@@ -187,8 +187,23 @@ def oli(t, r):
 
 def vidhi(t, r):
     spec = open(os.path.join(ROOT, "docs", "SPEC.md")).read()
-    t.check("every function Vidhi knows is in the spec", all(re.search(r"^" + re.escape(n) + r"\(", spec, re.M)
-                                                             for n in r["api"]), r["api"])
+    api = spec[spec.index("## 3. Lua API"):spec.index("## 3a")]
+    found = {}
+    for block in re.findall(r"```lua\n(.*?)```", api, re.S):
+        for line in block.splitlines():
+            for m in re.finditer(r"\b([a-z_]+(?:\.[a-z_]+)?)\(([^()]*(?:\([^()]*\))?[^()]*)\)", line.partition("--")[0]):
+                if m.group(1) not in ("init", "update", "draw", "function", "require"):
+                    found.setdefault(m.group(1), m.group(2).strip())
+    sigs = {k: v[0] for k, v in r["sigs"].items()}
+    t.check("Vidhi knows every function in the spec, with the spec's arguments, and no others",
+            {k: v for k, v in sigs.items() if k != "stat"} == {k: v for k, v in found.items() if k != "stat"}
+            and "stat" in found and "stat" in sigs, sorted(set(sigs.items()) ^ set(found.items())))
+    t.check("names are offered as they are typed: the API, the callbacks, the file's own", r["complete"] == [
+        ["map.draw", "map.flags", "map.get", "map.load", "map.set", "map.size", "make_enemy"],
+        ["spr", "speed"], [], ["map.draw"]], r["complete"])
+    t.check("the name being typed is found, dots and all", r["word"] == [{"word": "map.lo", "start": 4}, None], r["word"])
+    t.check("the hint names the call the cursor is in and which argument",
+            r["hints"] == [["spr", 2], ["print", 1], None, None, ["map.set", 3]], r["hints"])
     t.check("the call under the cursor names its asset", r["calls"] == [
         {"fn": "spr", "arg": 12}, {"fn": "sfx", "arg": 3}, {"fn": "map.load", "arg": "hall.ooru"},
         {"fn": "sfx", "arg": 7}, None, {"fn": "sheet.load", "arg": "actors.kolam"}], r["calls"])

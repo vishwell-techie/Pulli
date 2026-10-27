@@ -6,7 +6,8 @@
 // seconds with no window and lists its errors by line.
 import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE } from "./app.js";
 import { css } from "./lib/palette.js";
-import { highlight, callAt, numbered } from "./lib/lua.js";
+import { highlight, callAt, numbered, wordBefore, complete, callHint, SIGS } from "./lib/lua.js";
+const SIGS_OF = (n) => SIGS[n];
 
 export function vidhi(root) {
   let path = "", saved = "", sheetZoom = 2, tab = "sprites";
@@ -15,9 +16,23 @@ export function vidhi(root) {
 
   const files = h("select", { title: "Lua files in the game folder" });
   const area = h("textarea", { spellcheck: false, wrap: "off", className: "code-in",
-    oninput: () => { paint(); link(); }, onscroll: () => sync(), onkeyup: () => link(), onclick: () => link() });
+    oninput: () => { paint(); link(); suggest(); }, onscroll: () => { sync(); hidePop(); },
+    onkeyup: (e) => { link(); if (!["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(e.key)) showHint(); },
+    onclick: () => { link(); showHint(); hidePop(); } });
   const pre = h("pre", { className: "code-out", "aria-hidden": "true" });
   const gutter = h("pre", { className: "code-gutter", "aria-hidden": "true" });
+  const pop = h("div", { className: "complete", style: "display:none" });
+  const hint = h("div", { className: "hint muted" }, "");
+  const findIn = h("input", { placeholder: "find", style: "width:180px", oninput: () => findNext(0), onkeydown: (e) => {
+    if (e.key === "Enter") { e.preventDefault(); findNext(e.shiftKey ? -1 : 1); } if (e.key === "Escape") closeFind(); } });
+  const replIn = h("input", { placeholder: "replace with", style: "width:180px", onkeydown: (e) => { if (e.key === "Escape") closeFind(); } });
+  const findCount = h("span", { className: "muted" });
+  const findBar = h("div", { className: "bar", style: "display:none;margin:0 0 6px" }, findIn,
+    h("button", { title: "Previous (Shift+Enter)", onclick: () => findNext(-1) }, "↑"),
+    h("button", { title: "Next (Enter)", onclick: () => findNext(1) }, "↓"), replIn,
+    h("button", { onclick: replaceOne }, "Replace"), h("button", { onclick: replaceAll }, "Replace all"),
+    h("label", {}, h("input", { type: "checkbox", onchange: () => findNext(0), id: "vidhi-case" }), "Aa"),
+    findCount, h("button", { onclick: () => closeFind() }, "✕"));
   const card = h("div", { className: "linkcard muted" }, "Put the cursor on spr(…), sfx(…), music(…) or map.load(…) to see what it names.");
   const problems = h("div", { className: "problems" });
   const assets = h("div");
@@ -33,8 +48,8 @@ export function vidhi(root) {
       h("span", { className: "sep" }),
       h("button", { onclick: check, title: "Save, then run the game for two seconds with no window and list its errors" }, "✓ Check")),
     h("div", { className: "cols", style: "flex-wrap:nowrap" },
-      h("div", { className: "wide", style: "min-width:0" },
-        h("div", { className: "code" }, gutter, h("div", { className: "code-box" }, pre, area)), problems),
+      h("div", { className: "wide", style: "min-width:0" }, findBar,
+        h("div", { className: "code" }, gutter, h("div", { className: "code-box" }, pre, area, pop)), hint, problems),
       h("div", { className: "box", style: "width:360px;flex:none" },
         h("h3", {}, "Under the cursor"), card,
         h("h3", { style: "margin-top:14px" }, "Put in the code"),
@@ -51,6 +66,13 @@ export function vidhi(root) {
   const dirty = () => path && area.value !== saved;
 
   area.addEventListener("keydown", (e) => {
+    if (pop.style.display !== "none") {           // the list of names is open
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); pick += e.key === "ArrowDown" ? 1 : -1; drawPop(); return; }
+      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); accept(); return; }
+      if (e.key === "Escape") { hidePop(); return; }
+    }
+    if (e.ctrlKey && e.key.toLowerCase() === "f") { e.preventDefault(); openFind(); return; }
+    if (e.ctrlKey && e.key === " ") { e.preventDefault(); suggest(true); return; }
     if (e.key === "Tab") {
       e.preventDefault();
       document.execCommand("insertText", false, "  ");
@@ -63,6 +85,102 @@ export function vidhi(root) {
       document.execCommand("insertText", false, "\n" + indent);
     } else if (e.ctrlKey && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
   });
+
+  // ---- names offered while typing, and the arguments of the call -------------
+  let choices = [], pick = 0, at0 = 0;
+  const charW = (() => { const c = document.createElement("canvas").getContext("2d");
+    c.font = '13px ui-monospace, "Noto Sans Mono", monospace'; return c.measureText("M").width; })();
+  function suggest(force = false) {
+    const w = wordBefore(area.value, area.selectionStart);
+    choices = w ? complete(w.word, area.value) : [];
+    if (!choices.length || (!force && w.word.length < 2)) return hidePop();
+    at0 = w.start; pick = 0;
+    const before = area.value.slice(0, w.start), line = before.split("\n").length - 1;
+    const col = w.start - before.lastIndexOf("\n") - 1;
+    pop.style.left = `${10 + col * charW - area.scrollLeft}px`;
+    pop.style.top = `${8 + (line + 1) * 19.5 - area.scrollTop}px`;
+    pop.style.display = "block";
+    drawPop();
+  }
+  function drawPop() {
+    pick = (pick + choices.length) % choices.length;
+    pop.replaceChildren(...choices.map((n, i) => h("div", { className: i === pick ? "on" : "",
+      onmousedown: (e) => { e.preventDefault(); pick = i; accept(); } },
+      n, SIGS_OF(n) ? h("span", { className: "muted" }, `(${SIGS_OF(n)[0]})`) : "")));
+  }
+  function hidePop() { pop.style.display = "none"; }
+  function accept() {
+    const n = choices[pick];
+    area.setSelectionRange(at0, area.selectionStart);
+    insert(n + (SIGS_OF(n) && area.value[area.selectionEnd] !== "(" ? "(" : ""));
+    hidePop(); showHint();
+  }
+  function showHint() {
+    const c = callHint(area.value, area.selectionStart);
+    if (!c) { hint.textContent = ""; return; }
+    const args = c.sig[0].split(",").map((a) => a.trim());
+    hint.replaceChildren(h("span", { className: "f" }, c.name), "(",
+      ...args.flatMap((a, i) => [i ? ", " : "", i === c.arg ? h("b", {}, a) : a]), ")", c.sig[1] ? `  — ${c.sig[1]}` : "");
+  }
+
+  // ---- find and replace ------------------------------------------------------------
+  function openFind() {
+    findBar.style.display = "flex";
+    const s = area.value.slice(area.selectionStart, area.selectionEnd);
+    if (s && !s.includes("\n")) findIn.value = s;
+    findIn.focus(); findIn.select();
+    findNext(0);
+  }
+  function closeFind() { findBar.style.display = "none"; area.focus(); }
+  function matches() {
+    const q = findIn.value;
+    if (!q) return [];
+    const cs = document.getElementById("vidhi-case")?.checked;
+    const text = cs ? area.value : area.value.toLowerCase(), w = cs ? q : q.toLowerCase();
+    const out = [];
+    for (let i = text.indexOf(w); i >= 0; i = text.indexOf(w, i + Math.max(1, w.length))) out.push(i);
+    return out;
+  }
+  function findNext(dir) {
+    const all = matches();
+    findCount.textContent = findIn.value ? `${all.length} found` : "";
+    if (!all.length) return;
+    const from = dir < 0 ? area.selectionStart : dir > 0 ? area.selectionEnd : area.selectionStart;
+    let i = dir < 0 ? [...all].reverse().find((x) => x < from) : all.find((x) => x >= from);
+    if (i === undefined) i = dir < 0 ? all[all.length - 1] : all[0];
+    select(i, i + findIn.value.length);
+    findCount.textContent = `${all.indexOf(i) + 1} of ${all.length}`;
+  }
+  function select(a, b) {
+    area.setSelectionRange(a, b);
+    const line = area.value.slice(0, a).split("\n").length;
+    area.scrollTop = Math.max(0, (line - 6) * 19.5);
+    sync();
+  }
+  function replaceOne() {
+    const q = findIn.value, sel = area.value.slice(area.selectionStart, area.selectionEnd);
+    const cs = document.getElementById("vidhi-case")?.checked;
+    if (q && (cs ? sel === q : sel.toLowerCase() === q.toLowerCase())) {
+      area.focus(); document.execCommand("insertText", false, replIn.value); paint();
+    }
+    findNext(1);
+  }
+  function replaceAll() {
+    const all = matches();
+    if (!all.length) return;
+    let text = area.value;
+    for (const i of [...all].reverse())       // from the end, so earlier places do not move
+      text = text.slice(0, i) + replIn.value + text.slice(i + findIn.value.length);
+    const top = area.scrollTop;
+    area.focus();
+    area.setSelectionRange(0, area.value.length);
+    document.execCommand("insertText", false, text);   // one step for Ctrl+Z
+    area.setSelectionRange(all[0], all[0]);
+    area.scrollTop = top;
+    paint();
+    status(`Replaced ${all.length}.`);
+    findNext(0);
+  }
 
   // put text in at the cursor, through the browser so Ctrl+Z takes it back
   function insert(text) {

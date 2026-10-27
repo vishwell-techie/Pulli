@@ -7,7 +7,7 @@ import { encodePNG } from "../tools/pattarai/lib/png.js";
 import { encodeWAV, decodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
-import { API, highlight, callAt, numbered } from "../tools/pattarai/lib/lua.js";
+import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
 const [, , village] = process.argv;
 const b64 = (u8) => Buffer.from(u8).toString("base64");
@@ -151,6 +151,12 @@ out.oliWav = b64(encodeWAV([O.render(O.preset("jump", 1))], O.RATE));
 
 // Vidhi
 out.api = API;
+out.sigs = SIGS;
+const src = "local function make_enemy(x) end\nlocal speed = 2\nma";
+out.complete = [complete("ma", src), complete("sp", src), complete("m", src), complete("map.d", src)];
+out.word = [wordBefore("x = map.lo", 10), wordBefore("x = ", 4)];
+out.hints = [callHint("spr(12, x, ", 11), callHint("print(f(a, b), ", 15), callHint("foo(1, ", 7), callHint("x = 1", 5),
+  callHint("map.set(0, 1, 2, ", 17)].map((c) => c && [c.name, c.arg]);
 out.calls = ["  spr(12, x, y)", "sfx(3) music(1, 500)", 'map.load("hall.ooru")', 'preload("sfx 7", "music 2")',
   "print(spr)", 'sheet.load("actors.kolam")'].map((l) => callAt(l, 2));
 out.callFar = callAt("sfx(3) music(1, 500)", 9);
