@@ -26,7 +26,7 @@ Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
 built (see README.md).
 """
-import base64, gzip, hashlib, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
+import base64, gzip, hashlib, json, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
 import xml.etree.ElementTree as ET
 
 MAGIC = b"PULI"
@@ -39,6 +39,7 @@ BLOCK = 65536             # the payload is checked in blocks of this size
 HASH = 32                 # SHA-256 of each block
 MAX_SIZE = 64 * 1024 * 1024
 ACTIVE_MAX = 6 * 1024 * 1024    # of a package in memory at once (SPEC §2)
+BOARD_GAME = 3584 * 1024        # the Pico 2's 4 MB flash less its firmware (about 360 KB) and room for it to grow
 REQUIRED = ("manifest.lua", "main.lua")
 EXT = ".pulli"
 
@@ -186,9 +187,22 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
     """Package every file in a game directory, turning .png, .tmx and .wav
     files into the formats the console reads. Anything worth telling the
     developer is added to `notes`."""
+    return build_entries(sorted(gather(srcdir, notes)), flags)
+
+
+def gather(srcdir: str, notes=None, fast=False, swap=None):
+    """The package's entries, as (name, bytes). fast: the music is not
+    squeezed, only sized (its bytes are zeros of the length it will have),
+    so the package's size is known at once. swap: {path in the folder: file
+    to read in its place}, to measure a file before it is saved there."""
+    swap = {os.path.normpath(k): v for k, v in (swap or {}).items()}
     if not os.path.isdir(srcdir):
         raise PackageError(f"{srcdir} is not a directory")
     files = [f for f in os.listdir(srcdir) if os.path.isfile(os.path.join(srcdir, f))]
+    for path in swap:                                   # a file about to be saved, new to the folder
+        if os.path.dirname(path) == os.path.normpath(srcdir) and os.path.basename(path) not in files:
+            files.append(os.path.basename(path))
+    real = lambda path: swap.get(os.path.normpath(path), path)
     skipped = sorted(f for f in files if os_made(f))
     if skipped and notes is not None:
         notes.append(f"left out {len(skipped)} file{'s' if len(skipped) > 1 else ''} the operating system made, "
@@ -218,7 +232,7 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
         if ext in (".png", ".tmx"):
             made[stem + (".kolam" if ext == ".png" else ".ooru")] = n
         elif ext != ".tsx":                             # a Tiled tileset is read through its map
-            with open(os.path.join(srcdir, n), "rb") as f:
+            with open(real(os.path.join(srcdir, n)), "rb") as f:
                 entries.append((n, f.read()))
     for entry, source in made.items():
         if entry in names:
@@ -226,23 +240,24 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
     sheet_columns = None                                # tiles across the sheet, for checking maps
     for entry, source in sorted(made.items()):
         if entry.endswith(".kolam"):
-            with open(os.path.join(srcdir, source), "rb") as f:
+            with open(real(os.path.join(srcdir, source)), "rb") as f:
                 entries.append((entry, kolam_from_png(f.read(), source, notes, colours)))
     for name, blob in entries:
         if name == "sprites.kolam":
             sheet_columns = struct.unpack("<H", blob[4:6])[0] // CELL
     for entry, source in sorted(made.items()):
         if entry.endswith(".ooru"):
-            entries.append((entry, ooru_from_tmx(os.path.join(srcdir, source), sheet_columns, notes)))
+            entries.append((entry, ooru_from_tmx(real(os.path.join(srcdir, source)), sheet_columns, notes)))
     for kind, (entry, _) in BANKS.items():
         folder = os.path.join(srcdir, kind)
-        if not os.path.isdir(folder) or not any(f.lower().endswith(".wav") for f in os.listdir(folder)):
+        waves = sound_files(folder, swap)
+        if not waves:
             continue
         if entry in names:
             raise PackageError(f"{srcdir} has both {entry} and a {kind}/ folder; keep one")
-        entries.append((entry, bank_from_folder(kind, folder)))
+        entries.append((entry, bank_from_folder(kind, folder, fast, swap)))
     add_helpers(entries)
-    return build_entries(sorted(entries), flags)
+    return entries
 
 
 def required(source: bytes):
@@ -631,23 +646,20 @@ def ooru_from_tmx(path: str, sheet_columns: int = None, notes=None) -> bytes:
 
 # ---- sound --------------------------------------------------------------
 
-def read_wav(data: bytes, name: str = "sound"):
-    """Read a .wav file. Returns (rate, channels, samples, loop start), with
-    `samples` a flat list of 16-bit values, left then right when stereo, and
-    the loop start a frame number or None if the file marks no loop."""
+def _wav_parts(data: bytes, name: str):
+    """A WAV file's format, its sound bytes and its loop start, checked."""
     if len(data) < 12 or data[:4] != b"RIFF" or data[8:12] != b"WAVE":
         raise PackageError(f"{name}: not a WAV file")
     fmt = body = loop = None
     at = 12
     while at + 8 <= len(data):
         tag, size = data[at:at + 4], struct.unpack("<I", data[at + 4:at + 8])[0]
-        chunk = data[at + 8:at + 8 + size]
         if tag == b"fmt ":
-            fmt = chunk
+            fmt = data[at + 8:at + 8 + size]
         elif tag == b"data":
-            body = chunk
-        elif tag == b"smpl" and len(chunk) >= 60 and struct.unpack("<I", chunk[28:32])[0] >= 1:
-            loop = struct.unpack("<I", chunk[44:48])[0]
+            body = (at + 8, min(size, len(data) - at - 8))
+        elif tag == b"smpl" and size >= 60 and struct.unpack("<I", data[at + 36:at + 40])[0] >= 1:
+            loop = struct.unpack("<I", data[at + 52:at + 56])[0]
         at += 8 + size + (size & 1)
     if fmt is None or body is None or len(fmt) < 16:
         raise PackageError(f"{name}: WAV file has no sound in it")
@@ -661,18 +673,34 @@ def read_wav(data: bytes, name: str = "sound"):
     if not CLIP_RATES[0] <= rate <= CLIP_RATES[1]:
         raise PackageError(f"{name}: {rate} Hz; the sample rate must be {CLIP_RATES[0]} to {CLIP_RATES[1]}")
     width = bits // 8
-    count = len(body) // width // channels * channels
-    if width == 1:                                      # 8-bit WAV is unsigned
-        samples = [(b - 128) << 8 for b in body[:count]]
-    elif width == 2:
-        samples = list(struct.unpack(f"<{count}h", body[:count * 2]))
-    else:                                               # keep the top 16 bits
-        samples = [int.from_bytes(body[i * width + width - 2:i * width + width], "little", signed=True)
-                   for i in range(count)]
-    if not samples:
+    count = body[1] // width // channels * channels
+    if not count:
         raise PackageError(f"{name}: WAV file has no sound in it")
     if loop is not None and loop >= count // channels:
         loop = None
+    return rate, channels, width, body[0], count, loop
+
+
+def wav_info(data: bytes, name: str = "sound"):
+    """(rate, channels, sample count, loop start) of a WAV file, without
+    reading its samples: what a sound will take, quickly."""
+    rate, channels, _, _, count, loop = _wav_parts(data, name)
+    return rate, channels, count, loop
+
+
+def read_wav(data: bytes, name: str = "sound"):
+    """Read a .wav file. Returns (rate, channels, samples, loop start), with
+    `samples` a flat list of 16-bit values, left then right when stereo, and
+    the loop start a frame number or None if the file marks no loop."""
+    rate, channels, width, at, count, loop = _wav_parts(data, name)
+    body = data[at:at + count * width]
+    if width == 1:                                      # 8-bit WAV is unsigned
+        samples = [(b - 128) << 8 for b in body]
+    elif width == 2:
+        samples = list(struct.unpack(f"<{count}h", body))
+    else:                                               # keep the top 16 bits
+        samples = [int.from_bytes(body[i * width + width - 2:i * width + width], "little", signed=True)
+                   for i in range(count)]
     return rate, channels, samples, loop
 
 
@@ -729,6 +757,15 @@ def bank(kind: str, clips) -> bytes:
     table, payload = b"", b""
     offset = BANK_HEADER + CLIP_ENTRY * len(clips)
     for rate, channels, samples, loop, encoding in clips:
+        if isinstance(samples, int):                    # sized only (gather's fast mode): zeros of the squeezed length
+            frames, loop = samples // channels, loop or 0
+            blob, state = bytes((samples + 1) // 2), [(0, 0), (0, 0)]
+            payload += b"\0" * (_align4(offset) - offset)
+            offset = _align4(offset)
+            table += struct.pack("<IIIIHBBhBxhBx", offset, len(blob), frames, loop, rate, channels, encoding, 0, 0, 0, 0)
+            payload += blob
+            offset += len(blob)
+            continue
         frames, loop = len(samples) // channels, loop or 0
         state = [(0, 0), (0, 0)]
         if encoding == ADPCM:
@@ -745,12 +782,29 @@ def bank(kind: str, clips) -> bytes:
     return BANKS[kind][1] + struct.pack("<HH", len(clips), 0) + table + payload
 
 
-def bank_from_folder(kind: str, folder: str) -> bytes:
-    """Sound effects are kept exact; music is squeezed to a quarter the size."""
+def sound_files(folder: str, swap=None):
+    """The WAV files of a sound folder, by name: what sfx(n) and music(n) count."""
+    names = set(f for f in os.listdir(folder) if f.lower().endswith(".wav")) if os.path.isdir(folder) else set()
+    for path in (swap or {}):
+        if os.path.dirname(os.path.normpath(path)) == os.path.normpath(folder) and path.lower().endswith(".wav"):
+            names.add(os.path.basename(path))
+    return sorted(names)
+
+
+def bank_from_folder(kind: str, folder: str, fast=False, swap=None) -> bytes:
+    """Sound effects are kept exact; music is squeezed to a quarter the size.
+    fast: music is sized but not squeezed (see gather)."""
+    swap = {os.path.normpath(k): v for k, v in (swap or {}).items()}
     clips = []
-    for n in sorted(f for f in os.listdir(folder) if f.lower().endswith(".wav")):
-        with open(os.path.join(folder, n), "rb") as f:
-            rate, channels, samples, loop = read_wav(f.read(), f"{kind}/{n}")
+    for n in sound_files(folder, swap):
+        path = os.path.join(folder, n)
+        with open(swap.get(os.path.normpath(path), path), "rb") as f:
+            data = f.read()
+        if fast and kind == "music":
+            rate, channels, count, loop = wav_info(data, f"{kind}/{n}")
+            clips.append((rate, channels, count, loop, ADPCM))
+            continue
+        rate, channels, samples, loop = read_wav(data, f"{kind}/{n}")
         clips.append((rate, channels, samples, loop, ADPCM if kind == "music" else PCM))
     return bank(kind, clips)
 
@@ -1018,9 +1072,6 @@ def edit_path(game: str, rel: str):
     return path if path.startswith(root + os.sep) else None
 
 
-BOARD_FLASH = 4 * 1024 * 1024     # the Pico 2 board: the firmware and the game linked into it
-
-
 def project_report(game: str):
     """The game as pack builds it, measured against SPEC §2's limits:
     {"ok", "size", "entries": [(name, bytes)], "sounds": [(name, bytes)],
@@ -1046,11 +1097,72 @@ def project_report(game: str):
         (biggest[1] <= ACTIVE_MAX, f"the biggest part, {biggest[0]}, is {kb(biggest[1])}: each part must fit in the "
                                    f"{kb(ACTIVE_MAX)} the game holds in memory at once"),
         (start <= ACTIVE_MAX, f"{kb(start)} in memory as it starts (manifest, main.lua, sprites, map)"),
-        (len(data) <= BOARD_FLASH, f"{kb(len(data))} of the Pico 2 board's {kb(BOARD_FLASH)} flash, which also holds "
-                                   f"the firmware (the console reads games from its SD card instead)"),
+        (len(data) <= BOARD_GAME, f"{kb(len(data))} of the {kb(BOARD_GAME)} the Pico 2 board has for a game beside its "
+                                  f"firmware (the console reads games from its SD card instead)"),
     ]
     return {"ok": all(ok for ok, _ in checks[:4]), "size": len(data), "entries": sorted(entries, key=lambda e: -e[1]),
             "sounds": sounds, "checks": checks, "notes": notes, "error": None}
+
+
+# ---- the budget: where a game is meant to go, and what it takes -------------
+# A game's own setting, kept in .pattarai.json in its folder (hidden, so
+# pack leaves it out): the target it is made for, whether Pattarai refuses
+# saves that go past it, and limits for each kind of asset, all optional.
+
+MB = 1024 * 1024
+TARGETS = {"sd": ("SD card", MAX_SIZE), "board": ("Pico 2 board", BOARD_GAME),
+           **{f"cart{n}": (f"Cartridge {n} MB", n * MB - CART_SAVE_AREA) for n in CART_SIZES}}
+KINDS = ("code", "sprites", "maps", "sound effects", "music", "other")
+SETTINGS = ".pattarai.json"
+
+
+def kind_of(entry: str) -> str:
+    return ("code" if entry.endswith(".lua") else "sprites" if entry.endswith(".kolam") else
+            "maps" if entry.endswith(".ooru") else "sound effects" if entry == "sfx.oli" else
+            "music" if entry == "music.isai" else "other")
+
+
+def game_settings(game: str):
+    import json
+    try:
+        with open(os.path.join(game, SETTINGS)) as f:
+            got = json.load(f)
+    except (OSError, ValueError):
+        got = {}
+    target = got.get("target") if got.get("target") in TARGETS else "sd"
+    limits = {k: float(v) for k, v in (got.get("limits") or {}).items() if k in KINDS and isinstance(v, (int, float)) and v > 0}
+    return {"target": target, "strict": bool(got.get("strict")), "limits": limits}
+
+
+def budget(game: str, swap=None):
+    """What the game takes against its target and limits, measured as pack
+    would make it (quickly: music is sized, not squeezed). Returns a dict;
+    "error" says why it could not be measured."""
+    settings = game_settings(game)
+    name, room = TARGETS[settings["target"]]
+    out = {"settings": settings, "target": name, "room": room, "targets": {k: v[0] for k, v in TARGETS.items()},
+           "kinds": {k: 0 for k in KINDS}, "error": None, "over": [], "size": 0}
+    try:
+        entries = gather(game, fast=True, swap=swap)
+        out["size"] = len(build_entries(sorted(entries)))
+    except PackageError as e:
+        out["error"] = str(e)
+        return out
+    biggest = ("", 0)
+    for entry, blob in entries:
+        out["kinds"][kind_of(entry)] += len(blob)
+        if entry in ("sfx.oli", "music.isai"):        # a sound bank is read a sound at a time
+            for i, clip in enumerate(read_bank(blob)):
+                biggest = max(biggest, (f"{'sfx' if entry == 'sfx.oli' else 'music'}({i})", clip[5]), key=lambda b: b[1])
+        else:
+            biggest = max(biggest, (entry, len(blob)), key=lambda b: b[1])
+    out["entries"], out["biggest"] = len(entries), biggest
+    if out["size"] > room:
+        out["over"].append(f"the game is {out['size'] / MB:.2f} MB; {name} holds {room / MB:.2f} MB")
+    for k, limit in settings["limits"].items():
+        if out["kinds"][k] > limit * MB:
+            out["over"].append(f"{k}: {out['kinds'][k] / MB:.2f} MB, past the {limit:g} MB set for them")
+    return out
 
 
 def edit_server(game: str, port: int = 0, token: str = None):
@@ -1130,6 +1242,8 @@ def edit_server(game: str, port: int = 0, token: str = None):
                         out[kind] = rows
                     out["max"] = CLIP_MAX
                     return self.reply(200, json.dumps(out), "application/json")
+                if url.path == "/api/budget":
+                    return self.reply(200, json.dumps(budget(game)), "application/json")
                 if url.path == "/api/file":
                     path = edit_path(game, q.get("path", [""])[0])
                     if not path or not os.path.isfile(path):
@@ -1151,17 +1265,29 @@ def edit_server(game: str, port: int = 0, token: str = None):
             url = urllib.parse.urlsplit(self.path)
             if url.path != "/api/file":
                 return self.reply(404, "no such call")
-            path = edit_path(game, urllib.parse.parse_qs(url.query).get("path", [""])[0])
+            rel = urllib.parse.parse_qs(url.query).get("path", [""])[0]
+            settings = rel == SETTINGS                  # the game's budget setting, the one hidden file written
+            path = os.path.join(os.path.abspath(game), SETTINGS) if settings else edit_path(game, rel)
             size = int(self.headers.get("Content-Length", "-1"))
             if not path:
                 return self.reply(403, "the editors may only write code, pictures, maps, sounds and songs in the game")
-            if not 0 <= size <= EDIT_MAX:
+            if not 0 <= size <= (64 * 1024 if settings else EDIT_MAX):
                 return self.reply(413, "too big")
             data = self.rfile.read(size)
+            if settings:
+                try:
+                    json.loads(data)
+                except ValueError:
+                    return self.reply(400, "the setting is not JSON")
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path + ".part", "wb") as f:
+            part = os.path.join(os.path.dirname(path), "." + os.path.basename(path) + ".part")   # hidden: pack skips it
+            with open(part, "wb") as f:
                 f.write(data)
-            os.replace(path + ".part", path)
+            why = None if settings else refuse(path, part)
+            if why:
+                os.remove(part)
+                return self.reply(409, why)
+            os.replace(part, path)
             self.reply(200, "saved")
             saved()
 
@@ -1202,6 +1328,44 @@ def edit_server(game: str, port: int = 0, token: str = None):
                 return self.reply(200, start_game() or ("running, restarted on each save" if live["on"] else "running"))
             except (PackageError, OSError) as e:
                 return self.reply(400, str(e))
+
+    def refuse(path, part):
+        """Why a save must not happen, or None. Always refused: a picture,
+        map or sound the console could not use (SPEC §2). With the game's
+        setting strict: a save that takes the game past its target or a
+        limit, when it was not past already (a save that makes it smaller,
+        or does not change its size, is let through)."""
+        ext = os.path.splitext(path)[1].lower()
+        name = os.path.relpath(path, game)
+        try:
+            if ext == ".png":
+                with open(part, "rb") as f:
+                    w, h = struct.unpack(">II", f.read()[16:24])
+                if w % CELL or h % CELL or w * h > ATLAS_MAX:
+                    return (f"{name} is {w}x{h}: a picture must have sides that are multiples of 8 and at most "
+                            f"{ATLAS_MAX // 1024} KB of pixels (SPEC §2)")
+            elif ext == ".wav" and os.path.basename(os.path.dirname(path)) in ("sfx", "music"):
+                with open(part, "rb") as f:
+                    rate, channels, count, _ = wav_info(f.read(), name)
+                kind = os.path.basename(os.path.dirname(path))
+                if len(sound_files(os.path.dirname(path), {path: part})) > CLIP_MAX:
+                    return f"{kind}/ would hold more than {CLIP_MAX} sounds, the most a game may have (SPEC §2)"
+                packed = count * 2 if kind == "sfx" else (count + 1) // 2
+                if packed > ACTIVE_MAX:
+                    return (f"{name} would take {packed / MB:.1f} MB in the game; a sound must fit in the "
+                            f"{ACTIVE_MAX // MB} MB a game holds in memory at once (SPEC §2)")
+            elif ext == ".tmx":
+                ooru_from_tmx(part)
+        except PackageError as e:
+            return str(e).replace(os.path.basename(part), os.path.basename(path))
+        except (OSError, struct.error):
+            return f"{name} cannot be read"
+        if not game_settings(game)["strict"]:
+            return None
+        before, after = budget(game), budget(game, {path: part})
+        if after["error"] or not after["over"] or after["size"] <= before["size"] and not before["error"]:
+            return None
+        return "the budget is strict: " + "; ".join(after["over"])
 
     # The game the Run button started: one at a time, restarted after each
     # save while "live" is on (its state starts again; this is not hot reload)

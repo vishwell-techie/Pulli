@@ -1127,6 +1127,19 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    palettes inside the game's folder. Run packs the game and plays it in
    the emulator, and can start it again after each save (not hot reload:
    the game starts over). The editors' words can be shown in Tamil.
+33. **Pattarai's budget** (§2, §6), awaiting approval. A game may keep a
+   setting for Pattarai in its folder, `.pattarai.json` (hidden, so `pack`
+   leaves it out): the target it is made for (an SD card, a cartridge of 8,
+   16, 32 or 64 MB less its 512 KB save area, or the Pico 2 board's 3.5 MB beside
+   its firmware), a limit in MB for each kind of asset if wanted, and
+   whether the budget is strict. Pattarai shows what the game takes against
+   it, measured exactly as `pack` makes the package (music sized from its
+   WAV files, not squeezed, so it is quick), and warns when a save goes
+   past. When strict, it refuses a save that takes the game past its target
+   or a limit, unless the save makes the game smaller. In every case it
+   refuses a picture, map or sound the console could not use (this
+   section's limits), and never refuses code. Nothing in the package or the
+   runtime changes.
 35. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
    A cartridge is 8, 16, 32 or 64 MB: one or two chips of 8 or 32 MB,
    each on its own select line, read as one address range, the first chip
