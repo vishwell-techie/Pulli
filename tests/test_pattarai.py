@@ -231,6 +231,16 @@ def project(t):
         t.check("a game that does not pack says why", not bad["ok"] and "main.lua" in bad["error"], bad)
 
 
+def tamil(t):
+    text = open(os.path.join(HERE, "lib", "i18n.js")).read()
+    pairs = re.findall(r'"((?:[^"\\]|\\.)+)":\s*"((?:[^"\\]|\\.)+)"', text.split("export const TA")[1].split("};")[0])
+    ui = "".join(open(os.path.join(HERE, f)).read() for f in os.listdir(HERE) if f.endswith((".js", ".html")))
+    missing = [en for en, _ in pairs if en.strip() not in ui]
+    t.check("every English word Pattarai puts in Tamil is one the editors show", pairs and not missing, missing)
+    t.check("each is given in Tamil", all(re.search("[\u0b80-\u0bff]", ta) for _, ta in pairs),
+            [en for en, ta in pairs if not re.search("[\u0b80-\u0bff]", ta)])
+
+
 def palette(t):
     text = open(os.path.join(HERE, "lib", "palette.js")).read()
     colours = [int(v, 16) for v in re.findall(r"0x([0-9a-f]{6})", text.split("export function")[0])]
@@ -365,6 +375,7 @@ def server(t):
 def main():
     t = Suite("Pattarai, the editors")
     palette(t)
+    tamil(t)
     project(t)
     server(t)
     library(t)

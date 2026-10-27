@@ -16,9 +16,9 @@ export function ooru(root) {
   const canvas = h("canvas");
   const picker = h("canvas");
   const info = h("span", { className: "muted" });
-  const layerButtons = [0, 1].map((n) => h("button", { onclick: () => { layer = n; bar(); } }, `Layer ${n}`));
-  const eyes = [0, 1].map((n) => h("label", {}, h("input", { type: "checkbox", checked: true,
-    onchange: (e) => { shown[n] = e.target.checked; draw(); } }), `show ${n}`));
+  const layerButtons = ["Layer 0", "Layer 1"].map((label, n) => h("button", { onclick: () => { layer = n; bar(); } }, label));
+  const eyes = ["show 0", "show 1"].map((label, n) => h("label", {}, h("input", { type: "checkbox", checked: true,
+    onchange: (e) => { shown[n] = e.target.checked; draw(); } }), label));
   const tools = {};
   // rect: drag a box and fill it with the brush (repeated); copy: drag a box
   // of the map and it becomes the brush

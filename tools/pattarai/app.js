@@ -8,6 +8,7 @@ import { isai } from "./isai.js";
 import { vidhi } from "./vidhi.js";
 import { oli } from "./oli.js";
 import { project } from "./project.js";
+import { useTamil } from "./lib/i18n.js";
 
 const token = location.hash.slice(1);
 
@@ -118,6 +119,17 @@ async function start() {
       document.getElementById(b.dataset.tab).classList.add("on");
     };
   }
+  // the language: kept in this browser, as a convenience
+  let ta = false;
+  try { ta = localStorage.getItem("pattarai-lang") === "ta"; } catch (e) { /* private window */ }
+  const langBtn = document.getElementById("lang");
+  langBtn.textContent = ta ? "English" : "தமிழ்";
+  langBtn.onclick = () => {
+    if (shared.dirtyChecks.some((f) => f()) && !confirm("Changes not saved will be lost. Change the language anyway?")) return;
+    try { localStorage.setItem("pattarai-lang", ta ? "en" : "ta"); } catch (e) { /* not kept */ }
+    shared.dirtyChecks.length = 0;            // asked already
+    location.reload();
+  };
   const liveBox = document.getElementById("live");
   document.getElementById("run").onclick = async () => {
     try { status(await api.run(liveBox.checked)); } catch (e) { status("Could not run the game: " + e.message, true); }
@@ -135,6 +147,7 @@ async function start() {
     project(document.getElementById("project"));
     shared.changed("files");                       // the editors were made after the files were listed
     if (shared.files.includes("sprites.png")) await loadSheet("sprites.png");
+    if (ta) useTamil(document.body);
     status(`Editing ${document.getElementById("game").textContent}: ${shared.files.length} files the editors can open.`);
   } catch (e) {
     status(e.message, true);
