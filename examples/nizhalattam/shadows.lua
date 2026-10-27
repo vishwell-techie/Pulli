@@ -14,6 +14,7 @@
 --                             within that many pixels take half of a blow
 --   s.slow                    frames a shadow moves at half speed (an ink
 --                             dart, shots.lua)
+--   shadows.nodrop            a challenge room's: torn, they leave no ink
 --   shadows.hard              hard mode: every shadow has half as much health
 --                             again (and hits harder: body.lua)
 --   shadows.shade             the room's boss is a shadow of his puppet (one
@@ -38,6 +39,7 @@
 local move = require("move")
 local fx   = require("fx")
 local C    = require("colours")
+local sound = require("sound")
 
 local shadows = { list = {}, hits = 0, soft = 1, kinds = {}, hard = false, shade = false }
 
@@ -58,15 +60,15 @@ local S = {
   rest = 40,           -- frames after it, open to blows
   reel = 14,           -- frames knocked back by a blow that lands
   blow = 12,           -- what his blow costs Komali
-  mai = { 1, 5 },      -- drops of ink he leaves
+  mai = { 3, 6 },      -- drops of ink he leaves
 }
 shadows.S = S
 -- the others: health, what touching them costs, the mai they leave
 local K = {
-  dummy = { hp = 18, mai = { 1, 2 } },
-  ink = { hp = 10, touch = 6, speed = 0.35, mai = { 1, 2 } },
+  dummy = { hp = 18, mai = { 2, 3 } },
+  ink = { hp = 10, touch = 6, speed = 0.35, mai = { 2, 4 } },
   small = { hp = 5, touch = 4, speed = 0.5, mai = { 1, 1 } },
-  scrap = { hp = 6, touch = 6, dive = 2.2, mai = { 1, 3 } },
+  scrap = { hp = 6, touch = 6, dive = 2.2, mai = { 2, 4 } },
 }
 shadows.K = K
 
@@ -243,6 +245,10 @@ function shadows.update(body)
         if hy then s.vy = 0 end
         s.step = s.step + math.abs(s.vx)
       end
+      if s == shadows.boss then                       -- a boss getting ready: the bell warns
+        if s.state == "wind" and s.was ~= "wind" then sound.play("warn") end
+        s.was = s.state
+      end
       if (s.slow or 0) > 0 then                       -- inked: half as far across
         s.slow = s.slow - 1
         s.x = x0 + (s.x - x0) / 2
@@ -253,7 +259,8 @@ end
 
 local function tear(s, mai)
   s.on = false
-  fx.tear(s.x + s.w / 2, s.y + s.h / 2, math.random(mai[1], mai[2]))
+  sound.play("torn")
+  fx.tear(s.x + s.w / 2, s.y + s.h / 2, shadows.nodrop and 0 or math.random(mai[1], mai[2]))
   if s.kids then                         -- an inkblot splits in two
     for n, c in ipairs(s.kids) do
       c.on, c.x, c.y, c.vx, c.vy, c.state = true, s.x + (n == 1 and 0 or 6), s.y + 1, n == 1 and -1.5 or 1.5, -2, "reel"

@@ -42,6 +42,7 @@ local at, erase, peeks = 1, 0, {}
 
 function title.open()
   rooms.dress("title", "bg_title.kolam")
+  rooms.music(rooms.TITLE)
   lines.use(run.language())
   for n = 1, 3 do peeks[n] = peek(n) end
   erase = 0

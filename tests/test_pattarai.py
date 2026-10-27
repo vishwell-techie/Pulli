@@ -37,7 +37,7 @@ def library(t):
         t.skipped += 1
         print("  SKIP  Pattarai's libraries (node is not installed)")
         return
-    run = subprocess.run([node, os.path.join(ROOT, "tests", "pattarai_lib.mjs"), VILLAGE],
+    run = subprocess.run([node, os.path.join(ROOT, "tests", "pattarai_lib.mjs"), VILLAGE, *songs(t)],
                          capture_output=True, text=True, timeout=600)
     if not t.check("the libraries run in node", run.returncode == 0, run.stderr[-2000:]):
         return
@@ -73,7 +73,7 @@ def library(t):
             r["missing"])
     t.check("sargam written back reads the same", r["carnaticAgain"] == r["carnatic"])
     t.check("western notes read in the song's key and octave", r["westernNames"] ==
-            ["D4", "F#4", "A4", "A4", "D5", "A#3"], r["westernNames"])
+            ["D4", "F#4", "A4", "A4", "D5", "Bb3"], r["westernNames"])
     t.check("a held note and a rest in western notation", [(n["at"], n["len"]) for n in r["western"]["notes"]] ==
             [(0, 2), (2, 1), (3, 1), (4, 1), (6, 1), (7, 3)] and r["western"]["notes"][3]["mark"] == "~")
     t.check("western written back reads the same", r["westernAgain"] == r["western"])
@@ -98,6 +98,93 @@ def library(t):
     lo, hi, back = r["arpHeard"]
     t.check("an arpeggio is heard: the note, the octave above, the note again", hi > 1.8 * lo and abs(back - lo) <= 2,
             r["arpHeard"])
+    hand = r["hand"]
+    t.check("a line written by hand reads as written: capitals two aksharas, small letters one, an avartanam of Adi",
+            hand["steps"] == 32 and [n for _, n in hand["notes"]] ==
+            [3, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4], hand)
+    t.check("a dot above is the octave up and below the octave down; the raga's own swaras",
+            [s for s, _ in hand["notes"]] == [0, 2, 4, 7, 9, 12, 11, 9, 7, 9, 7, 5, 4, 2, 0, 2, 0, -1, -3, 0], hand)
+    t.check("dots read the same as ' and ., on capitals and small letters",
+            r["dots"] == [[12, 2], [12, 1], [-1, 2], [-1, 1], [12, 2], [-1, 1]], r["dots"])
+    t.check("a hand-written line written back reads the same", r["handAgain"] == hand["notes"], r["handWritten"])
+    t.check("a song saved before reads every letter as one step, small letters too",
+            r["oldSong"] == [[0, 2], [2, 1], [3, 1], [4, 1], [5, 1]], r["oldSong"])
+    t.check("switching capitals off rewrites a part to sound the same", r["toggled"] == hand["notes"], r["toggled"])
+    t.check("a new Carnatic song's parts fill their cycle", r["starter"] == [16, 16], r["starter"])
+    sf = r["solfa"]
+    t.check("movable do: do is the key note, with the chromatic syllables, ' and . for octaves", sf["movableG"] == [
+        "G4", "A4", "B4", "C5", "D5", "E5", "F#5", "G5", "D4", "G#4", "A#4", "C#5", "D#5", "E#5",
+        "Ab4", "Bb4", "Db5", "Eb5", "F5"], sf["movableG"])
+    t.check("movable do follows the key", sf["movableEb"] == ["Eb4", "F4", "G4", "Ab4", "Bb4", "C5", "D5", "Eb5"],
+            sf["movableEb"])
+    t.check("fixed do: do is C and si is B whatever the key; sol and so, si and ti, accidentals, octave numbers",
+            sf["fixedG"] == ["do4", "re4", "mi4", "fa4", "sol4", "sol4", "la4", "si4", "si4", "do5", "sib3", "fa#4"],
+            sf["fixedG"])
+    t.check("each way of naming notes writes a part back that reads the same",
+            all(ok for _, ok in sf["written"]) and sf["written"][0][0] == "do , re mi fa' so. ti~ me!3 la{0,4,7}"
+            and sf["written"][2][0] == "D4 , E4 F#4 G5 A3 C#5~ F4!3 B4{0,4,7}", sf["written"])
+    t.check("every major scale is spelled with its own letters, sharps or flats (no A# in G, no Gb in D)",
+            sf["spelled"] == ["C4 D4 E4 F4 G4 A4 B4", "G4 A4 B4 C5 D5 E5 F#5", "D4 E4 F#4 G4 A4 B4 C#5",
+                              "A4 B4 C#5 D5 E5 F#5 G#5", "E4 F#4 G#4 A4 B4 C#5 D#5", "B4 C#5 D#5 E5 F#5 G#5 A#5",
+                              "F#4 G#4 A#4 B4 C#5 D#5 E#5", "F4 G4 A4 Bb4 C5 D5 E5", "Bb4 C5 D5 Eb5 F5 G5 A5",
+                              "Eb4 F4 G4 Ab4 Bb4 C5 D5", "Ab4 Bb4 C5 Db5 Eb5 F5 G5", "Db4 Eb4 F4 Gb4 Ab4 Bb4 C5"],
+            sf["spelled"])
+    t.check("a song saved in A# reads as Bb", sf["oldKey"] == ["Bb4", "C5", "D5"], sf["oldKey"])
+    t.check("letters with double sharps and flats, and B#, Cb", sf["letters"] == ["C4", "C4", "B3", "F4", "D4", "G4"],
+            sf["letters"])
+    t.check("mistakes are named: an octave number in movable do, a movable syllable in fixed do, a stray word",
+            all(sf["errors"]) and "' above" in sf["errors"][0] and "fixed do" in sf["errors"][1], sf["errors"])
+    t.check("letters take octave marks before or after a sharp or flat (E' D'# Bb.), as Für Elise is typed",
+            r["elise"] == ["E5", "D#5", "E5", "D#5", "E5", "B4", "D5", "C5", "C4", "E4", "A4", "B4", "E4", "G#4", "B4",
+                           "C5", "E3", "Bb3", "Bb3", "A6"], r["elise"])
+    t.check("compound times count eighths, strong at each group of three",
+            r["eighths"] == [["3/8", {"beats": 3, "strong": [0]}], ["6/8", {"beats": 6, "strong": [0, 3]}],
+                             ["9/8", {"beats": 9, "strong": [0, 3, 6]}], ["12/8", {"beats": 12, "strong": [0, 3, 6, 9]}]],
+            r["eighths"])
+    t.check("an octave number and an octave mark together are refused", r["markAndNumber"], r["markAndNumber"])
+    dr = r["drums"]
+    t.check("drum strokes read: konnakol and kit names, two at once, rests, volume", dr == {"steps": 13, "hits": [
+        [0, "strong", None], [1, "off", None], [2, "beat", None], [3, "off", None], [4, "ring", None], [6, "beat", None],
+        [6, "off", None], [7, "off", 5], [10, "strong", None], [10, "off", None], [12, "beat", None]]}, dr)
+    t.check("a drum part written back reads the same", r["drumsAgain"] == dr["hits"][:len(r["drumsAgain"])] and
+            len(r["drumsAgain"]) == len(dr["hits"]), r["drumsAgain"])
+    t.check("the automatic pattern written out: Adi in konnakol, 4/4 on a kit",
+            r["drumsWritten"] == ["thom ki tha ki tha ki tha ki | thom ki tha ki thom ki tha ki",
+                                  "kick hat snare hat kick hat snare hat"], r["drumsWritten"])
+    t.check("a word that is not a stroke is refused, saying what is", r["drumBad"] and "thom" in r["drumBad"], r["drumBad"])
+    t.check("the automatic pattern written out as a drum part plays exactly the same, on every kit",
+            r["drumSame"] == [True, True, True, True], r["drumSame"])
+    t.check("with the drum pattern 'my own' and no drum part, no drums play", r["ownSilent"])
+    t.check("a part that cannot be read is left out, and the rest of the song still plays", r["brokenPlays"])
+    o = r["ornaments"]
+    t.check("bell, conch and jalra: in any drum part, two at once, a volume, written back by name, each a sound, the same on every kit",
+            o["hits"] == [[0, "bell", None], [2, "conch", None], [2, "strong", None], [3, "jalra", 5]] and
+            o["written"] == "bell - kick+conch jalra!5" and o["sound"] == [True, True, True] and o["sameOnKits"], o)
+    t.check("reverb: off unless asked for (the same samples), and when on it rings on after the notes",
+            r["reverb"] == {"none": True, "rings": True}, r["reverb"])
+    nt = r["note"]
+    t.check("a song's note: the same song with or without its defaults filled in, the title not counted; "
+            "current until it changes", nt["sameWithDefaults"] and nt["titleIgnored"] and nt["current"] is True and
+            nt["changed"] is False and nt["engine"], nt)
+    t.check("why a WAV should be made again: none, not noted, changed, an older engine; and when it need not",
+            [bool(x) for x in nt["needs"]] == [True, True, True, True, False] and "engine 0" in nt["needs"][3], nt["needs"])
+    golden = os.path.join(ROOT, "tests", "isai.sha256")
+    lines = [f"engine {r['engine']}"] + [f"{name} {digest}" for name, digest in r["fingerprints"]]
+    if t.update:
+        with open(golden, "w") as f:
+            f.write("\n".join(lines) + "\n")
+    want = open(golden).read().split("\n")[:-1] if os.path.exists(golden) else []
+    changed = sorted(set(lines) ^ set(want))
+    t.check("every example song makes exactly the WAV it made before (tests/isai.sha256); if a change is meant to "
+            "alter the sound, raise ENGINE in lib/music.js and run this with --update", not changed, changed)
+    engine_src = re.sub(r"//[^\n]*", "", open(os.path.join(HERE, "lib", "music.js")).read() +
+                        open(os.path.join(HERE, "lib", "exact.js")).read())          # code only, not comments
+    loose = re.findall(r"Math\.(?:sin|cos|tan|exp|expm1|log\w*|pow|asin|acos|atan2?|sinh|cosh|tanh|cbrt|hypot|random)\b|\*\*",
+                       engine_src)
+    t.check("the engine uses only its own maths: no Math.sin, Math.exp, ** or the like, which differ between browsers",
+            not loose, loose)
+    t.check("every example song reads with no errors and plays", r["examples"] and all(ok for _, ok in r["examples"]),
+            [n for n, ok in r["examples"] if not ok])
     d = r["decoded"]
     t.check("a WAV is read back sample for sample, with its loop point", d == {
         "rate": 12345, "loop": 2, "ch": [[0, 16384, -16383, 8192], [32767, -32767, 0, 0]]}, d)
@@ -338,6 +425,93 @@ def budget(t):
             srv.server_close()
 
 
+def songs(t):
+    """The example songs that come with Pattarai: listed, and each one reads and plays (checked in node)."""
+    d = os.path.join(HERE, "songs")
+    files = sorted(f for f in os.listdir(d) if f.endswith(".json") and f != "index.json")
+    index = json.load(open(os.path.join(d, "index.json")))
+    t.check("the example songs' list names every song there is, with its title",
+            [x["file"] for x in index] == files and all(x["title"] == json.load(open(os.path.join(d, x["file"])))["title"]
+                                                        for x in index), [x["file"] for x in index])
+    return [os.path.join(d, f) for f in files]
+
+
+def songs_only(t):
+    """A game can keep its Isai songs and not their WAVs: pack refuses until
+    they are made, make-wavs.mjs makes them and notes it, pack says when
+    one is out of date."""
+    node = shutil.which("node")
+    if not node:
+        t.skipped += 1
+        print("  SKIP  making WAVs from songs (node is not installed)")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        game = os.path.join(tmp, "game")
+        shutil.copytree(os.path.join(ROOT, "examples", "hello"), game)
+        os.makedirs(os.path.join(game, "music"))
+        song = json.load(open(os.path.join(HERE, "songs", "bilahari-line.json")))
+        song["cycles"] = 1
+        for p_ in song["parts"]:
+            p_["text"] = p_["text"].split("||")[0].split(" | ")[0]          # a few seconds, to keep the test quick
+        for name in ("00-a", "01-b"):
+            with open(os.path.join(game, "music", name + ".json"), "w") as f:
+                json.dump(song, f)
+        try:
+            pulli.build(game)
+            refused = None
+        except pulli.PackageError as e:
+            refused = str(e)
+        t.check("a song with no WAV stops the pack, saying how to make it",
+                refused and "music/00-a.json" in refused and "music/01-b.json" in refused and "make-wavs.mjs" in refused, refused)
+        script = os.path.join(HERE, "make-wavs.mjs")
+        run = subprocess.run([node, script, game], capture_output=True, text=True, timeout=300)
+        made = json.load(open(os.path.join(game, "music", "00-a.json")))["made"]
+        wav = open(os.path.join(game, "music", "00-a.wav"), "rb").read()
+        t.check("make-wavs.mjs makes each song's WAV and notes the engine, the WAV and that it is current",
+                run.returncode == 0 and "2 made" in run.stdout and made["current"] is True and
+                made["engine"] == pulli.isai_engine() and made["wav"] == __import__("hashlib").sha256(wav).hexdigest(),
+                run.stdout + run.stderr)
+        notes = []
+        pulli.build(game, notes=notes)
+        t.check("then the game packs, with nothing to say", notes == [], notes)
+        again = subprocess.run([node, script, game], capture_output=True, text=True, timeout=300)
+        t.check("make-wavs.mjs makes nothing when every WAV is up to date", "0 made" in again.stdout, again.stdout)
+        changed = json.load(open(os.path.join(game, "music", "01-b.json")))
+        changed["tempo"] = 80
+        with open(os.path.join(game, "music", "01-b.json"), "w") as f:
+            json.dump(changed, f)
+        third = subprocess.run([node, script, game], capture_output=True, text=True, timeout=300)
+        t.check("a song changed since its WAV was made is made again, and only that one",
+                "1 made" in third.stdout and "01-b.wav" in third.stdout and "changed since" in third.stdout, third.stdout)
+        stale = json.load(open(os.path.join(game, "music", "00-a.json")))
+        stale["made"]["current"] = False
+        with open(os.path.join(game, "music", "00-a.json"), "w") as f:
+            json.dump(stale, f)
+        older = json.load(open(os.path.join(game, "music", "01-b.json")))
+        older["made"]["engine"] = 0
+        with open(os.path.join(game, "music", "01-b.json"), "w") as f:
+            json.dump(older, f)
+        notes = []
+        pulli.build(game, notes=notes)
+        t.check("pack says which songs are out of date: changed since, or made by another engine",
+                len(notes) == 2 and "00-a.json has changed" in notes[0] and "engine 0" in notes[1], notes)
+        with open(os.path.join(game, "music", "00-a.wav"), "wb") as f:
+            f.write(wav[:-2] + b"\1\1")
+        notes = []
+        pulli.build(game, notes=notes)
+        t.check("and a WAV that is not the one made from its song", any("is not the WAV Isai made" in n for n in notes), notes)
+        os.makedirs(os.path.join(game, "sfx"))
+        with open(os.path.join(game, "sfx", "00-jump.json"), "w") as f:
+            json.dump({"format": "oli-sfx"}, f)
+        try:
+            pulli.build(game)
+            refused = None
+        except pulli.PackageError as e:
+            refused = str(e)
+        t.check("an Oli sound with no WAV stops the pack too", refused and "sfx/00-jump.json" in refused and "Oli" in refused,
+                refused)
+
+
 def palette(t):
     text = open(os.path.join(HERE, "lib", "palette.js")).read()
     colours = [int(v, 16) for v in re.findall(r"0x([0-9a-f]{6})", text.split("export function")[0])]
@@ -370,7 +544,8 @@ def server(t):
         try:
             status, body = ask("GET", "/")
             t.check("the page is served", status == 200 and b"Pattarai" in body)
-            t.check("the page's own files are served", ask("GET", "/lib/music.js")[0] == 200)
+            t.check("the page's own files are served", ask("GET", "/lib/music.js")[0] == 200 and
+            ask("GET", "/songs/index.json")[0] == 200)
             t.check("nothing outside the page's folder is served",
                     ask("GET", "/../pulli.py")[0] == 404 and ask("GET", "/%2e%2e/pulli.py")[0] == 404)
             t.check("the files cannot be listed without the key", ask("GET", "/api/files", key=None)[0] == 403
@@ -473,6 +648,7 @@ def main():
     t = Suite("Pattarai, the editors")
     palette(t)
     budget(t)
+    songs_only(t)
     tamil(t)
     project(t)
     server(t)

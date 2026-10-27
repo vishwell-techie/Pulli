@@ -1,0 +1,90 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Mohanam",
+ "sa": 146.8,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 104,
+ "steps": 4,
+ "cycles": 8,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "mridangam",
+ "swing": 0,
+ "reverb": 0.45,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "venu",
+   "octave": 2,
+   "gain": 0.9,
+   "pan": 0.12,
+   "text": "G , , , P , G , R , S , R , G , P , D , S' , , , D/ , P , G , , , | G , P , D/ , S' , R' , S' , D/ , P , G , R/ , G , P , G , R/ , S , , , | R , G , S , R , G/ , P , R , G/ , P/ , D , G , P , P , , , , , , , | G' , R' , P' , G' , R' , S' , G' , R' , S' , D , R' , S' , P , , , , , , , | G , , , P , G , R , S/ , R , G/ , P , D , S' , , , D/ , P , G , , , | G , P , D , S' , R'/ , S'/ , D , P , G , R , G/ , P , G , R , S , , , | G' , R'/ , P' , G' , R'/ , S' , G' , R'/ , S' , D , R'/ , S' , P , , , , , , , | G , , , P , G , R , S/ , R , G , P , D , S' , , , D/ , P , G , , ,"
+  },
+  {
+   "name": "answer",
+   "instrument": "veena",
+   "octave": 2,
+   "gain": 0.6,
+   "pan": -0.45,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - P , D , G , P , P/ , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | S , , , R , S , D. , P. , D. , S , R , G , P , , , G , R , S , , , | S , R , G , P , D , P , G , R , S , D. , S , R , S , D. , P. , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+  },
+  {
+   "name": "chord 1",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.2,
+   "text": "S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 2",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.07,
+   "text": "P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 3",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.06,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 4",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.19,
+   "text": "G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "mridangam",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha - - - tha - dhi!6 - tha ki!6 dhi!8 - thom+jalra - dhi!6 - tha - dhi!8 - ki+jalra tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha - - - tha - dhi!6 - tha ki!6 dhi!8 - thom+jalra - dhi!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - ki+jalra tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Nizhalattam: The screen",
+ "about": "Mohanam, Adi (8). The theme follows the opening of Nannu Palimpa, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
+ "made": {
+  "engine": 1,
+  "wav": "b9d212b8d1627abc886ee37f50a12fe7bedeb7cdbafad685ba6b096aacc708c9",
+  "song": "3d2345bcccd8a2c0ac0e53444f858993ad4a1dd4aaebbdfe62b65f0cb88c2c1a",
+  "current": true
+ }
+}

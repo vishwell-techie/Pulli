@@ -1,0 +1,90 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Kharaharapriya",
+ "sa": 155.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Misra Chapu (7)",
+ "tempo": 112,
+ "steps": 4,
+ "cycles": 10,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "kanjira",
+ "swing": 0,
+ "reverb": 0.45,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.9,
+   "pan": 0.12,
+   "text": "P , , , M , P/ , D , N , S'~ , , , N , D , P , M , G , R , | S/ , , , R , G/ , M , P~ , , , D , N , D/ , P , M , G~ , , , | R , M~ , , , P , G , P , , , D , M , D , , , P~ , , , , , | S' , R' , , , G' , N/ , S' , , , R'/ , D , N/ , , , P~ , , , , , | P~ , , , M/ , P , D , N , S'~ , , , N , D , P , M , G , R , | S , , , R/ , G , M , P~ , , , D , N/ , D , P , M , G~ , , , | S' , R'~ , , , G' , N , S'~ , , , R' , D , N~ , , , P~ , , , , , | P/ , , , M , P , D , N , S'~ , , , N , D , P/ , M , G , R , | S/ , , , R , G , M , P~ , , , D , N/ , D/ , P , M , G~ , , , | R/ , M~ , , , P , G , P~ , , , D/ , M , D , , , P/ , , , , ,"
+  },
+  {
+   "name": "answer",
+   "instrument": "veena",
+   "octave": 1,
+   "gain": 0.6,
+   "pan": -0.45,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - D , M , D , , , P , , , , , | D , N , , , S' , P , D , , , N , M , P , , , G , , , , , | G , , , R , G , M , P , D , , , P , M , G , R , S , N. , | D. , , , N. , S , R , G , , , M , P , M , G , R , S , , , | D , N , , , S' , P , D , , , N , M , P , , , G , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - D , M , D , , , P , , , , ,"
+  },
+  {
+   "name": "chord 1",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.2,
+   "text": "S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , , | S. , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 2",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": -0.07,
+   "text": "P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | R , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , , | P. , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 3",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.06,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "chord 4",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.25,
+   "pan": 0.19,
+   "text": "G , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , | - - - - - - - - - - - - - - - - - - - - - - - - - - - - | G , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , , | G , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "kanjira",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - - | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - - | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - - | thom+jalra - ki!6 - tha - dhi!8 - tha ki!8 - - thom+jalra - ki!8 - tha - dhi!6 ki!8 ki+jalra tha!6 ki!8 tha!6 ki tha!8 ki!6 thom!8 | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - - | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - - | thom+jalra - ki!6 - tha - dhi!8 - tha ki!8 - - thom+jalra - ki!8 - tha - dhi!6 ki!8 thom+jalra ki!6 ki!8 - tha ki!8 dhi!6 - | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - ki+jalra tha!6 ki!8 tha!6 ki tha!8 ki!6 thom!8 | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - - | thom+jalra - ki!6 - tha - ki!8 - tha - ki!6 - thom+jalra - - - tha - dhi!6 - thom+jalra - ki!8 - tha - - -"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Nizhalattam: The masks",
+ "about": "Kharaharapriya, Misra Chapu (7). The theme follows the opening of Chakkani Raja, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
+ "made": {
+  "engine": 1,
+  "wav": "ea5df699022573b1312e0e82162c56e3ac4db8b6d0ae24525ae8e1e1babd8bd0",
+  "song": "726030aa1054c567e966abd917f3541da3d05889f81b7fb4ab849b53b8578f2a",
+  "current": true
+ }
+}

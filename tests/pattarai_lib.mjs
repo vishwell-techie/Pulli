@@ -8,9 +8,10 @@ import { encodeWAV, decodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
 import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
+import { songWav, madeNote, refreshNote, needsWav, songDigest } from "../tools/pattarai/lib/make.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
-const [, , village] = process.argv;
+const [, , village, ...exampleSongs] = process.argv;
 const b64 = (u8) => Buffer.from(u8).toString("base64");
 const out = {};
 
@@ -27,7 +28,7 @@ out.janyaInParent = Object.entries(M.SCALES).filter(([, s]) => s.parent)
   .map(([n, s]) => [n, s.notes.every((x) => M.melakarta(s.parent).includes(x))]);
 
 // notation
-const c = { ...M.newSong("carnatic"), scale: "Mayamalavagowla" };
+const c = { ...M.newSong("carnatic"), scale: "Mayamalavagowla", longCaps: false };   // one letter, one step
 const text = "S , R G M ; P | D. N. S' S'' ~ - G3 M2/ P\\";
 try { M.parseNotation(text, c); out.badTilde = false; } catch (e) { out.badTilde = true; }
 const ok = "S , R G M ; P | D. N. S' S'' - G3 M2/ P\\ ,";
@@ -50,7 +51,7 @@ out.render = { len: r1[0].length, same: r1[0].every((v, i) => v === r2[0][i]) &&
   steps: M.songSteps(song), tempo: song.tempo, perStep: song.steps };
 for (const sys of ["carnatic", "western"]) {
   const s = M.newSong(sys);
-  for (const inst of Object.values(M.INSTRUMENTS).flat())
+  for (const inst of Object.values(M.INSTRUMENTS).flat().filter((i) => i !== "drums"))
     for (const kit of M.KITS) {
       const [L] = M.render({ ...s, cycles: 1, parts: [{ ...s.parts[0], instrument: inst }], drums: kit });
       if (!L.every(Number.isFinite)) out.badRender = `${sys} ${inst} ${kit}`;
@@ -81,6 +82,124 @@ const probe = (arpNotes) => {
 };
 out.arpHeard = probe("C4{0,12} ; ; ,");
 out.chipWav = b64(encodeWAV([cr[0]], 8000));
+// lines as written by hand: capitals two aksharas, small letters one, dots for octaves
+const bil = { ...M.newSong("carnatic"), scale: "Bilahari" };
+const handLine = "S  ,  r      G  P     D  Ṡ   N D     |    P  d  p    m g  r s      r s   ṇ  ḍ           S ;        ||";
+const hp = M.parseNotation(handLine, bil);
+out.hand = { steps: hp.steps, notes: hp.notes.map((n) => [n.semi, n.len]) };
+const hw = M.writeNotation(hp.notes, hp.steps, bil, 16);
+out.handAgain = M.parseNotation(hw, bil).notes.map((n) => [n.semi, n.len]);
+out.handWritten = hw;
+out.oldSong = M.parseNotation("S , R G s r", { ...bil, longCaps: undefined }).notes.map((n) => [n.at, n.len]);
+const flat = { ...bil, longCaps: false }, flatText = M.writeNotation(hp.notes, hp.steps, flat, 16);
+out.toggled = M.parseNotation(flatText, flat).notes.map((n) => [n.semi, n.len]);
+out.starter = M.newSong("carnatic").parts.map((p) => M.parseNotation(p.text, M.newSong("carnatic")).steps);
+out.dots = M.parseNotation("Ṡ ṡ Ṇ ṇ S' n.", { ...bil }).notes.map((n) => [n.semi, n.len]);
+
+// solfège and spelling
+const inKey = (key, text, solfa) => { const g = { ...M.newSong("western"), key, solfa };
+  return M.parseNotation(text, g).notes.map((n) => M.noteName(n.semi, g, n.way)); };
+out.solfa = {
+  movableG: inKey("G", "do re mi fa so la ti do' so. di ri fi si li ra me se le te"),
+  movableEb: inKey("Eb", "do re mi fa so la ti do'"),
+  fixedG: inKey("G", "do re mi fa sol so la si ti do5 sib3 fa#", "fixed"),
+  written: (() => { const g = { ...M.newSong("western"), key: "D", solfa: "movable" };
+    const p = M.parseNotation("do , re mi fa' so. ti~ me!3 la{0,4,7}", g);
+    return ["movable", "fixed", undefined].map((v) => { const h = { ...g, solfa: v }; const w = M.writeNotation(p.notes, p.steps, h, 0);
+      const plain = (ns) => JSON.stringify(ns.map(({ way, ...n }) => n));
+      return [w, plain(M.parseNotation(w, h).notes) === plain(p.notes)]; }); })(),
+  spelled: ["C", "G", "D", "A", "E", "B", "F#", "F", "Bb", "Eb", "Ab", "Db"].map((k) => inKey(k, "do re mi fa so la ti").join(" ")),
+  oldKey: inKey("A#", "do re mi"),
+  letters: inKey("C", "C4 B#3 Cb4 E#4 Ebb4 F##4"),
+  errors: [["do4", undefined], ["me", "fixed"], ["xo", undefined]].map(([t, v]) => {
+    try { M.parseNotation(t, { ...M.newSong("western"), solfa: v }); return null; } catch (e) { return e.message; } }),
+};
+
+out.eighths = ["3/8", "6/8", "9/8", "12/8"].map((t) => [t, M.cycleOf({ ...M.newSong("western"), tala: t })]);
+
+// letters with octave marks, as typed: the opening of Für Elise
+const fe = { ...M.newSong("western"), key: "A", scale: "harmonic minor" };
+out.elise = M.parseNotation("E' D'# E' D'# E' B D' C' | C E A B | E G# B C' | E. B.b Bb. A''", fe).notes
+  .map((n) => M.noteName(n.semi, fe, n.way));
+try { M.parseNotation("E'5", fe); out.markAndNumber = null; } catch (e) { out.markAndNumber = e.message; }
+
+// drums: strokes, the automatic pattern written out, and played the same
+const kd = M.newSong("carnatic");
+const dp = M.parseDrums("thom ki tha ki | dhi - tha+ki ka!5 ; kick+hat , snare", kd);
+out.drums = { steps: dp.steps, hits: dp.hits.map((x) => [x.at, x.kind, x.vol || null]) };
+out.drumsAgain = M.parseDrums(M.writeDrums(dp.hits, dp.steps, kd, 4), kd).hits.map((x) => [x.at, x.kind, x.vol || null]);
+out.drumsWritten = [M.writeDrums(M.autoHits(kd, 16), 16, kd, 8), M.writeDrums(M.autoHits(M.newSong("western"), 8), 8, M.newSong("western"), 8)];
+try { M.parseDrums("boom", kd); out.drumBad = null; } catch (e) { out.drumBad = e.message; }
+out.drumSame = [["carnatic", "mridangam"], ["carnatic", "kanjira"], ["western", "kit"], ["western", "chip"]].map(([sys, kit]) => {
+  const base = { ...M.newSong(sys), drums: kit, drone: false, cycles: 4, parts: [] };
+  const steps = M.songSteps(base), a = M.render(base)[0];
+  const own = { ...base, drumPattern: "own", parts: [{ name: "d", instrument: "drums", octave: 0, gain: 0.9, pan: 0.15,
+    text: M.writeDrums(M.autoHits(base, steps), steps, base, 0) }] };
+  const b = M.render(own)[0];
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+});
+const silent = M.render({ ...M.newSong("carnatic"), drums: "mridangam", drumPattern: "own", drone: false,
+  parts: [{ name: "x", instrument: "veena", octave: 0, gain: 0.9, pan: 0, text: "-" }] })[0];
+out.ownSilent = silent.every((v) => v === 0);
+const broken = M.render({ ...M.newSong("carnatic"), parts: [...M.newSong("carnatic").parts, { name: "x", instrument: "drums",
+  octave: 0, gain: 0.9, pan: 0, text: "S r g" }] });
+out.brokenPlays = broken[0].length > 0 && broken[0].some((v) => v !== 0);
+// bell, conch and jalra: on any kit, written back by name, each with a sound
+{
+  const own = (kit, text) => ({ ...M.newSong("carnatic"), drums: kit, drumPattern: "own", drone: false, cycles: 1,
+    parts: [{ name: "d", instrument: "drums", octave: 0, gain: 0.9, pan: 0, text }] });
+  const hits = M.parseDrums("bell - conch+thom jalra!5", own("thavil", "")).hits;
+  const energy = (x) => x.reduce((a, v) => a + v * v, 0);
+  out.ornaments = { hits: hits.map((x) => [x.at, x.kind, x.vol || null]),
+    written: M.writeDrums(hits, 4, M.newSong("western"), 0),
+    sound: ["bell", "conch", "jalra"].map((w) => energy(M.render(own("kanjira", w + " - - -"))[0]) > 1),
+    sameOnKits: (() => { const a = M.render(own("mridangam", "bell - - -"))[0], b = M.render(own("kit", "bell - - -"))[0];
+      return a.every((v, i) => v === b[i]); })() };
+}
+// reverb: none unless asked for (the same samples as before), and it rings past the notes
+{
+  const s = { ...M.newSong("carnatic"), drums: "none", drone: false, cycles: 2, loopCycle: 1,
+    parts: [{ name: "a", instrument: "veena", octave: 0, gain: 0.9, pan: 0, text: "S - - - - - - - - - - - - - - -" }] };
+  const dry = M.render(s)[0], zero = M.render({ ...s, reverb: 0 })[0], wet = M.render({ ...s, reverb: 0.8 })[0];
+  const tail = (x) => x.slice(x.length / 2 - 2000, x.length / 2).reduce((a, v) => a + Math.abs(v), 0);
+  out.reverb = { none: dry.every((v, i) => v === zero[i]), rings: tail(wet) > tail(dry) * 2 };
+}
+
+// fingerprints: each example song, rendered whole as Make WAV makes it
+const { createHash } = await import("crypto");
+out.engine = M.ENGINE;
+out.fingerprints = exampleSongs.map((f) => {
+  const song = JSON.parse(readFileSync(f, "utf8"));
+  return [f.split("/").pop(), createHash("sha256").update(songWav(song)).digest("hex")];
+});
+
+// the note a song keeps about its WAV
+{
+  const song = JSON.parse(readFileSync(exampleSongs[0], "utf8"));
+  const sparse = Object.fromEntries(Object.entries(song).filter(([k]) => !["swing", "a4", "arpRate"].includes(k)));
+  const full = { ...M.newSong(song.system), ...sparse };
+  const a = await songDigest(sparse), b = await songDigest(full), c = await songDigest({ ...full, title: "another" });
+  const wav = songWav({ ...song, cycles: 1, parts: song.parts.map((p) => ({ ...p, text: p.text.split("|")[0] })) });
+  const note = await madeNote(full, wav);
+  const later = await refreshNote({ ...full, made: { ...note } });
+  const changedSong = await refreshNote({ ...full, tempo: full.tempo + 1, made: { ...note } });
+  out.note = { sameWithDefaults: a === b, titleIgnored: b === c, current: later.made.current, changed: changedSong.made.current,
+    engine: note.engine === M.ENGINE,
+    needs: [needsWav(full, false), needsWav({ ...full, made: undefined }, true), needsWav(changedSong, true),
+            needsWav({ ...full, made: { ...note, engine: 0 } }, true), needsWav(later, true)] };
+}
+
+// the example songs: every part reads, and the song plays (a few seconds of it, to keep the test quick)
+out.examples = exampleSongs.map((f) => {
+  const song = JSON.parse(readFileSync(f, "utf8"));
+  try {
+    for (const p of song.parts) (p.instrument === "drums" ? M.parseDrums : M.parseNotation)(p.text, song);
+    const short = { ...song, parts: song.parts.map((p) => ({ ...p, text: p.text.split("|").slice(0, 4).join("|") })), cycles: 1 };
+    const [L] = M.render(short);
+    return [f.split("/").pop(), L.length > 0 && L.every(Number.isFinite) && L.some((v) => v !== 0)];
+  } catch (e) { return [f.split("/").pop() + ": " + e.message, false]; }
+});
+
 // reading WAV files back, exactly
 const back = decodeWAV(encodeWAV([new Float32Array([0, 0.5, -0.5, 0.25]), new Float32Array([1, -1, 0, 0])], 12345, 2));
 out.decoded = { rate: back.rate, loop: back.loop, ch: back.channels.map((c) => [...c].map((v) => Math.round(v * 32768))) };

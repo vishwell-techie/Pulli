@@ -1140,6 +1140,14 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    refuses a picture, map or sound the console could not use (this
    section's limits), and never refuses code. Nothing in the package or the
    runtime changes.
+34. **Songs are text; their WAVs are made** (§6), awaiting approval. A song
+   made in Isai is a `.json` file, and its WAV is made from it, the same to
+   the byte in any browser and in Node (`tools/pattarai/make-wavs.mjs`),
+   because Isai's sound uses only `+ - * /` and rounding. The song notes
+   the engine and the SHA-256 of the WAV and of itself when its WAV is
+   made. `pulli pack` refuses a song or sound `.json` without its WAV and
+   notes a WAV that is out of date. Isai's drum parts also play a bell, a
+   conch and jalra on any kit, and a song may have reverb (none unless set).
 35. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
    A cartridge is 8, 16, 32 or 64 MB: one or two chips of 8 or 32 MB,
    each on its own select line, read as one address range, the first chip

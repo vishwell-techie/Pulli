@@ -5,7 +5,7 @@
 // the WAV files in order of name.
 import { api, h, shared, status, refreshFiles, CHANNEL_NOTE } from "./app.js";
 import * as M from "./lib/music.js";
-import { encodeWAV } from "./lib/wav.js";
+import { wavOf as wavBytes, madeNote, refreshNote, needsWav } from "./lib/make.js";
 
 const SRUTI = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -14,6 +14,10 @@ export function isai(root) {
   let audio = null, source = null, playStart = 0, playLen = 0, raf = 0;
 
   const files = h("select", { title: "Songs in the game's music folder" });
+  const examples = h("select", { title: "Example songs that come with Pattarai" }, h("option", { value: "" }, "Example songs…"));
+  fetch(new URL("./songs/index.json", import.meta.url)).then((r) => r.json()).then((list) => {
+    examples.append(...list.map((x) => h("option", { value: x.file, title: x.about }, x.title)));
+  }).catch(() => {});
   const head = h("div", { className: "bar" });
   const scaleBox = h("div", { className: "box" });
   const partsBox = h("div");
@@ -26,13 +30,18 @@ export function isai(root) {
       h("button", { onclick: () => create("carnatic") }, "New Carnatic"),
       h("button", { onclick: () => create("western") }, "New western"),
       h("button", { title: "Pulse lead, triangle bass, noise drums, small mono WAV", onclick: () => create("carnatic", true) }, "New chiptune"),
+      h("span", { className: "sep" }), examples,
+      h("button", { title: "Open an example song as a new, unsaved song", onclick: openExample }, "Open example"),
       h("button", { onclick: save }, "Save"),
       h("button", { title: "Write music/<name>.wav, the file the game plays", onclick: exportWav }, "Make WAV"),
+      h("button", { title: "Make the WAV of every song in music/ that has none, or has changed since, or was made by an older Isai",
+        onclick: makeAll }, "Make all WAVs"),
       h("span", { className: "sep" }), playBtn),
     head,
     h("div", { className: "cols" },
       h("div", { className: "wide" }, partsBox,
-        h("button", { onclick: addPart }, "+ Part"),
+        h("div", { className: "bar" }, h("button", { onclick: addPart }, "+ Part"),
+          h("button", { title: "A drum part of your own, starting from the automatic pattern written out", onclick: addDrumPart }, "+ Drum part")),
         h("p", { className: "muted", style: "font-size:12px;max-width:720px" },
           "The parts are mixed into one track, which the game plays with music(n). " + CHANNEL_NOTE)),
       h("div", { className: "box", style: "max-width:100%" }, h("h3", {}, "Roll: the part in hand"),
@@ -70,21 +79,38 @@ export function isai(root) {
             return h("option", { value: hz, selected: Math.abs(hz - song.sa) < 0.5 }, `${n}${o} (${hz} Hz)`);
           }))))
       : h("span", {}, field("key", h("select", { onchange: (e) => { song.key = e.target.value; changed(); drawAll(); } },
-          ...M.KEYS.map((k) => h("option", { value: k, selected: k === song.key }, k)))), " ",
-          field("octave", num("octave", 1, 6)));
+          ...M.KEYS.map((k) => h("option", { value: k, selected: k === M.KEYS[M.keyIndex(song.key)] }, k.replace("b", "♭"))))), " ",
+          field("octave", num("octave", 1, 6)), " ",
+          field("note names", h("select", { title: "How notes are written back and labelled. Letters and solfège can both be typed in any song.",
+            onchange: (e) => setNoteNames(e.target.value) },
+            ...Object.entries(M.NOTE_NAMES).map(([v, label]) => h("option", { value: v, selected: v === (song.solfa || "letters") }, label)))));
     head.replaceChildren(
       h("strong", {}, path || "(new song)", dirty ? " •" : ""),
+      path ? h("span", { className: song.made && song.made.current && song.made.engine === M.ENGINE ? "muted" : "warn",
+        title: "The WAV the game plays" },
+        !song.made ? "no WAV made here yet" : song.made.engine !== M.ENGINE ? `WAV from engine ${song.made.engine}`
+          : song.made.current && !dirty ? "WAV up to date" : "WAV out of date: Make WAV") : "",
       h("span", { className: "sep" }),
       field(c ? "raga" : "scale", scaleSel), tonic,
       field(c ? "tala" : "time", talaSel),
       field("tempo", num("tempo", 30, 300)),
       field("steps a beat", num("steps", 1, 8)),
       field("cycles", num("cycles", 1, 64)),
+      c ? field("capitals long", h("input", { type: "checkbox", checked: !!song.longCaps,
+        title: "As lines are written by hand: a capital is two aksharas, a small letter one. The parts are rewritten so they sound the same.",
+        onchange: (e) => setLongCaps(e.target.checked) })) : "",
       field("drone", h("input", { type: "checkbox", checked: song.drone, onchange: (e) => { song.drone = e.target.checked; changed(); } })),
       field("drums", h("select", { onchange: (e) => { song.drums = e.target.value; changed(); } },
         ...M.KITS.map((k) => h("option", { value: k, selected: k === song.drums }, k)))),
+      field("drum pattern", h("select", { title: "Automatic: the kit plays the tala's (or time's) pattern. My own: only the drum parts you write play.",
+        onchange: (e) => { song.drumPattern = e.target.value; changed(); } },
+        h("option", { value: "auto", selected: song.drumPattern !== "own" }, "automatic"),
+        h("option", { value: "own", selected: song.drumPattern === "own" }, "my own"))),
       field("swing", h("input", { type: "range", min: 0, max: 0.6, step: 0.05, value: song.swing,
         onchange: (e) => { song.swing = +e.target.value; changed(); } })),
+      field("reverb", h("input", { type: "range", min: 0, max: 1, step: 0.05, value: song.reverb || 0,
+        title: "A hall around the band: 0 is none",
+        onchange: (e) => { song.reverb = +e.target.value; changed(); } })),
       field("arpeggio speed", num("arpRate", 4, 60)),
       field("loops from cycle", h("input", { type: "number", min: 0, max: 63, value: song.loopCycle || 0, style: "width:60px",
         title: "0: the whole song loops. 2: cycles 0 and 1 are an intro, played once, then it loops from cycle 2",
@@ -106,6 +132,29 @@ export function isai(root) {
       `${(samples / 2 / 1024).toFixed(0)} KB packed`;
   }
 
+  // Switching how capitals are read keeps the music: each part is read the
+  // old way and written out the new way.
+  function setLongCaps(on) {
+    const { beats } = M.cycleOf(song);
+    const parsed = song.parts.map((p) => { try { return M.parseNotation(p.text, song); } catch (e) { return null; } });
+    song.longCaps = on;
+    song.parts.forEach((p, i) => { if (parsed[i]) p.text = M.writeNotation(parsed[i].notes, parsed[i].steps, song, beats * song.steps); });
+    changed(); drawAll();
+    status(on ? "Capitals are two aksharas, small letters one; the parts were rewritten to sound the same."
+              : "Every letter is one step; the parts were rewritten to sound the same.");
+  }
+
+  // Letters, movable do or fixed do: the parts are read the old way and
+  // written the new way, so they sound the same.
+  function setNoteNames(v) {
+    const { beats } = M.cycleOf(song);
+    const parsed = song.parts.map((p) => { try { return M.parseNotation(p.text, song); } catch (e) { return null; } });
+    song.solfa = v === "letters" ? undefined : v;
+    song.parts.forEach((p, i) => { if (parsed[i]) p.text = M.writeNotation(parsed[i].notes, parsed[i].steps, song, beats * song.steps); });
+    changed(); drawAll();
+    status(`Notes are now written as ${M.NOTE_NAMES[v]}; the parts were rewritten to sound the same.`);
+  }
+
   // The scale, up and down, with a key for each note to hear it.
   function drawScale() {
     const s = M.SCALES[song.scale];
@@ -118,8 +167,13 @@ export function isai(root) {
       h("p", { className: "muted", style: "margin:8px 0 4px" }, song.system === "carnatic" ? "Avarohanam" : "Down"), keys(s.down),
       h("p", { className: "muted", style: "margin:10px 0 0;max-width:330px;font-size:12px" },
         song.system === "carnatic"
-          ? "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' an octave up, . down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
-          : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
+          ? (song.longCaps ? "Capitals are two aksharas, small letters one: S , r G P D Ṡ N D |. " : "") +
+            "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' or a dot above (Ṡ) an octave up, . or a dot below (Ṇ) down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
+          : (song.solfa === "fixed"
+              ? "Write fixed do: do re mi fa sol la si, with # or b and an octave (sol4) or without; or letters C D# Bb…; "
+              : "Write letters C D# Bb… with an octave (C4) or without (the song's), or movable do: do re mi fa so la ti, do being the key note; " +
+                "di ri fi si li raise a step, ra me se le te lower one, ' and . for octaves (do' so.); ") +
+            ", holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
   }
 
   // ---- parts --------------------------------------------------------------------
@@ -128,17 +182,20 @@ export function isai(root) {
       const err = h("div", { className: "err" });
       const check = () => {
         try {
-          const r = M.parseNotation(p.text, song);
+          const drums = p.instrument === "drums";
+          const r = drums ? M.parseDrums(p.text, song) : M.parseNotation(p.text, song);
           const per = M.cycleOf(song).beats * song.steps;
           err.className = "err muted";
-          err.textContent = `${r.notes.length} notes, ${r.steps} steps (${(r.steps / per).toFixed(2).replace(/\.00$/, "")} cycles)`;
+          err.textContent = `${drums ? r.hits.length + " strokes on the " + M.kitOf(song) : r.notes.length + " notes"}, ` +
+            `${r.steps} steps (${(r.steps / per).toFixed(2).replace(/\.00$/, "")} cycles)` +
+            (drums && song.drumPattern !== "own" && song.drums !== "none" ? "; the automatic pattern plays too (drum pattern: my own turns it off)" : "");
         } catch (e) { err.className = "err"; err.textContent = e.message; }
       };
       const text = h("textarea", { rows: 3, value: p.text, spellcheck: false,
         onfocus: () => { if (partIndex !== i) { partIndex = i; drawParts(); drawRoll(); } },
         oninput: (e) => { p.text = e.target.value; changed(); check(); drawRoll(); } });
       check();
-      const inst = h("select", { onchange: (e) => { p.instrument = e.target.value; changed(); } },
+      const inst = h("select", { onchange: (e) => { p.instrument = e.target.value; changed(); drawParts(); drawRoll(); } },
         ...Object.entries(M.INSTRUMENTS).map(([group, list]) => h("optgroup", { label: group },
           ...list.map((n) => h("option", { value: n, selected: n === p.instrument }, n)))));
       const knob = (key, min, max, stepBy) => h("input", { type: "number", min, max, step: stepBy, value: p[key], style: "width:70px",
@@ -154,9 +211,26 @@ export function isai(root) {
             if (song.parts.length > 1 && confirm(`Remove the part "${p.name}"?`)) {
               song.parts.splice(i, 1); partIndex = 0; changed(); drawParts(); drawRoll();
             } } }, "✕")),
-        text, err);
+        text, err,
+        p.instrument === "drums" ? h("div", { className: "muted", style: "font-size:12px" },
+          `Strokes, one a step: thom (deep), tha (main), ki (light), dhi (ringing) — or kick, snare, hat, open. ` +
+          `kick+hat plays two at once; - or , is a step with none; | a bar line; !1 to !9 the volume.`) : "");
     }));
   }
+  // A drum part to start from: the automatic pattern for a cycle, written
+  // out, and the automatic pattern turned off so the two do not double.
+  function addDrumPart() {
+    const { beats } = M.cycleOf(song);
+    const per = beats * song.steps;
+    if (song.drums === "none") song.drums = M.kitOf(song);
+    song.parts.push({ name: "drums", instrument: "drums", octave: 0, gain: 0.9, pan: 0.15,
+                      text: M.writeDrums(M.autoHits(song, per), per, song, per) });
+    song.drumPattern = "own";
+    partIndex = song.parts.length - 1;
+    changed(); drawAll();
+    status("Drum part added from the automatic pattern; drum pattern is now 'my own'. Change the strokes, or click on the roll.");
+  }
+
   function addPart() {
     song.parts.push({ name: "part " + (song.parts.length + 1), instrument: song.system === "carnatic" ? "veena" : "strings",
                       octave: 0, gain: 0.7, pan: -0.3, text: "" });
@@ -170,6 +244,7 @@ export function isai(root) {
   function drawRoll() {
     const p = song.parts[partIndex];
     if (!p) return;
+    if (p.instrument === "drums") return drawDrumRoll(p);
     const scale = M.SCALES[song.scale].notes;
     rows = [];
     for (let o = 1; o >= -1; o--) for (let k = scale.length - 1; k >= 0; k--) rows.push(scale[k] + 12 * o);
@@ -224,8 +299,55 @@ export function isai(root) {
       g.fillStyle = "#fff"; g.fillRect(x, 0, 2, roll.height);
     }
   }
+  // A drum part's roll: a lane for each kind of stroke; click to add or remove
+  function drawDrumRoll(p) {
+    let parsed;
+    try { parsed = M.parseDrums(p.text, song); } catch (e) { parsed = { hits: [], steps: 0 }; }
+    const { beats, strong } = M.cycleOf(song);
+    const per = beats * song.steps;
+    const steps = Math.max(M.songSteps(song), parsed.steps + per);
+    rows = M.KIND_ORDER;
+    roll.width = LABEL + steps * CW; roll.height = rows.length * RH * 1.5;
+    const g = roll.getContext("2d"), rh = RH * 1.5;
+    g.fillStyle = "#1b1c24"; g.fillRect(0, 0, roll.width, roll.height);
+    g.font = "11px ui-monospace, monospace"; g.textBaseline = "middle";
+    rows.forEach((kind, r) => {
+      g.fillStyle = r % 2 ? "#20222b" : "#1d1f27"; g.fillRect(LABEL, r * rh, roll.width, rh);
+      g.fillStyle = "#c9c7c0"; g.fillText(M.drumWord(kind, song), 4, r * rh + rh / 2);
+    });
+    for (let st = 0; st <= steps; st++) {
+      const beat = st % song.steps === 0, b = Math.floor((st % per) / song.steps);
+      g.strokeStyle = st % per === 0 ? "#f0a33088" : beat && strong.includes(b) ? "#ffffff30" : beat ? "#ffffff18" : "#ffffff08";
+      g.beginPath(); g.moveTo(LABEL + st * CW, 0); g.lineTo(LABEL + st * CW, roll.height); g.stroke();
+    }
+    for (const x of parsed.hits) {
+      const r = rows.indexOf(x.kind);
+      g.globalAlpha = x.vol ? 0.3 + 0.7 * x.vol / 9 : 1;
+      g.fillStyle = ["#e5604f", "#f0a330", "#4fb3a9", "#e0789a"][r];
+      g.beginPath(); g.arc(LABEL + x.at * CW + CW / 2, r * rh + rh / 2, CW * 0.36, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    }
+    if (source) {
+      const xx = LABEL + ((audio.currentTime - playStart) % playLen) / playLen * M.songSteps(song) * CW;
+      g.fillStyle = "#fff"; g.fillRect(xx, 0, 2, roll.height);
+    }
+  }
+  function clickDrumRoll(p, e) {
+    let parsed;
+    try { parsed = M.parseDrums(p.text, song); } catch (err) { return status("Mend the drum part first: " + err.message, true); }
+    const at = Math.floor((e.offsetX - LABEL) / CW), kind = M.KIND_ORDER[Math.floor(e.offsetY / (RH * 1.5))];
+    if (!kind || at < 0) return;
+    const there = parsed.hits.findIndex((x) => x.at === at && x.kind === kind);
+    if (there >= 0) parsed.hits.splice(there, 1); else parsed.hits.push({ at, kind });
+    const { beats } = M.cycleOf(song), per = beats * song.steps;
+    const end = Math.max(parsed.steps, at + 1);
+    p.text = M.writeDrums(parsed.hits, Math.ceil(end / per) * per, song, per);
+    changed(); drawParts(); drawRoll();
+  }
+
   roll.addEventListener("mousedown", (e) => {
     const p = song.parts[partIndex];
+    if (p && p.instrument === "drums") { if (e.offsetX >= LABEL) clickDrumRoll(p, e); return; }
     if (!p || e.offsetX < LABEL) return;
     let parsed;
     try { parsed = M.parseNotation(p.text, song); } catch (err) { return status("Mend the part's notation first: " + err.message, true); }
@@ -332,9 +454,24 @@ export function isai(root) {
       song = { ...M.newSong(s.system), ...s };
       path = files.value; dirty = false; partIndex = 0;
       stop(); drawAll();
-      status(`Opened ${path}.`);
+      const old = song.made && song.made.engine !== M.ENGINE;
+      status(old ? `Opened ${path}. Its WAV was made by Isai engine ${song.made.engine}; this is engine ${M.ENGINE}, ` +
+        "so making it again will change its sound a little." : `Opened ${path}.`, old);
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }
+  // An example song, opened as a new song: Save puts it in this game's music folder
+  async function openExample() {
+    if (!examples.value) return;
+    if (dirty && !confirm("The song in hand has changes that are not saved. Open the example anyway?")) return;
+    try {
+      const s = await (await fetch(new URL("./songs/" + examples.value, import.meta.url))).json();
+      song = { ...M.newSong(s.system), ...s };
+      path = ""; dirty = true; partIndex = 0;
+      stop(); drawAll();
+      status(`${s.title}: ${s.about} Save keeps a copy in this game's music folder.`);
+    } catch (e) { status("Could not open the example: " + e.message, true); }
+  }
+
   function create(system, chip = false) {
     if (dirty && !confirm("The song in hand has changes that are not saved. Start a new one anyway?")) return;
     song = chip ? M.newChipSong(system) : M.newSong(system); path = ""; dirty = true; partIndex = 0;
@@ -352,6 +489,7 @@ export function isai(root) {
   async function save() {
     if (!(await ensurePath())) return;
     try {
+      await refreshNote(song);                         // still what its WAV was made from?
       await api.write(path, JSON.stringify(song, null, 1) + "\n");
       dirty = false;
       await refreshFiles();
@@ -364,12 +502,39 @@ export function isai(root) {
     if (!(await ensurePath())) return;
     try {
       status("Making the WAV…");
-      const ch = mix(await renderAsync(JSON.parse(JSON.stringify(song))));
-      const wav = encodeWAV(song.mono ? [ch[0]] : ch, song.rate || M.RATE, M.loopFrame(song) || null);
+      const ch = await renderAsync(JSON.parse(JSON.stringify(song)));
+      const wav = wavBytes(song, ch);
       await api.write(wavOf(path), wav);
+      song.made = await madeNote(song, wav);           // the note pack reads: which engine, which WAV, which song
       await save();
       status(`Made ${wavOf(path)} (${(ch[0].length / (song.rate || M.RATE)).toFixed(1)} s, ${Math.round(wav.length / 1024)} KB) and saved ${path}.`);
+      drawHead();
     } catch (e) { status("No WAV made: " + e.message, true); }
+  }
+
+  // Every song in the game's music folder whose WAV is missing or out of date
+  async function makeAll() {
+    if (dirty && !confirm("The song in hand has changes that are not saved; Make all WAVs uses the saved songs. Go on?")) return;
+    const songs = shared.files.filter((f) => /^music\/[^/]+\.json$/.test(f));
+    let made = 0;
+    try {
+      for (const f of songs) {
+        const s = JSON.parse(await api.readText(f));
+        if (s.format !== "isai-song") continue;
+        await refreshNote(s);
+        const why = needsWav(s, shared.files.includes(wavOf(f)));
+        if (!why) continue;
+        status(`Making ${wavOf(f)} (${why})…`);
+        const wav = wavBytes(s, await renderAsync(s));
+        await api.write(wavOf(f), wav);
+        s.made = await madeNote(s, wav);
+        await api.write(f, JSON.stringify(s, null, 1) + "\n");
+        made++;
+        if (f === path) song.made = s.made;
+      }
+      await refreshFiles();
+      status(made ? `Made ${made} WAV${made > 1 ? "s" : ""}; every song's WAV is up to date.` : "Every song's WAV was already up to date.");
+    } catch (e) { status("Stopped: " + e.message, true); }
   }
 
   function drawAll() { drawHead(); drawScale(); drawParts(); drawRoll(); }

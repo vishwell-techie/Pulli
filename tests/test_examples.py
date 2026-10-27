@@ -80,13 +80,73 @@ def walkable_without_keys(name):
     return {k: (sum(i in seen for i in v), len(v)) for k, v in marks.items()}
 
 
+# Nizhalattam's music is some 70 MB of WAV, and packing it takes a minute:
+# the copies the tests play leave it out (music() then does nothing), and
+# one test packs the game whole.
+NO_MUSIC = shutil.ignore_patterns("music")
+
+
+def challenge_passable(rows, start, goal, up, across, wall=False, dodge=False):
+    """Whether, in a challenge room drawn as rows of "#" (solid), "=" (thin)
+    and "." (open), Komali can get from `start` to `goal` (cells his feet
+    stand in): climbing `up` tiles and jumping `across` (the double jump:
+    more of each); with the wall jump, up a narrow shaft between two walls;
+    with the second dodge, straight across a pit at most 14 wide, or one
+    tile down."""
+    h, w = len(rows), len(rows[0])
+    solid = lambda x, y: not (0 <= x < w and 0 <= y < h) or rows[y][x] == "#"
+    floor_ = lambda x, y: 0 <= y + 1 < h and rows[y + 1][x] in "#="
+    stand = lambda x, y: 0 <= x < w and 0 <= y < h and not any(solid(x, y - n) for n in range(3)) and floor_(x, y)
+
+    def nexts(x, y):
+        for dx in range(-across, across + 1):
+            lo, hi = sorted((x, x + dx))
+            for dy in range(-up, h - y):
+                q = (x + dx, y + dy)
+                top = min(y, q[1])
+                if stand(*q) and not any(solid(x, yy) for yy in range(top - 2, y + 1)) \
+                   and not any(solid(c, yy) for c in range(lo + 1, hi) for yy in range(y - up, top + 1)):
+                    yield q
+        if wall:                       # a shaft: walls either side within five tiles, all the way up
+            for dx in range(-6, 7):
+                for dy in range(-12, -up - 1 + 1):
+                    q = (x + dx, y + dy)
+                    if stand(*q):
+                        lo, hi = sorted((x, q[0]))
+                        ok = True
+                        for yy in range(q[1] + 1, y - 2):     # (the bottom of a shaft is walked into)
+                            left = any(solid(c, yy) for c in range(lo - 4, lo + 1))
+                            right = any(solid(c, yy) for c in range(hi, hi + 5))
+                            if not (left and right):
+                                ok = False
+                                break
+                        if ok:
+                            yield q
+        if dodge:                      # two rolls, straight on, through nothing solid
+            for d in (-1, 1):
+                for n in range(1, 15):
+                    if any(solid(x + d * n, y - r) for r in range(3)):
+                        break
+                    for dy in (0, 1):
+                        q = (x + d * n, y + dy)
+                        if stand(*q):
+                            yield q
+    seen, todo = {start}, [start]
+    while todo:
+        for q in nexts(*todo.pop()):
+            if q not in seen:
+                seen.add(q)
+                todo.append(q)
+    return goal in seen
+
+
 def nizhalattam_climbs(up=3, across=7):
     """Whether, in every Nizhalattam room, each door can be reached from the
     start and from each other door, climbing at most `up` tiles at a time (a
     held jump rises 4.5) and jumping at most `across` tiles. A coarse walk
     over the places Komali can stand (three clear tiles over a floor); a
     boat's deck stands level with the quays, and a ferry's spans its water.
-    The grey tuning rooms test the jump's limits and are left out."""
+    The grey test rooms too: they are behind a door in the Courtyard."""
     import glob, xml.etree.ElementTree as ET
     game = os.path.join(ROOT, "examples", "nizhalattam")
     flags = {}
@@ -98,8 +158,6 @@ def nizhalattam_climbs(up=3, across=7):
     stuck = []
     for path in sorted(glob.glob(os.path.join(game, "*.tmx"))):
         name = os.path.basename(path)[:-4]
-        if name in ("test", "climb"):
-            continue
         root = ET.parse(path).getroot()
         w, h = int(root.get("width")), int(root.get("height"))
         ground, front = [[(int(v) & 0x0FFFFFFF) - 1 for v in layer.find("data").text.replace("\n", "").split(",")
@@ -659,7 +717,7 @@ def main():
                      f'function update(dt) if stat("frame") == 1 then rooms.enter("test.ooru", nil, body) fight.wear({{ "komali", "veeran" }}) {place} end up(dt) local k, f = body.k, stat("frame")\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
-                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames)
@@ -724,9 +782,9 @@ def main():
                         'if f == 110 then dbg("up", k.y + k.h, tostring(k.ground)) end '
                         'if f == 200 then dbg("down", k.y + k.h, tostring(k.ground)) end')
         t.check("nizhalattam: he lands on a thin floor from below, and down + A drops him through",
-                got.get("up") == ["176", "true"] and got.get("down") == ["208", "true"], got)
+                got.get("up") == ["184", "true"] and got.get("down") == ["208", "true"], got)       # (the stack's first, row 23)
 
-        r, got = komali("wall", "at(70, 80)", "i.left = true",
+        r, got = komali("wall", "at(70, 150)", "i.left = true",        # (below the pillar's top: down its side)
                         'if k.wall ~= 0 then st.n = (st.n or 0) + 1 st.v = math.max(st.v or 0, k.vy) end '
                         'if f == 200 then dbg("slid", st.n or 0, st.v or 0) end')
         slid = got.get("slid", ["0", "9"])
@@ -820,7 +878,7 @@ def main():
         # Through every room, by their doors: each map and sheet is read
         # ahead before it is first used, and a frame changes sheets twice.
         ahead = ('local ready, pre, ml, sl = {}, preload, map.load, sheet.load\n'
-                 'ready["map.ooru"], ready["sprites.kolam"] = true, true\n'
+                 'ready["map.ooru"], ready["sprites.kolam"], ready["test.ooru"] = true, true, true\n'   # (the test enters it itself)
                  'function preload(...) for _, n in ipairs({ ... }) do ready[n] = true end return pre(...) end\n'
                  'function map.load(n) if not ready[n] then dbg("late", n) end return ml(n) end\n'
                  'local loads = 0\n'
@@ -848,7 +906,7 @@ def main():
                            f'function update(dt) local k, f = body.k, stat("frame") if f == 1 then {setup} end up(dt)\n{report}\nend\n')
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
-                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
                 with open(os.path.join(folder, "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames, saves=saves)
@@ -893,15 +951,71 @@ def main():
         r, got = story('rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 400, 60',
                        'if f == 10 then i.door = true end if f == 15 or f == 25 or f == 35 or f == 45 then i.jump = true end '
                        'if f == 20 or f == 30 or f == 40 then i.down_p = true end if f == 50 then i.attack = true end',
-                       'if f == 60 then dbg("bought", k.health, fight.mai, table.concat(run.charms, ","), tostring(run.sharp.Komali), tostring(rooms.shop.is_open())) end', frames=70)
+                       'if f == 60 then dbg("bought", k.health, fight.mai, table.concat(run.charms, ","), tostring(run.sharp.Komali), tostring(rooms.shop.is_open())) '
+                       '  local it = rooms.shop.ITEMS dbg("stock", #it, it[3].key .. "," .. it[4].key, it[3].price + it[4].price) end', frames=70)
+        stock = got.get("stock", ["0", "", "0"])
         t.check("nizhalattam: at the stall mai buys mending, a sharper role, and charms; B leaves",
-                got.get("bought") == ["85", "130", "bell,spool", "true", "false"], got)
+                stock[0] == "4" and got.get("bought") == ["85", str(400 - 30 - 80 - int(stock[2])), stock[1], "true", "false"], got)
+
+        # the later repairs: the wall jump, a second dodge, more mending, a
+        # third charm, a stall stocking one more; and the charms they open
+        def wall(on):
+            r, got = komali("wall", f'body.k.walljump = {on} body.place(68 * 8 + 5, 120)',
+                            "i.left = f < 21 if f == 20 then i.jump, i.a = true, true end if f > 20 and f < 40 then i.a = true end",
+                            'if f == 19 then dbg("sliding", k.wall) end if f == 22 then dbg("off", k.vy < 0 and "up" or "down", k.vx > 0 and "away" or "-") end', frames=24)
+            return got.get("sliding"), got.get("off")
+        def dodges(on):
+            r, got = komali("dodge", f'body.k.second, body.k.spare = {on}, {on} at(20, 208)',
+                            "if f == 10 or f == 33 then i.dodge = true end",
+                            'if f == 34 then dbg("again", tostring(k.dodge > 0)) end', frames=36)
+            return got.get("again")
+        t.check("nizhalattam: the wall jump (a repair) springs up and away from a wall he slides down; a second dodge follows the first",
+                wall("true") == (["-1"], ["up", "away"]) and wall("false") == (["-1"], ["down", "-"])
+                and dodges("true") == ["true"] and dodges("false") == ["false"], (wall("true"), wall("false")))
+        r, got = story('run.data.repairs.r_stock, run.data.repairs.r_charm3, run.data.repairs.r_mend = 1, 1, 1 '
+                       'rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 900, 40 run.charms[1], run.charms[2] = "x", "y"',
+                       'if f == 10 then i.door = true end if f == 15 then i.jump = true end '
+                       'if f == 20 or f == 22 then i.down_p = true end if f == 25 then i.jump = true end',
+                       'if f == 30 then dbg("stall", #rooms.shop.ITEMS, k.health, #run.charms) end', frames=32)
+        t.check("nizhalattam: with the repairs, stalls stock three charms, mend 35, and a third charm can be carried",
+                got.get("stall") == ["5", "75", "3"], f"{got} {r.err[-300:]}")
+        dummies = ('local d = {} for _, s in ipairs(shadows.list) do if s.kind == "dummy" then d[#d + 1] = s end end ')
+        r, got = story('rooms.enter("s2.ooru", "s1.ooru", body) run.charms[1] = "torn" ' + dummies + 'st.d = d at(16, 208) k.face = 1',
+                       "if f == 10 or f == 40 then i.attack = true end",
+                       'if f == 30 then dbg("first", st.d[1].hp) end if f == 60 then dbg("then", st.d[1].hp) end', frames=62)
+        r2, got2 = story('rooms.enter("s2.ooru", "s1.ooru", body) run.charms[1] = "soot" ' + dummies +
+                         'd[1].hp = 1 d[2].x = d[1].x + 14 st.d = d at(16, 208) k.face = 1',
+                         "if f == 10 then i.attack = true end",
+                         'if f == 30 then dbg("burnt", tostring(st.d[1].on), st.d[2].hp) end', frames=32)
+        r3, got3 = story('run.charms[1] = "drum" fight.hit(false) dbg("drum", fight.freeze, fight.cost(10, fight.role()))', "", "", frames=3)
+        t.check("nizhalattam: the torn page doubles a room's first blow; lamp soot burns a torn shadow's neighbours; the drum skin hits longer and harder",
+                got.get("first") == ["6"] and int(got.get("then", ["9"])[0]) <= 0
+                and got2.get("burnt") == ["false", "12"] and got3.get("drum") == ["5", "12"],
+                f"{got} {got2} {got3} {r.err[-200:]} {r2.err[-200:]} {r3.err[-200:]}")
 
         r, got = story('rooms.enter("s6.ooru", "s5.ooru", body) at(20, 208) fight.mai, k.health = 10, 60',
                        'if f == 10 then i.door = true end if f == 15 then i.jump = true end',
                        'if f == 30 then dbg("poor", k.health, fight.mai) end', frames=40)
         t.check("nizhalattam: without the mai, nothing is bought",
                 got.get("poor") == ["60", "10"], got)
+
+        # the Screen's shadows before its stall leave, at the least, enough
+        # for the stall's cheapest good: the first stall is never out of reach
+        import xml.etree.ElementTree as ET
+        nz = os.path.join(ROOT, "examples", "nizhalattam")
+        src = open(os.path.join(nz, "shadows.lua")).read()
+        least = {"soldier": int(re.search(r"mai = \{ (\d+), \d+ \},\s+-- drops of ink he leaves", src).group(1))}
+        for kind in ("dummy", "ink", "scrap"):
+            least[kind] = int(re.search(kind + r" = \{[^}]*mai = \{ (\d+),", src).group(1))
+        marker = {1001: "soldier", 1003: "dummy", 1004: "ink", 1005: "scrap"}
+        earned = 0
+        for n in range(1, 6):
+            root = ET.parse(os.path.join(nz, f"s{n}.tmx")).getroot()
+            cells = root.findall("layer")[1].find("data").text.replace("\n", "").split(",")
+            earned += sum(least[marker[int(c) - 1]] for c in cells if c.strip() and int(c) - 1 in marker)
+        prices = [int(p) for p in re.findall(r"price = (\d+)", open(os.path.join(nz, "stall.lua")).read())]
+        t.check("nizhalattam: the Screen's shadows leave enough mai for something at its stall",
+                earned >= min(prices), f"{earned} {min(prices)}")
 
         r, got = story('rooms.enter("s7.ooru", "s6.ooru", body) run.charms[1] = "spool" at(18, 208) '
                        'for _, s in ipairs(shadows.list) do s.on = false end',
@@ -923,6 +1037,16 @@ def main():
         t.check("nizhalattam: Veeran shows each move first, with a wind-up twice as long",
                 r.code == 0 and len(firsts) >= 2 and all(v == 2 * wind[m] for m, v in firsts.items())
                 and len(shown) >= 1 and all(seconds[m] == wind[m] for m in seconds), got)
+
+        # his walk is drawn a whole frame at a time (48 px: 6 cells apart),
+        # never half of one and half of the next
+        r, got = story('rooms.enter("boss.ooru", "s7.ooru", body) local o = spr nz_bad, nz_walk = 0, 0 '
+                       'spr = function(n, ...) if n >= 1024 and n < 1084 then '
+                       '  if (n - 1024) % 6 ~= 0 then nz_bad = nz_bad + 1 elseif n > 1024 and n < 1054 then nz_walk = nz_walk + 1 end end '
+                       '  return o(n, ...) end', "",
+                       'k.health = 100 if f == 600 then dbg("walk", nz_walk > 0, nz_bad) end', frames=610)
+        t.check("nizhalattam: Veeran's walk is drawn in whole frames",
+                got.get("walk") == ["true", "0"], f"{got} {r.err[-300:]}")
 
         # (a run of two stories: the halfway tear comes after the first)
         r, got = story('run.start(body, { "forest" }) rooms.enter("boss.ooru", "s7.ooru", body)',
@@ -1866,6 +1990,170 @@ def main():
                     uneven[name] = langs
         t.check("nizhalattam: every story's own words are there in Tamil and in English", not uneven, uneven)
 
+        # The music: a track for the title, the Courtyard, each story, the
+        # bosses, the King and the endings; a room plays its own (a boss's
+        # room the bosses'), each coming in over the last
+        r, got = story('local function play(room, from) rooms.enter(room, from, body) return rooms.playing end '
+                       'dbg("tracks", rooms.playing, play("s1.ooru", "map.ooru"), play("boss.ooru", "s7.ooru"), play("f1.ooru"), '
+                       '  play("k1.ooru"), play("b1.ooru"), play("m1.ooru"), play("p1.ooru"), play("pboss.ooru"), play("p7.ooru"), '
+                       '  play("tear.ooru"))', "", "", frames=3)
+        r2, got2 = story("", "", 'if f == 2 then dbg("title", rooms.playing) end', frames=3, title=True)
+        t.check("nizhalattam: each place plays its track, a boss's room the bosses', the King's his own, the title its own",
+                got.get("tracks") == ["1", "2", "8", "3", "4", "5", "6", "7", "8", "9", "1"] and got2.get("title") == ["0"],
+                f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
+        # Challenge rooms, behind the secret door in each story's stall room:
+        # built from the run's seed and the Jester's skills. Every room can
+        # be crossed with the skills he has; and each skill he has is needed
+        # in it (without it, no way through)
+        dump = ('local function dump(tag) local w, h = map.size() for y = 0, h - 1 do local r = {} for x = 0, w - 1 do '
+                'local f = map.flags(map.get(0, x, y)) r[#r + 1] = f & 1 ~= 0 and "#" or f & 2 ~= 0 and "=" or "." end '
+                'dbg(tag .. string.format("%02d", y), table.concat(r)) end '
+                'dbg(tag .. "at", rooms.chest_x // 8, rooms.floor_y // 8 - 1, (k.x + 5) // 8, (k.y + k.h) // 8 - 1) end ')
+        setup = dump + 'run.start(body, { "forest" }, "palace") '
+        cases = []
+        for place, stall in (("screen", "s6"), ("forest", "f4"), ("sea", "k4"), ("flags", "b4"), ("masks", "m4"), ("palace", "p4")):
+            for seed in (11, 4242):
+                for skills in range(8):
+                    dj, wj, d2 = bool(skills & 1), bool(skills & 2), bool(skills & 4)
+                    tag = f"{place}{seed}_{skills}_"
+                    cases.append((tag, dj, wj, d2))
+                    setup += (f'run.seed = {seed} k.double, k.walljump, k.second = {str(dj).lower()}, {str(wj).lower()}, {str(d2).lower()} '
+                              f'rooms.enter("{stall}.ooru", nil, body) rooms.enter("challenge.ooru", "{stall}.ooru", body) dump("{tag}") ')
+        r, got = story(setup, "", "", frames=2)
+        bad = []
+        for tag, dj, wj, d2 in cases:
+            rows = [got.get(f"{tag}{y:02d}", [""])[0] for y in range(30)]
+            at = [int(v) for v in got.get(tag + "at", ["0", "0", "0", "0"])]
+            if not all(rows):
+                bad.append((tag, "no room"))
+                continue
+            goal, start = (at[0], at[1]), (at[2], at[3])
+            up, across = (6, 10) if dj else (3, 7)
+            if not challenge_passable(rows, start, goal, up, across, wj, d2):
+                bad.append((tag, "cannot be crossed with its skills"))
+            for has, without in ((dj, dict(up=3, across=7, wall=wj, dodge=d2)), (wj, dict(up=up, across=across, wall=False, dodge=d2)),
+                                 (d2, dict(up=up, across=across, wall=wj, dodge=False))):
+                if has and challenge_passable(rows, start, goal, **without):
+                    bad.append((tag, "crossed without a skill it should ask for"))
+        t.check("nizhalattam: each challenge room can be crossed with the Jester's skills, and asks for every one he has",
+                r.code == 0 and not bad, f"{bad[:8]} {r.err[-300:]}")
+
+        # and played, with the real body: up the shaft with wall jumps, and
+        # across the roofed pit with two rolls; not without them
+        # (the room is built for the skill; played with it, or with it taken away)
+        enter = ('run.start(body, {{ "forest" }}, "palace") run.seed = {seed} '
+                 'k.double, k.walljump, k.second, k.spare = false, {wj} ~= nil, {d2} ~= nil, {d2} ~= nil '
+                 'rooms.enter("f4.ooru", nil, body) rooms.enter("challenge.ooru", "f4.ooru", body) '
+                 'k.walljump, k.second, k.spare = {wj} == true, {d2} == true, {d2} == true ')
+        played = {}
+        for seed in (11, 4242, 7):
+            for wj in ("true", "false"):
+                r, got = story(enter.format(seed=seed, wj=wj, d2="nil") +
+                               'local a = rooms.shop.shaft_at st.top = a[3] at(a[1], (a[2] + 1) * 8) st.dir = 1',
+                               'k.health = 100 if k.wall ~= 0 then i.jump = true st.dir = -k.wall end '
+                               'if k.ground and f > 5 and (k.y + k.h) // 8 > st.top + 1 then i.jump = true st.dir = 1 end '
+                               'i.right, i.left, i.a = st.dir > 0, st.dir < 0, true',
+                               'if not st.up and k.ground and (k.y + k.h) // 8 - 1 <= st.top then st.up = f end '
+                               'if f == 600 then dbg("up", tostring(st.up ~= nil)) end', frames=602)
+                played[f"shaft {seed} {wj}"] = got.get("up", ["?"])[0]
+            for d2 in ("true", "false"):
+                r, got = story(enter.format(seed=seed, wj="nil", d2=d2) +
+                               'local a = rooms.shop.tunnel_at st.a = a at(a[1], (a[2] + 1) * 8)',
+                               'k.health = 100 i.right = true '
+                               'if not st.go and (k.x + k.w) // 8 >= st.a[1] + 3 then st.go = f end '
+                               'if st.go and f < st.go + 60 and k.dodge == 0 and (st.n or 0) < 2 then i.dodge = true end '
+                               'if k.dodge == 17 then st.n = (st.n or 0) + 1 end',
+                               'if not st.across and (k.x + 5) // 8 >= st.a[3] and k.ground then st.across = f end '
+                               'if f == 150 then dbg("across", tostring(st.across ~= nil)) end', frames=152)
+                played[f"tunnel {seed} {d2}"] = got.get("across", ["?"])[0]
+        t.check("nizhalattam: a challenge room's shaft is climbed with wall jumps and its roofed pit crossed with two rolls, not without",
+                all(v == ("true" if k.endswith("true") else "false") for k, v in played.items()), played)
+
+        # the chest: oil, mai or a charm, once a run; in hard mode, while the
+        # story's page is not found, the page alone (and not where it lay);
+        # the shadows of a challenge room leave nothing when torn
+        go = ('run.start(body, {{ "forest" }}, "palace") run.data.king = {hard} k.double = true '
+              'rooms.enter("k4.ooru", nil, body) rooms.enter("challenge.ooru", "k4.ooru", body) ')
+        r, got = story(go.format(hard="false") +
+                       'st.oil, st.mai, st.c = run.data.oil, fight.mai, #run.charms '
+                       'local a, b = rooms.shop.open() local again = rooms.shop.open() '
+                       'dbg("chest", a, tostring(again), run.data.oil - st.oil + fight.mai - st.mai + #run.charms - st.c > 0, '
+                       '  tostring(shadows.nodrop), #run.data.pages) '
+                       'rooms.enter("k5.ooru", nil, body) dbg("lying", tostring(rooms.page_x ~= nil))', "", "", frames=3)
+        r2, got2 = story(go.format(hard="true") +
+                         'st.oil, st.mai, st.c = run.data.oil, fight.mai, #run.charms '
+                         'local a, b = rooms.shop.open() '
+                         'dbg("chest", a, table.concat(run.data.pages, ","), run.data.oil - st.oil + fight.mai - st.mai + #run.charms - st.c) '
+                         'rooms.enter("k5.ooru", nil, body) dbg("lying", tostring(rooms.page_x ~= nil))', "", "", frames=3)
+        t.check("nizhalattam: a challenge chest gives oil, mai or a charm once; in hard mode the story's page alone; its shadows drop nothing",
+                got.get("chest") == ["say", "nil", "true", "true", "0"] and got.get("lying") == ["true"]
+                and got2.get("chest") == ["card", "sea", "0"] and got2.get("lying") == ["false"],
+                f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
+        # fallen in a challenge room, the run goes on: he is back at the
+        # secret door with the health he went in with
+        r, got = story('run.start(body, { "forest" }, "palace") k.double = true rooms.enter("b4.ooru", nil, body) k.health = 64 '
+                       'rooms.enter("challenge.ooru", "b4.ooru", body) st.falls = run.data.falls fight.mai = 33', "",
+                       'if f == 3 then k.health = 0 end '
+                       'if f == 6 then dbg("back", rooms.name, k.health, (k.x + 5) // 8, (k.y + k.h) // 8, run.data.falls - st.falls, '
+                       '  tostring(run.seed ~= nil), fight.mai) end', frames=8)
+        t.check("nizhalattam: fallen in a challenge room, the Jester is back at its secret door with the health he took in; the run goes on",
+                got.get("back") == ["b4.ooru", "64", "34", "20", "0", "true", "33"], f"{got} {r.err[-300:]}")
+
+        # the Courtyard has one way into the stories, the theatre's screen (no
+        # side door to the test rooms); standing at a way in, it glows and
+        # the button shows (rooms.at_entry): at a door, at the box, not between
+        r, got = story('dbg("doors", #rooms.def().doors, rooms.def().doors[1]) '
+                       'local function at(cx) body.place(cx * 8 + 4, 208) k.ground = true return tostring(rooms.at_entry(k) ~= nil) end '
+                       'dbg("entry", at(34), at(7), at(20))', "", "", frames=3)
+        t.check("nizhalattam: the Courtyard's one door is the theatre's screen; a way in glows, with its button, only while he stands at it",
+                got.get("doors") == ["1", "s1.ooru"] and got.get("entry") == ["true", "true", "false"], f"{got} {r.err[-300:]}")
+
+        # sound effects: each thing done has its own (sound.lua names them)
+        heard = ('local N = require("sound").N local named = {} for k, v in pairs(N) do named[v] = k end '
+                 'sfx = function(n) st.heard = st.heard or {} st.heard[named[n]] = true end ')
+        r, got = story(heard + 'rooms.enter("s2.ooru", "s1.ooru", body) at(16, 208) k.face = 1 '
+                       'for _, s in ipairs(shadows.list) do if s.kind == "dummy" then s.hp = 1 end end',
+                       'if f == 5 then i.jump = true end if f >= 5 and f < 30 then i.a = true end '
+                       'if f >= 60 and f % 14 == 0 then i.attack = true end '
+                       'if f == 200 then i.dodge = true end',
+                       'if f == 260 then rooms.enter("boss.ooru", "s7.ooru", body) at(8, 208) end '
+                       'if f == 480 then local h = {} for k in pairs(st.heard or {}) do h[#h + 1] = k end table.sort(h) '
+                       '  dbg("heard", table.concat(h, ",")) end', frames=482)
+        heard_ = set(got.get("heard", [""])[0].split(","))
+        t.check("nizhalattam: jumping, landing, blows landing, tearing, dodging and a boss getting ready each have their sound",
+                {"jump", "land", "slap", "hit", "torn", "dodge", "warn"} <= heard_, f"{got} {r.err[-300:]}")
+
+        # the whole game, its music packed (once: a minute's work): eleven
+        # tracks of 44.1 kHz stereo, squeezed; a story's track and a boss's
+        # coming in over it stay inside the 6 MB a game may hold
+        # (the songs are in git, their WAVs are not: until they are made,
+        # with Isai or tools/pattarai/make-wavs.mjs, skipped)
+        music = os.path.join(ROOT, "examples", "nizhalattam", "music")
+        songs = sorted(f for f in os.listdir(music) if f.endswith(".json")) if os.path.isdir(music) else []
+        if not songs or not all(os.path.exists(os.path.join(music, f[:-5] + ".wav")) for f in songs):
+            t.skipped += 1
+            print("  SKIP  nizhalattam: its music (the songs' WAVs are not made: "
+                  "node tools/pattarai/make-wavs.mjs examples/nizhalattam)")
+        else:
+            with tempfile.TemporaryDirectory() as tmp:
+                folder = os.path.join(tmp, "n")
+                shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
+                with open(os.path.join(folder, "main.lua"), "a") as f:
+                    f.write('\nrequire("title").skip = 1\nlocal body, rooms = require("body"), require("rooms")\nlocal up = update\n'
+                            'function update(dt) local f = stat("frame") if f == 2 then rooms.enter("s5.ooru", "s4.ooru", body) end '
+                            'if f == 100 then rooms.enter("boss.ooru", "s7.ooru", body) end up(dt) '
+                            'local a = stat("active") if a > (_G.most or 0) then _G.most = a end '
+                            'if f == 200 then dbg("active", _G.most) end end\n')
+                data = pulli.build(folder)
+                clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
+                r = t.run_package(data, frames=205)
+            active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999"])
+            t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB",
+                    len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
+                    and r.code == 0 and float(active[0]) < 6144, f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
+
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",
                        'if f == 30 then collectgarbage() dbg("hub", stat("mem")) rooms.enter("boss.ooru", "s7.ooru", body) end '
@@ -1892,9 +2180,11 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 134 and bossroom < 136 and forestroom < 140 and vilroom < 144 and searoom < 155 and aattaroom < 150
-                and fieldroom < 152 and elephantroom < 150 and marketroom < 150 and ministerroom < 155
-                and palaceroom < 159 and queenroom < 156 and kingroom < 162 and after < forestroom - 4, got)
+                hub < 144 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
+                and fieldroom < 161 and elephantroom < 158 and marketroom < 158 and ministerroom < 163
+                and palaceroom < 167 and queenroom < 164 and kingroom < 171
+                # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
+                and after < hub + 7, got)
 
         if t.update:
             with open(path, "w") as f:

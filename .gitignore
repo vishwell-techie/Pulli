@@ -11,3 +11,7 @@ private/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+
+# Nizhalattam's music: the songs (music/*.json) are kept; their WAVs
+# (some 70 MB) are made from them by Isai or tools/pattarai/make-wavs.mjs
+examples/nizhalattam/music/*.wav
