@@ -1,12 +1,13 @@
 // Pattarai's shell: the tabs, the game folder (through `pulli edit`), the
 // palette and the sprite sheet the editors share.
-import { BUILTIN, parsePalette } from "./lib/palette.js";
+import { BUILTIN, parsePalette, quantiseTo } from "./lib/palette.js";
 import { encodePNG } from "./lib/png.js";
 import { kolam } from "./kolam.js";
 import { ooru } from "./ooru.js";
 import { isai } from "./isai.js";
 import { vidhi } from "./vidhi.js";
 import { oli } from "./oli.js";
+import { backdrop } from "./backdrop.js";
 import { project } from "./project.js";
 import { useTamil } from "./lib/i18n.js";
 
@@ -54,48 +55,40 @@ export const shared = {
   changed(what) { for (const f of this.listeners) f(what); },
 };
 
-export function nearest(rgb, palette) {
-  let best = 1, bd = Infinity;
-  for (let i = 1; i < 64; i++) {
-    const c = palette[i];
-    const d = ((c >> 16) - (rgb >> 16)) ** 2 + (((c >> 8) & 255) - ((rgb >> 8) & 255)) ** 2 + ((c & 255) - (rgb & 255)) ** 2;
-    if (d < bd) { bd = d; best = i; }
-  }
-  return best;
-}
-
-export async function loadSheet(path) {
-  const bitmap = await createImageBitmap(new Blob([await api.read(path)], { type: "image/png" }),
-                                         { premultiplyAlpha: "none", colorSpaceConversion: "none" });
+// A picture in the game's colours: palette indices, 0 where it is less
+// than half opaque, the rest the nearest colour (as pack does). `moved`
+// counts the pixels whose colour was not one of the 64.
+export async function decodePicture(bytes) {
+  const bitmap = await createImageBitmap(new Blob([bytes]), { premultiplyAlpha: "none", colorSpaceConversion: "none" });
   const c = new OffscreenCanvas(bitmap.width, bitmap.height);
   const g = c.getContext("2d");
   g.drawImage(bitmap, 0, 0);
-  const rgba = g.getImageData(0, 0, c.width, c.height).data;
-  const pixels = new Uint8Array(c.width * c.height);
-  const cache = new Map();
-  let moved = 0;
-  for (let i = 0; i < pixels.length; i++) {
-    if (rgba[i * 4 + 3] < 128) continue;
-    const rgb = (rgba[i * 4] << 16) | (rgba[i * 4 + 1] << 8) | rgba[i * 4 + 2];
-    if (!cache.has(rgb)) cache.set(rgb, nearest(rgb, shared.palette));
-    pixels[i] = cache.get(rgb);
-    if (shared.palette[pixels[i]] !== rgb) moved++;
-  }
-  shared.sheet = { path, width: c.width, height: c.height, pixels, dirty: false };
-  shared.changed("sheet");
-  return moved;
+  return quantise(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
 }
 
-export async function saveSheet() {
-  const s = shared.sheet;
-  const rgba = new Uint8Array(s.width * s.height * 4);
-  for (let i = 0; i < s.pixels.length; i++) {
-    const p = s.pixels[i];
+export const quantise = (rgba, width, height, dither = false) => quantiseTo(rgba, width, height, shared.palette, dither);
+
+export async function encodePicture(pic) {
+  const rgba = new Uint8Array(pic.width * pic.height * 4);
+  for (let i = 0; i < pic.pixels.length; i++) {
+    const p = pic.pixels[i];
     if (!p) continue;
     const c = shared.palette[p];
     rgba.set([c >> 16, (c >> 8) & 255, c & 255, 255], i * 4);
   }
-  await api.write(s.path, await encodePNG(s.width, s.height, rgba));
+  return encodePNG(pic.width, pic.height, rgba);
+}
+
+export async function loadSheet(path) {
+  const pic = await decodePicture(await api.read(path));
+  shared.sheet = { path, width: pic.width, height: pic.height, pixels: pic.pixels, dirty: false };
+  shared.changed("sheet");
+  return pic.moved;
+}
+
+export async function saveSheet() {
+  const s = shared.sheet;
+  await api.write(s.path, await encodePicture(s));
   s.dirty = false;
 }
 
@@ -142,6 +135,7 @@ async function start() {
     vidhi(document.getElementById("vidhi"));
     kolam(document.getElementById("kolam"));
     ooru(document.getElementById("ooru"));
+    backdrop(document.getElementById("backdrop"));
     oli(document.getElementById("oli"));
     isai(document.getElementById("isai"));
     project(document.getElementById("project"));

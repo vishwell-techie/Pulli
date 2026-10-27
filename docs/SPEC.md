@@ -1093,7 +1093,10 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `.png` sprite sheets in its 64 colours, sprites up to 64x64, with
    mirror drawing, an animation preview and onion skin; **Ooru** paints
    Tiled `.tmx` maps with the sheet's tiles (two layers, flips, boxes,
-   copied regions) and sets the tiles' flags in the tileset; **Oli** makes
+   copied regions) and sets the tiles' flags in the tileset; **Backdrop**
+   paints 320 x 240 backdrops (§3), fills skies with dithered gradients,
+   brings in a picture made elsewhere fitted to the screen and put in the
+   64 colours, and shows a map over it; **Oli** makes
    sound effects from a kind (jump, coin, hit, tabla...) and a few
    settings, kept as `sfx/<name>.json` beside the `sfx/<name>.wav` it
    makes, and trims, fades and levels any WAV; **Isai** writes music in

@@ -88,7 +88,7 @@ export function highlight(text) {
 
 // The asset a call on a line names, at or around column `col`.
 export function callAt(line, col) {
-  const re = /\b(spr|sfx|music|map\.load|sheet\.load|preload)\(\s*(\d+|"[^"]*")/g;
+  const re = /\b(spr|sfx|music|map\.load|sheet\.load|backdrop|preload)\(\s*(\d+|"[^"]*")/g;
   let m, best = null;
   while ((m = re.exec(line))) {
     const end = line.indexOf(")", m.index);

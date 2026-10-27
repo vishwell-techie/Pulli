@@ -7,6 +7,7 @@ import { encodePNG } from "../tools/pattarai/lib/png.js";
 import { encodeWAV, decodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
+import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
 const [, , village] = process.argv;
@@ -148,6 +149,18 @@ for (const name of Object.keys(O.PRESETS)) for (const seed of [1, 2, 3]) {
 out.oliInRange = Object.keys(O.PRESETS).every((n) => O.KNOBS.every(([k, min, max]) => {
   const v = O.mutate(O.preset(n, 5), 6)[k]; return v >= min - 1e-9 && v <= max + 1e-9; }));
 out.oliWav = b64(encodeWAV([O.render(O.preset("jump", 1))], O.RATE));
+
+// backdrops: pictures put in the 64 colours
+const px64 = new Uint8Array(64 * 4);
+BUILTIN.forEach((c, i) => px64.set([c >> 16, (c >> 8) & 255, c & 255, i ? 255 : 0], i * 4));
+out.exact = [...quantiseTo(px64, 64, 1, BUILTIN).pixels];
+const a = BUILTIN[1], b = BUILTIN[12];
+const mid = new Uint8Array(16 * 16 * 4);
+for (let i = 0; i < 256; i++) mid.set([((a >> 16) + (b >> 16)) >> 1, (((a >> 8) & 255) + ((b >> 8) & 255)) >> 1, ((a & 255) + (b & 255)) >> 1, 255], i * 4);
+out.plain = [...new Set(quantiseTo(mid, 16, 16, BUILTIN).pixels)];
+out.dithered = [...new Set(quantiseTo(mid, 16, 16, BUILTIN, true).pixels)].sort((x, y) => x - y);
+out.exactDithered = [...quantiseTo(px64, 64, 1, BUILTIN, true).pixels];
+out.backdropCall = callAt('backdrop("bg_easy.kolam")', 3);
 
 // Vidhi
 out.api = API;

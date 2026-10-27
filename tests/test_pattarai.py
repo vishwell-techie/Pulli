@@ -162,6 +162,7 @@ def library(t):
         t.check("a solid tick box counts as bit 0, and is kept in step with the flags set",
                 r["solid"] == [{"2": 1}, {"2": 6}], r["solid"])
     oli(t, r)
+    backdrops(t, r)
     vidhi(t, r)
 
 
@@ -183,6 +184,16 @@ def oli(t, r):
         t.check("pack takes Oli's WAV files into sfx.oli, mono at 22,050, the .json beside them left out",
                 (rate, channels) == (22050, 1) and len(sounds) == 2 and
                 all(c[:3] == (22050, 1, len(samples)) for c in sounds), sounds)
+
+
+def backdrops(t, r):
+    t.check("a picture already in the 64 colours keeps them, dithered or not; see-through is colour 0",
+            r["exact"] == list(range(64)) and r["exactDithered"] == list(range(64)), (r["exact"], r["exactDithered"]))
+    colours = [pulli.palette()[i] for i in range(64)]
+    t.check("a shade between two colours is one colour plain, and a mix of colours dithered",
+            len(r["plain"]) == 1 and len(r["dithered"]) >= 2, (r["plain"], r["dithered"]))
+    t.check("backdrop(name) under the cursor names its picture",
+            r["backdropCall"] == {"fn": "backdrop", "arg": "bg_easy.kolam"}, r["backdropCall"])
 
 
 def vidhi(t, r):

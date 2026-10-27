@@ -28,3 +28,43 @@ export function parsePalette(text) {
 }
 
 export const css = (c) => "#" + c.toString(16).padStart(6, "0");
+
+// The nearest of colours 1 to 63 (0 is see-through in sprites), as pack
+// matches a picture's colours.
+export function nearest(rgb, palette) {
+  let best = 1, bd = Infinity;
+  for (let i = 1; i < 64; i++) {
+    const c = palette[i];
+    const d = ((c >> 16) - (rgb >> 16)) ** 2 + (((c >> 8) & 255) - ((rgb >> 8) & 255)) ** 2 + ((c & 255) - (rgb & 255)) ** 2;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+// RGBA pixels as palette indices: 0 where less than half opaque, the rest
+// the nearest colour. dither: a 4x4 ordered pattern first, so a shade
+// between two colours comes out as a fine mix of them. `moved` counts the
+// pixels whose colour was not one of the 64.
+export function quantiseTo(rgba, width, height, palette, dither = false) {
+  const pixels = new Uint8Array(width * height);
+  const cache = new Map();
+  let moved = 0;
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const own = new Map(palette.map((c, i) => [c, i]).filter(([, i]) => i > 0).reverse());
+  for (let i = 0; i < pixels.length; i++) {
+    if (rgba[i * 4 + 3] < 128) continue;
+    let r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+    const exact = (r << 16) | (g << 8) | b;
+    if (own.has(exact)) { pixels[i] = own.get(exact); continue; }   // already one of the colours: kept, never dithered
+    if (dither) {
+      const t = (bayer[(Math.floor(i / width) % 4) * 4 + (i % width) % 4] / 16 - 0.5) * 40;
+      r = Math.max(0, Math.min(255, Math.round(r + t))); g = Math.max(0, Math.min(255, Math.round(g + t)));
+      b = Math.max(0, Math.min(255, Math.round(b + t)));
+    }
+    const rgb = (r << 16) | (g << 8) | b;
+    if (!cache.has(rgb)) cache.set(rgb, nearest(rgb, palette));
+    pixels[i] = cache.get(rgb);
+    if (palette[pixels[i]] !== exact) moved++;
+  }
+  return { width, height, pixels, moved };
+}

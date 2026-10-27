@@ -29,6 +29,9 @@ export const TA = {
   "arpeggio speed": "ஆர்பெஜியோ வேகம்", "loops from cycle": "மீண்டும் தொடங்கும் ஆவர்த்தனம்",
   "frames": "சட்டகங்கள்", "a second": "வினாடிக்கு", "wave": "அலை", "onion skin": "முந்தையதை மங்கலாகக் காட்டு",
   "Sprite ": "உருவம் ",
+  "Backdrop": "பின்னணி", "Backdrops": "பின்னணிகள்", "Backdrop ": "பின்னணி ", "Import picture…": "படத்தைக் கொண்டுவா…",
+  "■ Filled box": "■ நிரம்பிய பெட்டி", "▤ Gradient": "▤ வண்ணச்சரிவு", "dither": "புள்ளிக் கலப்பு",
+  "Map over it": "மேலே வரைபடம்",
 };
 
 let lang = "en";

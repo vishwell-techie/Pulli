@@ -37,7 +37,7 @@ export function vidhi(root) {
   const problems = h("div", { className: "problems" });
   const assets = h("div");
   const tabs = {};
-  for (const [k, label] of [["sprites", "Sprites"], ["sfx", "Sounds"], ["music", "Music"], ["maps", "Maps"]])
+  for (const [k, label] of [["sprites", "Sprites"], ["sfx", "Sounds"], ["music", "Music"], ["maps", "Maps"], ["backdrops", "Backdrops"]])
     tabs[k] = h("button", { onclick: () => { tab = k; drawAssets(); } }, label);
 
   root.append(
@@ -290,6 +290,14 @@ export function vidhi(root) {
               h("span", {}, f.split("/")[1])),
             h("div", { className: rows[i]?.error ? "err" : "muted", style: "font-size:12px;margin-left:4px" }, soundInfo(rows[i])))))
         : h("p", { className: "muted" }, `No WAV files in ${tab}/ yet.` + (tab === "music" ? " Isai makes them." : " Oli makes them.")));
+    } else if (tab === "backdrops") {
+      const pics = shared.files.filter((f) => f.endsWith(".png") && !f.includes("/") && f !== "sprites.png");
+      assets.replaceChildren(h("p", { className: "muted", style: "margin:0 0 8px;font-size:12px" },
+          "backdrop(name) once, then cls() each frame starts from it. A backdrop is 320 × 240; make one in the Backdrop tab."),
+        pics.length ? h("div", {}, ...pics.map((f) => h("div", { className: "bar", style: "margin:0 0 4px" },
+          h("button", { onclick: () => insert(`backdrop("${f.replace(/\.png$/, ".kolam")}")`) }, `backdrop("${f.replace(/\.png$/, ".kolam")}")`))),
+          h("button", { onclick: () => insert("backdrop()") }, "backdrop()  -- let it go"))
+        : h("p", { className: "muted" }, "No pictures yet."));
     } else {
       const maps = shared.files.filter((f) => f.endsWith(".tmx") && !f.includes("/"));
       assets.replaceChildren(maps.length
