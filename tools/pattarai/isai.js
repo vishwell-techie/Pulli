@@ -14,6 +14,10 @@ export function isai(root) {
   let audio = null, source = null, playStart = 0, playLen = 0, raf = 0;
 
   const files = h("select", { title: "Songs in the game's music folder" });
+  const examples = h("select", { title: "Example songs that come with Pattarai" }, h("option", { value: "" }, "Example songs…"));
+  fetch(new URL("./songs/index.json", import.meta.url)).then((r) => r.json()).then((list) => {
+    examples.append(...list.map((x) => h("option", { value: x.file, title: x.about }, x.title)));
+  }).catch(() => {});
   const head = h("div", { className: "bar" });
   const scaleBox = h("div", { className: "box" });
   const partsBox = h("div");
@@ -26,6 +30,8 @@ export function isai(root) {
       h("button", { onclick: () => create("carnatic") }, "New Carnatic"),
       h("button", { onclick: () => create("western") }, "New western"),
       h("button", { title: "Pulse lead, triangle bass, noise drums, small mono WAV", onclick: () => create("carnatic", true) }, "New chiptune"),
+      h("span", { className: "sep" }), examples,
+      h("button", { title: "Open an example song as a new, unsaved song", onclick: openExample }, "Open example"),
       h("button", { onclick: save }, "Save"),
       h("button", { title: "Write music/<name>.wav, the file the game plays", onclick: exportWav }, "Make WAV"),
       h("span", { className: "sep" }), playBtn),
@@ -442,6 +448,19 @@ export function isai(root) {
       status(`Opened ${path}.`);
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }
+  // An example song, opened as a new song: Save puts it in this game's music folder
+  async function openExample() {
+    if (!examples.value) return;
+    if (dirty && !confirm("The song in hand has changes that are not saved. Open the example anyway?")) return;
+    try {
+      const s = await (await fetch(new URL("./songs/" + examples.value, import.meta.url))).json();
+      song = { ...M.newSong(s.system), ...s };
+      path = ""; dirty = true; partIndex = 0;
+      stop(); drawAll();
+      status(`${s.title}: ${s.about} Save keeps a copy in this game's music folder.`);
+    } catch (e) { status("Could not open the example: " + e.message, true); }
+  }
+
   function create(system, chip = false) {
     if (dirty && !confirm("The song in hand has changes that are not saved. Start a new one anyway?")) return;
     song = chip ? M.newChipSong(system) : M.newSong(system); path = ""; dirty = true; partIndex = 0;

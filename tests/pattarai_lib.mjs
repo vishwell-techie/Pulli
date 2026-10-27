@@ -10,7 +10,7 @@ import * as O from "../tools/pattarai/lib/sfx.js";
 import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
-const [, , village] = process.argv;
+const [, , village, ...exampleSongs] = process.argv;
 const b64 = (u8) => Buffer.from(u8).toString("base64");
 const out = {};
 
@@ -143,6 +143,17 @@ out.ownSilent = silent.every((v) => v === 0);
 const broken = M.render({ ...M.newSong("carnatic"), parts: [...M.newSong("carnatic").parts, { name: "x", instrument: "drums",
   octave: 0, gain: 0.9, pan: 0, text: "S r g" }] });
 out.brokenPlays = broken[0].length > 0 && broken[0].some((v) => v !== 0);
+
+// the example songs: every part reads, and the song plays (a few seconds of it, to keep the test quick)
+out.examples = exampleSongs.map((f) => {
+  const song = JSON.parse(readFileSync(f, "utf8"));
+  try {
+    for (const p of song.parts) (p.instrument === "drums" ? M.parseDrums : M.parseNotation)(p.text, song);
+    const short = { ...song, parts: song.parts.map((p) => ({ ...p, text: p.text.split("|").slice(0, 4).join("|") })), cycles: 1 };
+    const [L] = M.render(short);
+    return [f.split("/").pop(), L.length > 0 && L.every(Number.isFinite) && L.some((v) => v !== 0)];
+  } catch (e) { return [f.split("/").pop() + ": " + e.message, false]; }
+});
 
 // reading WAV files back, exactly
 const back = decodeWAV(encodeWAV([new Float32Array([0, 0.5, -0.5, 0.25]), new Float32Array([1, -1, 0, 0])], 12345, 2));

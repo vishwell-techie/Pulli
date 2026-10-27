@@ -189,6 +189,10 @@ Carnatic raga, played by a synthesised band.
   flute, bass and a drum kit.
 - **New chiptune:** square, pulse, triangle and noise voices with noise
   drums, as old consoles had, in a small mono WAV.
+- **Example songs:** Für Elise in seven arrangements (piano, expressive
+  piano, violin with gamakas, a band, chiptune, Keeravani with a konnakol
+  part, and a tour of every instrument) and a Bilahari line. Opening one
+  starts an unsaved copy; Save puts it in the game's music folder.
 
 A part is written one note a step. In a new Carnatic song, as lines are
 written by hand, a capital is two aksharas and a small letter one, and a

@@ -37,7 +37,7 @@ def library(t):
         t.skipped += 1
         print("  SKIP  Pattarai's libraries (node is not installed)")
         return
-    run = subprocess.run([node, os.path.join(ROOT, "tests", "pattarai_lib.mjs"), VILLAGE],
+    run = subprocess.run([node, os.path.join(ROOT, "tests", "pattarai_lib.mjs"), VILLAGE, *songs(t)],
                          capture_output=True, text=True, timeout=600)
     if not t.check("the libraries run in node", run.returncode == 0, run.stderr[-2000:]):
         return
@@ -156,6 +156,8 @@ def library(t):
             r["drumSame"] == [True, True, True, True], r["drumSame"])
     t.check("with the drum pattern 'my own' and no drum part, no drums play", r["ownSilent"])
     t.check("a part that cannot be read is left out, and the rest of the song still plays", r["brokenPlays"])
+    t.check("every example song reads with no errors and plays", r["examples"] and all(ok for _, ok in r["examples"]),
+            [n for n, ok in r["examples"] if not ok])
     d = r["decoded"]
     t.check("a WAV is read back sample for sample, with its loop point", d == {
         "rate": 12345, "loop": 2, "ch": [[0, 16384, -16383, 8192], [32767, -32767, 0, 0]]}, d)
@@ -310,6 +312,17 @@ def tamil(t):
             [en for en, ta in pairs if not re.search("[\u0b80-\u0bff]", ta)])
 
 
+def songs(t):
+    """The example songs that come with Pattarai: listed, and each one reads and plays (checked in node)."""
+    d = os.path.join(HERE, "songs")
+    files = sorted(f for f in os.listdir(d) if f.endswith(".json") and f != "index.json")
+    index = json.load(open(os.path.join(d, "index.json")))
+    t.check("the example songs' list names every song there is, with its title",
+            [x["file"] for x in index] == files and all(x["title"] == json.load(open(os.path.join(d, x["file"])))["title"]
+                                                        for x in index), [x["file"] for x in index])
+    return [os.path.join(d, f) for f in files]
+
+
 def palette(t):
     text = open(os.path.join(HERE, "lib", "palette.js")).read()
     colours = [int(v, 16) for v in re.findall(r"0x([0-9a-f]{6})", text.split("export function")[0])]
@@ -342,7 +355,8 @@ def server(t):
         try:
             status, body = ask("GET", "/")
             t.check("the page is served", status == 200 and b"Pattarai" in body)
-            t.check("the page's own files are served", ask("GET", "/lib/music.js")[0] == 200)
+            t.check("the page's own files are served", ask("GET", "/lib/music.js")[0] == 200 and
+            ask("GET", "/songs/index.json")[0] == 200)
             t.check("nothing outside the page's folder is served",
                     ask("GET", "/../pulli.py")[0] == 404 and ask("GET", "/%2e%2e/pulli.py")[0] == 404)
             t.check("the files cannot be listed without the key", ask("GET", "/api/files", key=None)[0] == 403

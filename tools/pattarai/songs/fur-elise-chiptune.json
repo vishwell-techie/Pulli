@@ -1,0 +1,51 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "harmonic minor",
+ "sa": 138.6,
+ "key": "A",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/8",
+ "tempo": 190,
+ "steps": 2,
+ "cycles": 1,
+ "longCaps": false,
+ "rate": 11025,
+ "mono": true,
+ "arpRate": 24,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "chip",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "lead",
+   "instrument": "pulse25",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": 0,
+   "text": "- - - - E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 G#4 B4 | C5 , - E4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 C5 B4 | A4 , - - E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 G#4 B4 | C5 , - E4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 C5 B4 | A4 , - B4 C5 D5 | E5/ , , G4 F5 E5 | D5/ , , F4 E5 D5 | C5/ , , E4 D5 C5 | B4 , - E4 E5 - | - E5 E6 - - D#5 | E5 - - D#5 E5 D#5 | E5 D#5 E5 D#5 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 G#4 B4 | C5 , - E4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 C5 B4 | A4/ , , , , ,"
+  },
+  {
+   "name": "chords",
+   "instrument": "pulse12",
+   "octave": -1,
+   "gain": 0.45,
+   "pan": 0,
+   "text": "- - - - - - | - - - - - - | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | A3{0,3,7} , , , , , | - - - - - - | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | A3{0,3,7} , , , , , | - - - - - - | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | A3{0,3,7} , , , , , | - - - - - - | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | A3{0,3,7} , , , , , | C4{0,4,7} , , , , , | G3{0,4,7} , , , , , | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | - - - - - - | - - - - - - | - - - - - - | - - - - - - | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | A3{0,3,7} , , , , , | - - - - - - | A3{0,3,7} , , , , , | E3{0,4,7} , , , , , | A3{0,3,7} , , , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "triangle",
+   "octave": -1,
+   "gain": 0.8,
+   "pan": 0,
+   "text": "- - - - - - | - - - - - - | A2 , , - - - | E2 , , - - - | A2 , , - - - | - - - - - - | A2 , , - - - | E2 , , - - - | A2 , , - - - | - - - - - - | A2 , , - - - | E2 , , - - - | A2 , , - - - | - - - - - - | A2 , , - - - | E2 , , - - - | A2 , , - - - | C3 , , - - - | G2 , , - - - | A2 , , - - - | E2 , , - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | A2 , , - - - | E2 , , - - - | A2 , , - - - | - - - - - - | A2 , , - - - | E2 , , - - - | A2 , , - - -"
+  }
+ ],
+ "drumPattern": "auto",
+ "title": "Für Elise: chiptune",
+ "about": "Arpeggio chords ({0,3,7}), pulse lead, chip drums, mono at 11,025 Hz."
+}

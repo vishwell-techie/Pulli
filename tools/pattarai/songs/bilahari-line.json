@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Bilahari",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 66,
+ "steps": 4,
+ "cycles": 2,
+ "longCaps": true,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "mridangam",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "veena",
+   "instrument": "veena",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "S  ,  r      G  P     D  Ṡ   N D     |    P  d  p    m g  r s      r s   ṇ  ḍ           S ;        || S  ,  r      G  P     D  Ṡ   N D     |    P  d  p    m g  r s      r s   ṇ  ḍ           S ;        ||"
+  },
+  {
+   "name": "mridangam",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.15,
+   "text": "thom ki ta ka dhi ki ta ka | tha ki ta ka thom ki ta ka | dhi - ta ka thom ki tha ki | thom+dhi - tha - dhi ki ta ka | thom ki ta ka dhi ki ta ka | tha ki ta ka thom ki ta ka | dhi - ta ka thom ki tha ki | thom+dhi - tha - dhi ki ta ka"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "A Bilahari line",
+ "about": "One avartanam of chatusra jati Adi, written by hand (capitals two aksharas), on veena with a konnakol part."
+}

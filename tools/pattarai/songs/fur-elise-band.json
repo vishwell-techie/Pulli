@@ -1,0 +1,51 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "harmonic minor",
+ "sa": 138.6,
+ "key": "A",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/8",
+ "tempo": 190,
+ "steps": 2,
+ "cycles": 1,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": false,
+ "drums": "kit",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "right hand",
+   "instrument": "piano",
+   "octave": 0,
+   "gain": 0.85,
+   "pan": 0.05,
+   "text": "- - - - E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 G#4 B4 | C5 , - E4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 C5 B4 | A4 , - - E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 G#4 B4 | C5 , - E4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 C5 B4 | A4 , - B4 C5 D5 | E5 , , G4 F5 E5 | D5 , , F4 E5 D5 | C5 , , E4 D5 C5 | B4 , - E4 E5 - | - E5 E6 - - D#5 | E5 - - D#5 E5 D#5 | E5 D#5 E5 D#5 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 G#4 B4 | C5 , - E4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4 , - C4 E4 A4 | B4 , - E4 C5 B4 | A4 , , , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.8,
+   "pan": -0.1,
+   "text": "- - - - - - | - - - - - - | A1 , , , , - | E1 , , , , - | A1 , , , , - | - - - - - - | A1 , , , , - | E1 , , , , - | A1 , , , , - | - - - - - - | A1 , , , , - | E1 , , , , - | A1 , , , , - | - - - - - - | A1 , , , , - | E1 , , , , - | A1 , , , , - | C2 , , , , - | G1 , , , , - | A1 , , , , - | E1 , , , , - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | A1 , , , , - | E1 , , , , - | A1 , , , , - | - - - - - - | A1 , , , , - | E1 , , , , - | A1 , , , , -"
+  },
+  {
+   "name": "drums",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.8,
+   "pan": 0.2,
+   "text": "- - - - snare!5 snare!7 | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat snare snare!6 snare!7 snare!8 snare | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat snare snare!6 snare!7 snare!8 snare | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat snare snare!6 snare!7 snare!8 snare | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat | kick+hat hat snare hat kick hat"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Für Elise: band",
+ "about": "Piano, bass and a drum part of its own on the kit; loops after the pickup."
+}
