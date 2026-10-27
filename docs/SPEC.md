@@ -4,8 +4,8 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 64-colour palette, named Pulli). Architecture revised per ADR-001 (GPU
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
-what was added or changed. All of it was approved by 18 October 2026; a new
-change goes there until it is approved.
+what was added or changed. Items 1 to 28 were approved by 18 October 2026
+and item 32 on 27 October 2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
 are decision records kept outside this repository.
@@ -954,7 +954,8 @@ Pattarai, the editors, in a web browser (§10 item 32).
 ## 10. Changes in this revision (October 2026)
 
 Made while building and testing the first runtime. Items 1 to 28 were
-approved by 18 October 2026; later items await approval. Each is
+approved by 18 October 2026, and item 32 on 27 October 2026; the others
+await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
 1. **Names.** The platform is Pulli; the package is `.pulli` with magic
@@ -1083,7 +1084,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `lua_heap` cap are in the console's bytes, within about 1% of a Pico 2
    for whole games and never under it. Lua's own
    `collectgarbage("count")` is not scaled.
-32. **Pattarai, the editors** (§6), awaiting approval. `pulli edit <dir>`
+32. **Pattarai, the editors** (§6), approved 27 October 2026. `pulli edit <dir>`
    serves the editors in `tools/pattarai` to a web browser on the same
    computer and opens it: **Vidhi** edits the game's Lua, with the spec's
    functions offered as they are typed and their arguments shown, find and
