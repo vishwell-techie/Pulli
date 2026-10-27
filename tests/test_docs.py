@@ -8,7 +8,7 @@ Run: python3 tests/test_docs.py
     nothing it does not;
   - the helpers page names every helper in sdk/;
   - every link between the pages leads somewhere;
-  - the Tamil guide (docs/guide/ta) and README.ta.md have a page for every
+  - the Tamil guide (docs/guide/ta), README.ta.md and docs/pattarai.ta.md have a page for every
     English one, with exactly the same code, and the pages link both ways.
 """
 import os, re, sys
@@ -90,6 +90,8 @@ def main():
                 broken.append(target)
         t.check(f"{name}: every link leads to a file that exists", not broken, broken)
     t.check("the README points to the guide", "docs/guide" in open(os.path.join(ROOT, "README.md")).read())
+    t.check("the README points to Pattarai's guide", "](docs/pattarai.md)" in open(os.path.join(ROOT, "README.md")).read()
+            and "](docs/pattarai.ta.md)" in open(os.path.join(ROOT, "README.ta.md")).read())
 
     # ---- the Tamil translation ---------------------------------------------------------
     english = sorted(f for f in os.listdir(GUIDE) if f.endswith(".md"))
@@ -98,6 +100,7 @@ def main():
             f"English: {english}, Tamil: {tamil}")
     pairs = [(os.path.join(GUIDE, f), os.path.join(TAMIL, f)) for f in english if f in tamil]
     pairs.append((os.path.join(ROOT, "README.md"), os.path.join(ROOT, "README.ta.md")))
+    pairs.append((os.path.join(ROOT, "docs", "pattarai.md"), os.path.join(ROOT, "docs", "pattarai.ta.md")))
     for en, ta in pairs:
         label = os.path.relpath(ta, ROOT)
         if not os.path.exists(ta):
