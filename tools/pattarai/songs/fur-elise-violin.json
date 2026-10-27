@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "harmonic minor",
+ "sa": 138.6,
+ "key": "A",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/8",
+ "tempo": 190,
+ "steps": 2,
+ "cycles": 1,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "violin",
+   "instrument": "violin",
+   "octave": 0,
+   "gain": 0.85,
+   "pan": 0.05,
+   "text": "- - - - so fi | so fi so re fa me | do~ , - me. so. do | re~ , - so. ti. re | me~ , - so. so fi | so fi so re fa me | do~ , - me. so. do | re~ , - so. me re | do~ , - - so fi | so fi so re fa me | do~ , - me. so. do | re~ , - so. ti. re | me~ , - so. so fi | so fi so re fa me | do~ , - me. so. do | re~ , - so. me re | do/ , - re me fa | so/ , , te. le so | fa/ , , le. so fa | me/ , , so. fa me | re~ , - so. so - | - so so'\\ - - fi | so - - fi so fi | so fi so fi so fi | so fi so re fa me | do~ , - me. so. do | re~ , - so. ti. re | me~ , - so. so fi | so fi so re fa me | do~ , - me. so. do | re~ , - so. me re | do~ , , , , ,"
+  },
+  {
+   "name": "left hand",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.15,
+   "text": "- - - - - - | - - - - - - | do.. so.. do. - - - | so... so.. ti.. - - - | do.. so.. do. - - - | - - - - - - | do.. so.. do. - - - | so... so.. ti.. - - - | do.. so.. do. - - - | - - - - - - | do.. so.. do. - - - | so... so.. ti.. - - - | do.. so.. do. - - - | - - - - - - | do.. so.. do. - - - | so... so.. ti.. - - - | do.. so.. do. - - - | me.. te.. me. - - - | te... te.. re. - - - | do.. so.. do. - - - | so... so.. so. - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | do.. so.. do. - - - | so... so.. ti.. - - - | do.. so.. do. - - - | - - - - - - | do.. so.. do. - - - | so... so.. ti.. - - - | do.. so.. do. , , ,"
+  }
+ ],
+ "solfa": "movable",
+ "title": "Für Elise: violin with gamakas",
+ "about": "Movable do; held notes shake (~), slides up (/) and a fall (\\)."
+}

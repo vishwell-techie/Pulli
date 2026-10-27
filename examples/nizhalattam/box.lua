@@ -1,6 +1,7 @@
 -- box.lua — the Aasaan's box in the Courtyard, where oil buys repairs that
--- last: more health, the double jump, more mai to start each run with, and
--- the places for roles to carry from the start; where those roles are
+-- last: more health, the double and wall jumps, a second dodge, more mai to
+-- start each run with, more mending, a third charm place, a stall stocking
+-- one charm more, and the places for roles to carry from the start; where those roles are
 -- chosen (pick.lua, read only then); where the pages of the King's story
 -- found so far are read again (pages.lua, read only then); and where a seed
 -- can be typed, to play that run again (it keeps nothing).
@@ -21,6 +22,7 @@ local rooms = require("rooms")
 local shelf = require("shelf")
 local I     = require("icons")
 local C     = require("colours")
+local sound = require("sound")
 
 local box = { open_ = false }
 
@@ -33,6 +35,11 @@ local ITEMS = {
   { key = "r_roles", icon = I.roles },
   { key = "r_pages", icon = I.page },
   { key = "r_seed", icon = I.seed },
+  { key = "r_wall", icon = I.wall, prices = { 25 } },
+  { key = "r_dodge", icon = I.dodge2, prices = { 40 } },
+  { key = "r_mend", icon = I.mend2, prices = { 15, 30 } },
+  { key = "r_charm3", icon = I.charm3, prices = { 50 } },
+  { key = "r_stock", icon = I.stock, prices = { 30 } },
 }
 box.ITEMS = ITEMS
 
@@ -59,13 +66,14 @@ local function buy(item)
     return
   end
   local done = steps(item)
-  if done >= #item.prices then note, note_t = "done_r", 90 return end
+  if done >= #item.prices then note, note_t = "done_r", 90 sound.play("no") return end
   local price = item.prices[done + 1]
-  if run.data.oil < price then note, note_t = "no_oil", 90 return end
+  if run.data.oil < price then note, note_t = "no_oil", 90 sound.play("no") return end
   run.data.oil = run.data.oil - price
   run.data.repairs[item.key] = done + 1
   run.keep()
   note, note_t = "bought_r", 90
+  sound.play("buy")
 end
 
 local function seed_update(i)
@@ -122,24 +130,24 @@ function box.draw(body)
     font()
     return
   end
-  for n, item in ipairs(ITEMS) do
-    local x = 46 + (n - 1) * 34
-    shelf.card(x, 72, item.icon, n == at)
+  for n, item in ipairs(ITEMS) do                -- two rows of six
+    local x, y = 46 + (n - 1) % 6 * 34, 62 + (n - 1) // 6 * 50
+    shelf.card(x, y, item.icon, n == at)
     if item.prices then
       local done = steps(item)
-      shelf.dots(x + 13, 104, done, #item.prices)
+      shelf.dots(x + 13, y + 31, done, #item.prices)
       if done < #item.prices then
-        print(item.prices[done + 1], x + 13 - #tostring(item.prices[done + 1]) * 2, 110,
+        print(item.prices[done + 1], x + 13 - #tostring(item.prices[done + 1]) * 2, y + 36,
               run.data.oil >= item.prices[done + 1] and C.glow or C.tan)
       end
     end
   end
   local item = ITEMS[at]
-  local y = shelf.say(lines.t(item.key), 132, C.lamp)
+  local y = shelf.say(lines.t(item.key), 162, C.lamp)
   if item.key == "r_seed" then
     print(run.next_seed and string.format("%05d", run.next_seed) or lines.t("seed_new"), 48, y, C.tan)
   end
-  if note_t > 0 then shelf.say(lines.t(note), 166, note == "no_oil" and C.vermil or C.lamp) end
+  if note_t > 0 then shelf.say(lines.t(note), 184, note == "no_oil" and C.vermil or C.lamp) end
   font()
 end
 

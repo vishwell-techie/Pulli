@@ -1,0 +1,42 @@
+[
+ {
+  "file": "bilahari-line.json",
+  "title": "A Bilahari line",
+  "about": "One avartanam of chatusra jati Adi, written by hand (capitals two aksharas), on veena with a konnakol part."
+ },
+ {
+  "file": "fur-elise-band.json",
+  "title": "Für Elise: band",
+  "about": "Piano, bass and a drum part of its own on the kit; loops after the pickup."
+ },
+ {
+  "file": "fur-elise-carnatic.json",
+  "title": "Für Elise: Keeravani",
+  "about": "Hand-written sargam, Rupaka tala, nadaswaram with kampita, tanpura and a konnakol part."
+ },
+ {
+  "file": "fur-elise-chiptune.json",
+  "title": "Für Elise: chiptune",
+  "about": "Arpeggio chords ({0,3,7}), pulse lead, chip drums, mono at 11,025 Hz."
+ },
+ {
+  "file": "fur-elise-expressive.json",
+  "title": "Für Elise: expressive piano",
+  "about": "A volume on every note (!1 to !9): soft, louder, a swell, a fade."
+ },
+ {
+  "file": "fur-elise-piano.json",
+  "title": "Für Elise: piano",
+  "about": "Beethoven's bagatelle (1810), the first section, both hands, in letter names and 3/8."
+ },
+ {
+  "file": "fur-elise-tour.json",
+  "title": "Für Elise: a tour of the band",
+  "about": "The tune through venu, pluck, square, saw and noise, with swing and kanjira."
+ },
+ {
+  "file": "fur-elise-violin.json",
+  "title": "Für Elise: violin with gamakas",
+  "about": "Movable do; held notes shake (~), slides up (/) and a fall (\\)."
+ }
+]

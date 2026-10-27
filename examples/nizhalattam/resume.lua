@@ -24,6 +24,7 @@ local function take_up(body)
   for n, c in ipairs(kp.charms) do run.charms[n] = c end
   for _, s in ipairs(kp.sharp) do run.sharp[s] = true end
   for _, r in ipairs(kp.lent) do run.lent[r] = true end
+  for _, s in ipairs(kp.claimed or {}) do run.claimed[s] = true end
   fight.wear(kp.roles)
   fight.worn = math.min(kp.worn, #fight.carried)
   fight.mai, body.k.health = kp.mai, kp.health

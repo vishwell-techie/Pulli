@@ -26,4 +26,12 @@ return {
   f_rani = 1932,
   f_king = 1934,
   page = 1936,
+  wall = 1938,
+  dodge2 = 1940,
+  charm3 = 1942,
+  mend2 = 1944,
+  stock = 1946,
+  torn = 1948,
+  soot = 1950,
+  drum = 1952,
 }

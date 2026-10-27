@@ -1,0 +1,42 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "harmonic minor",
+ "sa": 138.6,
+ "key": "A",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/8",
+ "tempo": 190,
+ "steps": 2,
+ "cycles": 1,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "right hand",
+   "instrument": "piano",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.05,
+   "text": "- - - - E5!5 D#5!5 | E5!5 D#5!5 E5!5 B4!5 D5!5 C5!5 | A4!5 , - C4!5 E4!5 A4!5 | B4!5 , - E4!5 G#4!5 B4!5 | C5!5 , - E4!5 E5!5 D#5!5 | E5!5 D#5!5 E5!5 B4!5 D5!5 C5!5 | A4!5 , - C4!5 E4!5 A4!5 | B4!5 , - E4!5 C5!5 B4!5 | A4!5 , - - E5!5 D#5!5 | E5!7 D#5!7 E5!7 B4!7 D5!7 C5!7 | A4!7 , - C4!7 E4!7 A4!7 | B4!7 , - E4!7 G#4!7 B4!7 | C5!7 , - E4!7 E5!7 D#5!7 | E5!7 D#5!7 E5!7 B4!7 D5!7 C5!7 | A4!7 , - C4!7 E4!7 A4!7 | B4!7 , - E4!7 C5!7 B4!7 | A4!8 , - B4!8 C5!8 D5!8 | E5 , , G4!8 F5!8 E5!8 | D5 , , F4!8 E5!8 D5!8 | C5 , , E4!8 D5!8 C5!8 | B4!7 , - E4!7 E5!7 - | - E5!6 E6!6 - - D#5!6 | E5!5 - - D#5!5 E5!5 D#5!5 | E5!5 D#5!5 E5!5 D#5!5 E5!5 D#5!5 | E5!5 D#5!5 E5!5 B4!5 D5!5 C5!5 | A4!5 , - C4!5 E4!5 A4!5 | B4!5 , - E4!5 G#4!5 B4!5 | C5!5 , - E4!5 E5!5 D#5!5 | E5!5 D#5!5 E5!5 B4!5 D5!5 C5!5 | A4!5 , - C4!5 E4!5 A4!5 | B4!5 , - E4!5 C5!5 B4!5 | A4!4 , , , , ,"
+  },
+  {
+   "name": "left hand",
+   "instrument": "piano",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.15,
+   "text": "- - - - - - | - - - - - - | A2!3 E3!3 A3!3 - - - | E2!3 E3!3 G#3!3 - - - | A2!3 E3!3 A3!3 - - - | - - - - - - | A2!3 E3!3 A3!3 - - - | E2!3 E3!3 G#3!3 - - - | A2!3 E3!3 A3!3 - - - | - - - - - - | A2!5 E3!5 A3!5 - - - | E2!5 E3!5 G#3!5 - - - | A2!5 E3!5 A3!5 - - - | - - - - - - | A2!5 E3!5 A3!5 - - - | E2!5 E3!5 G#3!5 - - - | A2!6 E3!6 A3!6 - - - | C3!6 G3!6 C4!6 - - - | G2!6 G3!6 B3!6 - - - | A2!6 E3!6 A3!6 - - - | E2!4 E3!4 E4!4 - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | A2!3 E3!3 A3!3 - - - | E2!3 E3!3 G#3!3 - - - | A2!3 E3!3 A3!3 - - - | - - - - - - | A2!3 E3!3 A3!3 - - - | E2!3 E3!3 G#3!3 - - - | A2!3 E3!3 A3!3 , , ,"
+  }
+ ],
+ "title": "Für Elise: expressive piano",
+ "about": "A volume on every note (!1 to !9): soft, louder, a swell, a fade."
+}

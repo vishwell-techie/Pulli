@@ -30,6 +30,7 @@ local queen = {
 
 function queen.start_skill(k)
   k.ward, held = SHIELD.blows, 0
+  require("sound").play("shield")
   return 12
 end
 

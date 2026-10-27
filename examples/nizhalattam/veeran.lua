@@ -158,7 +158,7 @@ end
 function kind.draw(s)
   local x, y, st = math.floor(s.x + s.w / 2) - 24, math.floor(s.y + s.h) - 63, s.state
   local n = GUARD
-  if st == "walk" then n = math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 3 or GUARD
+  if st == "walk" then n = math.abs(s.vx) > 0.1 and WALK + s.step // 6 % 4 * 6 or GUARD
   elseif st == "wind" then n = s.move == "heavy" and GATHER or WIND
   elseif st == "leap" then n = s.vy < 0 and GATHER or STRIKE
   elseif st == "combo" or st == "heavy" then n = STRIKE

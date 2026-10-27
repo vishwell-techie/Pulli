@@ -68,6 +68,8 @@ function scene.open(which)
   list, at, t = PANELS[which], 1, 0
   caption(list[1][2])
   fx.clear()
+  local rooms = require("rooms")
+  rooms.music(rooms.ENDING)
 end
 
 function scene.update(i)

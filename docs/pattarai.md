@@ -189,13 +189,25 @@ Carnatic raga, played by a synthesised band.
   flute, bass and a drum kit.
 - **New chiptune:** square, pulse, triangle and noise voices with noise
   drums, as old consoles had, in a small mono WAV.
+- **Example songs:** Für Elise in seven arrangements (piano, expressive
+  piano, violin with gamakas, a band, chiptune, Keeravani with a konnakol
+  part, and a tour of every instrument) and a Bilahari line. Opening one
+  starts an unsaved copy; Save puts it in the game's music folder.
 
-A part is written one note a step:
+A part is written one note a step. In a new Carnatic song, as lines are
+written by hand, a capital is two aksharas and a small letter one, and a
+dot above or below a swara moves it an octave; **capitals long** switches
+this off (the parts are rewritten to sound the same), and songs made
+before it read every letter as one step:
 
 ```
-S , R G M ; P | D. N. S' -          sargam: the raga's own swaras
+S , r G P D Ṡ N D |                 as written by hand: capitals long, small short
+s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
+E' D'# E' B D' C'                   ' above the song's octave, . below
+do re mi fa so , la ti do' -        movable do: do is the key note
+do re me fa so le te do'            ... a minor scale, do-based
 G~  P/  D\                          shake (kampita), slide up into, slide down into
 S{0,4,7}                            an arpeggio: the note, a third, a fifth
 P!3                                 a note at a third of the volume (!1 to !9)
@@ -204,13 +216,56 @@ P!3                                 a note at a third of the volume (!1 to !9)
 `,` holds a note one step more, `;` two, `-` rests, `|` is a bar line,
 `'` an octave up, `.` down.
 
+Western parts can also be written in solfège. **Movable do** is the
+default: do is the song's key note, as Sa is in a raga, so a tune keeps its
+shape in any key; di, ri, fi, si and li raise a note a step, and ra, me,
+se, le and te lower one (do-based minor: `do re me fa so le te`). **Fixed
+do**, chosen under **note names**, is the French and Italian way: do is
+always C and si is B, with `#`, `b` and an octave number. Letters work in
+every song. Changing **note names** rewrites the parts to sound the same,
+and notes are spelled from the key, as a musician writes them: B♭ in G
+major's minor third, not A♯.
+
 The **roll** under the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play
 each note.
 
+**Drums.** A song's kit (mridangam, thavil, kanjira, a drum kit or chip
+drums) plays a pattern on its own, following the tala or time: **drum
+pattern: automatic**. For a beat of your own, **+ Drum part** writes that
+pattern out as a part to change, and sets **drum pattern: my own**, so only
+the drum parts play. A drum part is written one stroke a step, in konnakol
+or kit names, and the roll shows a lane for each kind of stroke:
+
+```
+thom ki tha ki | dhi ki tha ki      konnakol: deep, light, main, ringing
+kick hat snare hat kick+hat         a kit: two strokes at once with +
+tha ki ta ka!5 - ;                  a quieter stroke (!1 to !9), rests
+thom+bell - jalra - conch          bell, cymbals and conch, on any kit
+```
+
+Every kit also has **bell** (a temple bell), **conch** (a sangu) and
+**jalra** (small cymbals), each with its own lane. **reverb** puts the band
+in a hall: 0 is none.
+
 A song can loop from a cycle after an intro. **Make WAV** writes
 `music/<name>.wav`, stereo or mono, at 8,000 to 44,100 samples a second;
 its size is shown as you choose.
+
+The song's `.json` is the source; the WAV is made from it. Isai does its
+own sums (no `Math.sin` or `**`), so a song makes the same WAV, byte for
+byte, in every browser and in Node. Each WAV made notes in the song which
+engine made it and the WAV's and the song's SHA-256; the header says
+whether the WAV is up to date. **Make all WAVs** makes every song's WAV
+that is missing or out of date, and so does Node without a browser:
+
+```
+node tools/pattarai/make-wavs.mjs examples/mygame
+node tools/pattarai/make-wavs.mjs examples/mygame --all
+```
+
+`pulli pack` refuses a game whose song has no WAV (`music(n)` counts the
+WAV files), and notes one that is out of date.
 
 ## Project
 

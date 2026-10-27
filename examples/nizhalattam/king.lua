@@ -33,6 +33,7 @@ local run     = require("run")
 local move    = require("move")
 local fx      = require("fx")
 local C       = require("colours")
+local sound   = require("sound")
 
 local boss = { kinds = { "king" } }
 
@@ -122,6 +123,7 @@ end
 local function start(s, m)
   local x, y = s.x + s.w / 2, s.y + s.h
   s.state, s.t, s.landed = m, 0, false
+  if m == "summon" then sound.play("summon") end
   if m == "summon" and s.shade and s.pt == 0 then
     -- the shadow calls a puppet's shadow too, each in turn, into the wing
     -- away from Komali
@@ -147,6 +149,7 @@ local function start(s, m)
     s.vx, s.vy = s.face * B.leap.across, -B.leap.up
   elseif m == "pound" then
     s.wl, s.wr, s.wt, s.hitl, s.hitr = x, x, B.pound.life, false, false
+    sound.play("pound")
   elseif m == "snare" then
     s.sx, s.sl = s.tx, B.snare.life
   elseif m == "ring" then

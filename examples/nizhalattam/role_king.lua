@@ -46,6 +46,7 @@ local function floor_at(x, y)
 end
 
 function king.start_skill(k)
+  require("sound").play("summon")
   local y = floor_at(k.x + k.w / 2, k.y + k.h)
   for n = 1, 2 do
     ax[n], ay[n], af[n], at[n], ast[n], att[n] = k.x + k.w / 2 + (n == 1 and -16 or 16), y, k.face, SUMMON.frames, "walk", 0

@@ -1,0 +1,51 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Keeravani",
+ "sa": 220,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Rupaka (3)",
+ "tempo": 190,
+ "steps": 2,
+ "cycles": 1,
+ "longCaps": true,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "mridangam",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "nadaswaram",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.8,
+   "pan": 0.1,
+   "text": "- - - - p m2 | p m2 p r m g | S~ - g. p. s | R~ - p. n. r | G~ - p. p m2 | p m2 p r m g | S~ - g. p. s | R~ - p. g r | S~ - - p m2 | p m2 p r m g | S~ - g. p. s | R~ - p. n. r | G~ - p. p m2 | p m2 p r m g | S~ - g. p. s | R~ - p. g r | S~ - r g m | P~ , n2. d p | M~ , d. p m | G~ , p. m g | R~ - p. p - | - p p' - - m2 | p - - m2 p m2 | p m2 p m2 p m2 | p m2 p r m g | S~ - g. p. s | R~ - p. n. r | G~ - p. p m2 | p m2 p r m g | S~ - g. p. s | R~ - p. g r | S~ , , , ,"
+  },
+  {
+   "name": "veena",
+   "instrument": "veena",
+   "octave": 1,
+   "gain": 0.5,
+   "pan": -0.25,
+   "text": "- - - - - - | - - - - - - | s.. p.. s. - - - | p... p.. n.. - - - | s.. p.. s. - - - | - - - - - - | s.. p.. s. - - - | p... p.. n.. - - - | s.. p.. s. - - - | - - - - - - | s.. p.. s. - - - | p... p.. n.. - - - | s.. p.. s. - - - | - - - - - - | s.. p.. s. - - - | p... p.. n.. - - - | s.. p.. s. - - - | g.. n2.. g. - - - | n2... n2.. r. - - - | s.. p.. s. - - - | p... p.. p. - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | s.. p.. s. - - - | p... p.. n.. - - - | s.. p.. s. - - - | - - - - - - | s.. p.. s. - - - | p... p.. n.. - - - | s.. p.. S. , ,"
+  },
+  {
+   "name": "mridangam",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.85,
+   "pan": 0.15,
+   "text": "- - - - tha ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki | thom ki tha ki dhi ki | tha ki ta ka thom ki | dhi - tha ki thom+dhi - | tha ka dhi ki tha ki"
+  }
+ ],
+ "drumPattern": "own",
+ "title": "Für Elise: Keeravani",
+ "about": "Hand-written sargam, Rupaka tala, nadaswaram with kampita, tanpura and a konnakol part."
+}
