@@ -22,6 +22,7 @@ export const api = {
   readText: async (path) => (await call("GET", "/api/file?path=" + encodeURIComponent(path))).text(),
   write: async (path, data) => call("PUT", "/api/file?path=" + encodeURIComponent(path), data),
   run: async () => (await call("POST", "/api/run")).text(),
+  sounds: async () => (await call("GET", "/api/sounds")).json(),
 };
 
 export function status(text, bad = false) {
@@ -98,6 +99,7 @@ export async function saveSheet() {
 export async function refreshFiles() {
   const r = await api.files();
   shared.files = r.files;
+  try { shared.sounds = await api.sounds(); } catch (e) { shared.sounds = null; }
   document.getElementById("game").textContent = r.game;
   shared.changed("files");
 }
@@ -138,3 +140,14 @@ async function start() {
 }
 
 start();
+
+// How a sound in the game folder will play, as SPEC §2 and §3 have it.
+export function soundInfo(row) {
+  if (!row) return "";
+  if (row.error) return "⚠ " + row.error;
+  return `${row.channels === 1 ? "mono" : "stereo"} · ${row.rate.toLocaleString("en")} Hz · ${row.seconds.toFixed(2)} s · ` +
+    `${Math.ceil(row.packed / 1024)} KB packed`;
+}
+export const CHANNEL_NOTE = "The console has 8 sound channels, 0 to 7: sfx(n) takes a free one (or the oldest), " +
+  "sfx(n, c) uses channel c. Music is one track at a time, mixed on top of the 8. Everything is played at 44,100 Hz; " +
+  "sounds add up at full level and the total is clipped, so leave headroom.";

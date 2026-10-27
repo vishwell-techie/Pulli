@@ -3,7 +3,7 @@
 // a synthesised band. It is kept as music/<name>.json and made into
 // music/<name>.wav, which `pulli pack` puts in music.isai; music(n) plays
 // the WAV files in order of name.
-import { api, h, shared, status, refreshFiles } from "./app.js";
+import { api, h, shared, status, refreshFiles, CHANNEL_NOTE } from "./app.js";
 import * as M from "./lib/music.js";
 import { encodeWAV } from "./lib/wav.js";
 
@@ -32,7 +32,9 @@ export function isai(root) {
     head,
     h("div", { className: "cols" },
       h("div", { className: "wide" }, partsBox,
-        h("button", { onclick: addPart }, "+ Part")),
+        h("button", { onclick: addPart }, "+ Part"),
+        h("p", { className: "muted", style: "font-size:12px;max-width:720px" },
+          "The parts are mixed into one track; the game plays it with music(n), " + CHANNEL_NOTE.slice(CHANNEL_NOTE.indexOf("Music is") ).replace("Music is", "one track at a time, mixed") )),
       h("div", { className: "box", style: "max-width:100%" }, h("h3", {}, "Roll: the part in hand"),
         h("p", { className: "muted", style: "margin:0 0 6px" },
           "Click to place a note (drag right to hold it), click a note to remove it."),
@@ -93,9 +95,12 @@ export function isai(root) {
       h("span", { className: "muted", title: "The size of the WAV made, before pack squeezes music to a quarter" }, size()));
   }
 
+  // pack squeezes music to 4 bits a sample (SPEC §2)
   function size() {
     const sec = M.songSteps(song) * 60 / song.tempo / song.steps;
-    return `${(sec * song.rate * (song.mono ? 1 : 2) * 2 / 1024).toFixed(0)} KB a loop`;
+    const samples = sec * song.rate * (song.mono ? 1 : 2);
+    return `${song.mono ? "1 channel" : "2 channels"}: ${(samples * 2 / 1024).toFixed(0)} KB WAV, ` +
+      `${(samples / 2 / 1024).toFixed(0)} KB packed`;
   }
 
   // The scale, up and down, with a key for each note to hear it.

@@ -257,8 +257,12 @@ export function kolam(root) {
       const moved = await loadSheet(files.value);
       undo.length = redo.length = 0;
       cell = 0;
-      status(moved ? `${files.value}: ${moved} pixels were not in the palette and took the nearest colour.`
-                   : `Opened ${files.value}.`);
+      const s = S(), cells = (s.width >> 3) * (s.height >> 3);
+      // SPEC §2: width and height multiples of 8, at most 128 KB of pixels
+      if (s.width % 8 || s.height % 8) status(`${s.path} is ${s.width}×${s.height}: pack needs both multiples of 8.`, true);
+      else if (s.width * s.height > 131072) status(`${s.path} is ${s.width}×${s.height}, ${Math.round(s.width * s.height / 1024)} KB of pixels: a sheet holds at most 128 KB.`, true);
+      else status((moved ? `${files.value}: ${moved} pixels were not in the palette and took the nearest colour. `
+                         : `Opened ${files.value}. `) + `${s.width}×${s.height}: spr(0) to spr(${cells - 1}).`);
     } catch (e) { status(e.message, true); }
   }
   async function newSheet() {

@@ -2,7 +2,7 @@
 // hit...), try variations, move the settings, hear it; Save keeps it as
 // sfx/<name>.json and makes sfx/<name>.wav, which `pulli pack` puts in
 // sfx.oli. sfx(n) plays the WAV files of sfx/ in order of name.
-import { api, h, shared, status, refreshFiles } from "./app.js";
+import { api, h, shared, status, refreshFiles, CHANNEL_NOTE } from "./app.js";
 import * as S from "./lib/sfx.js";
 import { encodeWAV } from "./lib/wav.js";
 import { numbered } from "./lib/lua.js";
@@ -34,7 +34,8 @@ export function oli(root) {
       h("button", { title: "A small change to every setting", onclick: () => { seed++; sfx = S.mutate(sfx, seed); touched(true); } }, "More like this")),
     h("div", { className: "cols" },
       h("div", { className: "box" }, h("h3", {}, title, " ", number), wave,
-        h("p", { className: "muted", style: "margin:6px 0 0" }, "The game hears it as you do here: mono, 22,050 samples a second.")),
+        h("p", { className: "muted", style: "margin:6px 0 0" }, "Saved mono (1 channel) at 22,050 samples a second; the console brings it to 44,100."),
+        h("p", { className: "muted", style: "margin:6px 0 0;max-width:640px;font-size:12px" }, CHANNEL_NOTE)),
       h("div", { className: "box wide" }, h("h3", {}, "Settings"), h("div", { className: "bar" }, h("label", {}, "wave", waveSel)), knobs)));
 
   function drawKnobs() {

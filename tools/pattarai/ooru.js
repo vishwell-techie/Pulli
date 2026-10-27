@@ -37,12 +37,12 @@ export function ooru(root) {
       h("button", { title: "Undo (Ctrl+Z)", onclick: () => step(undo, redo) }, "↶"),
       h("button", { title: "Redo (Ctrl+Y)", onclick: () => step(redo, undo) }, "↷"),
       h("label", {}, "zoom", zoomSel), info),
-    h("div", { className: "cols" },
-      h("div", { className: "box wide" }, h("h3", {}, "Map"), h("div", { className: "scroll" }, canvas)),
-      h("div", { className: "box" }, h("h3", {}, "Tiles"),
+    h("div", { className: "cols", style: "flex-wrap:nowrap" },
+      h("div", { className: "box wide", style: "min-width:0" }, h("h3", {}, "Map"), h("div", { className: "scroll" }, canvas)),
+      h("div", { className: "box", style: "width:420px;flex:none" }, h("h3", {}, "Tiles"),
         h("p", { className: "muted", style: "margin:0 0 6px;max-width:400px" },
           "The tiles are the picture open in Kolam: tile n is spr(n). Drag across tiles to paint with a block of them."),
-        h("div", { className: "scroll", style: "max-height:calc(100vh - 230px)" }, picker))));
+        h("div", { className: "scroll", style: "max-height:calc(100vh - 260px)" }, picker))));
 
   function bar() {
     layerButtons.forEach((b, i) => b.classList.toggle("on", i === layer));
@@ -237,8 +237,10 @@ export function ooru(root) {
       dirty = false;
       undo.length = redo.length = 0;
       layer = 0;
-      if (map.layers.length > 2) status(`${path} has ${map.layers.length} layers; the console draws the first two.`);
-      else status(`Opened ${path}.`);
+      const cells = map.width * map.height * Math.min(2, map.layers.length);
+      if (cells > 32768) status(`${path} has ${cells} cells in its layers; a map holds at most 32,768 (SPEC §2).`, true);
+      else if (map.layers.length > 2) status(`${path} has ${map.layers.length} layers; the console takes the first two.`);
+      else status(`Opened ${path}: ${map.width}×${map.height} tiles, ${map.layers.length} layer${map.layers.length > 1 ? "s" : ""}.`);
       bar(); draw();
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }

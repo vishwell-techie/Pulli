@@ -211,6 +211,22 @@ def server(t):
             t.check("the files list holds what the editors open, and no hidden files",
                     status == 200 and json.loads(body)["files"] == ["main.lua", "map.tmx", "music/a.json", "sprites.png"], body)
             t.check("a file is read", ask("GET", "/api/file?path=map.tmx") == (200, b"<map/>"))
+            os.makedirs(os.path.join(game, "sfx"))
+            import wave
+            for name, ch, rate in (("b.wav", 1, 22050), ("a.wav", 2, 8000)):
+                with wave.open(os.path.join(game, "sfx", name), "wb") as w:
+                    w.setnchannels(ch); w.setsampwidth(2); w.setframerate(rate); w.writeframes(b"\0\0" * ch * rate)
+            with open(os.path.join(game, "sfx", "c.wav"), "wb") as f:
+                f.write(b"not a wav")
+            status, body = ask("GET", "/api/sounds")
+            got = json.loads(body)
+            t.check("the sounds are numbered as pack numbers them, each with its channels, rate and length",
+                    status == 200 and got["max"] == 256 and got["music"] == [] and
+                    [(x["n"], x["path"], x.get("channels"), x.get("rate"), x.get("seconds")) for x in got["sfx"]] ==
+                    [(0, "sfx/a.wav", 2, 8000, 1.0), (1, "sfx/b.wav", 1, 22050, 1.0), (2, "sfx/c.wav", None, None, None)]
+                    and "error" in got["sfx"][2] and got["sfx"][1]["packed"] == 44100, got)
+            t.check("the sounds cannot be listed without the key", ask("GET", "/api/sounds", key=None)[0] == 403)
+            shutil.rmtree(os.path.join(game, "sfx"))
             t.check("a file outside the game is not read",
                     ask("GET", "/api/file?path=../secret.png")[0] == 404 and
                     ask("GET", "/api/file?path=" + os.path.join(tmp, "secret.png"))[0] == 404)

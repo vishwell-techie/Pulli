@@ -1067,6 +1067,28 @@ def edit_server(game: str, port: int = 0, token: str = None):
                                 found.append(rel)
                     return self.reply(200, json.dumps({"game": os.path.basename(game), "files": sorted(found)}),
                                       "application/json")
+                if url.path == "/api/sounds":
+                    # what pack will make of sfx/ and music/: each sound's number, channels, rate, length
+                    out = {}
+                    for kind in ("sfx", "music"):
+                        folder, rows = os.path.join(game, kind), []
+                        names = sorted(f for f in os.listdir(folder) if f.lower().endswith(".wav")) \
+                            if os.path.isdir(folder) else []
+                        for n, name in enumerate(names):
+                            row = {"n": n, "path": f"{kind}/{name}"}
+                            try:
+                                with open(os.path.join(folder, name), "rb") as f:
+                                    rate, channels, samples, loop = read_wav(f.read(), f"{kind}/{name}")
+                                frames = len(samples) // channels
+                                packed = frames * channels * 2 if kind == "sfx" else (frames * channels + 1) // 2
+                                row.update(rate=rate, channels=channels, seconds=frames / rate, packed=packed,
+                                           loop=loop or 0)
+                            except (PackageError, OSError) as e:
+                                row["error"] = str(e)
+                            rows.append(row)
+                        out[kind] = rows
+                    out["max"] = CLIP_MAX
+                    return self.reply(200, json.dumps(out), "application/json")
                 if url.path == "/api/file":
                     path = edit_path(game, q.get("path", [""])[0])
                     if not path or not os.path.isfile(path):

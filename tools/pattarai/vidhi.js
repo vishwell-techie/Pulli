@@ -4,7 +4,7 @@
 // and the call under the cursor shows what it names: the sprite drawn, the
 // sound's file with a button to hear it. Check runs the game for two
 // seconds with no window and lists its errors by line.
-import { api, h, shared, status, refreshFiles } from "./app.js";
+import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE } from "./app.js";
 import { css } from "./lib/palette.js";
 import { highlight, callAt, numbered } from "./lib/lua.js";
 
@@ -84,7 +84,9 @@ export function vidhi(root) {
     } else if (call.fn === "sfx" || call.fn === "music") {
       const list = numbered(shared.files, call.fn === "sfx" ? "sfx" : "music");
       const f = list[call.arg];
-      card.replaceChildren(f ? h("div", { className: "bar" }, h("button", { onclick: () => hear(f) }, "▶"), `${call.fn}(${call.arg}) is ${f}`)
+      const row = shared.sounds?.[call.fn === "sfx" ? "sfx" : "music"]?.[call.arg];
+      card.replaceChildren(f ? h("div", {}, h("div", { className: "bar" }, h("button", { onclick: () => hear(f) }, "▶"), `${call.fn}(${call.arg}) is ${f}`),
+                                 h("div", { className: "muted", style: "font-size:12px" }, soundInfo(row)))
                              : h("span", { className: "err" }, `${call.fn}(${call.arg}): there are only ${list.length} WAV files in ${call.fn === "sfx" ? "sfx" : "music"}/`));
     } else if (typeof call.arg === "string") {
       const stem = call.arg.replace(/\.(ooru|kolam)$/, "");
@@ -157,12 +159,19 @@ export function vidhi(root) {
             onclick: () => insert(`sheet.load("${f.replace(/\.png$/, ".kolam")}")`) }, f)))] : []));
     } else if (tab === "sfx" || tab === "music") {
       const list = numbered(shared.files, tab);
-      assets.replaceChildren(list.length
-        ? h("div", {}, ...list.map((f, i) => h("div", { className: "bar", style: "margin:0 0 4px" },
-            h("button", { title: "Hear it", onclick: () => hear(f) }, "▶"),
-            h("button", { onclick: () => insert(tab === "sfx" ? `sfx(${i})` : `music(${i})`) }, `${tab}(${i})`),
-            h("span", { className: "muted" }, f.split("/")[1]))))
-        : h("p", { className: "muted" }, `No WAV files in ${tab}/ yet.` + (tab === "music" ? " Isai makes them." : "")));
+      const rows = shared.sounds?.[tab] || [];
+      const max = shared.sounds?.max || 256;
+      assets.replaceChildren(h("p", { className: "muted", style: "margin:0 0 8px;font-size:12px" }, CHANNEL_NOTE),
+        list.length > max ? h("p", { className: "err" }, `${list.length} sounds: pack takes at most ${max} in ${tab}/.`) : "",
+        list.length
+        ? h("div", {}, ...list.map((f, i) => h("div", { style: "margin:0 0 6px" },
+            h("div", { className: "bar", style: "margin:0" },
+              h("button", { title: "Hear it", onclick: () => hear(f) }, "▶"),
+              h("button", { onclick: () => insert(tab === "sfx" ? `sfx(${i})` : `music(${i})`) }, `${tab}(${i})`),
+              tab === "sfx" ? h("button", { title: "On a channel of its own choosing, 0 to 7", onclick: () => insert(`sfx(${i}, 0)`) }, "on a channel") : "",
+              h("span", {}, f.split("/")[1])),
+            h("div", { className: rows[i]?.error ? "err" : "muted", style: "font-size:12px;margin-left:4px" }, soundInfo(rows[i])))))
+        : h("p", { className: "muted" }, `No WAV files in ${tab}/ yet.` + (tab === "music" ? " Isai makes them." : " Oli makes them.")));
     } else {
       const maps = shared.files.filter((f) => f.endsWith(".tmx") && !f.includes("/"));
       assets.replaceChildren(maps.length
