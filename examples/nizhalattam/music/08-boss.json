@@ -19,6 +19,7 @@
  "drone": true,
  "drums": "thavil",
  "swing": 0,
+ "reverb": 0.45,
  "parts": [
   {
    "name": "lead",
@@ -82,7 +83,7 @@
    "octave": 0,
    "gain": 0.9,
    "pan": 0.1,
-   "text": "thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - ki!6 ki!8 tha - ki!8 ki!6 tha ki!8 ki!6 ki!8 tha ki!6 ki!8 - thom - dhi!6 - tha ki!6 ki!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - ki!6 ki!8 tha - ki!8 ki!6 tha ki!8 ki!6 ki!8 tha ki!6 ki!8 - thom - dhi!6 - tha ki!6 ki!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - ki!6 ki!8 tha - ki!8 ki!6 tha ki!8 ki!6 ki!8 tha ki!6 ki!8 - thom - dhi!6 - tha ki!6 ki!8 - thom ki!8 ki!6 ki!8 tha ki!6 ki!8 - | thom - dhi!6 - tha - ki!8 - tha - - - tha ki!6 ki!8 - thom ki!8 ki!6 - tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6"
+   "text": "thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - ki!6 ki!8 tha+jalra - ki!8 ki!6 tha+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - thom+jalra - dhi!6 - tha+jalra ki!6 ki!8 - ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6 | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - ki!6 ki!8 tha+jalra - ki!8 ki!6 tha+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - thom+jalra - dhi!6 - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6 | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - ki!6 ki!8 tha+jalra - ki!8 ki!6 tha+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - thom+jalra - dhi!6 - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 ki!8 tha+jalra ki!6 ki!8 - | thom+jalra - dhi!6 - tha+jalra - ki!8 - tha+jalra - - - tha+jalra ki!6 ki!8 - thom+jalra ki!8 ki!6 - tha+jalra - dhi!8 - ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6"
   }
  ],
  "drumPattern": "own",
@@ -90,8 +91,8 @@
  "about": "Chintamani, Adi (8). The theme follows the opening of Devi Brova Samayamide, Syama Sastri (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
   "engine": 1,
-  "wav": "b689b0a07c5cde6b9300883fe6f861009ce02c4820ec72349ea7670b902f176d",
-  "song": "982e7bc19bf4612c3457436e52237d5b045aeb9dd110c7cd3066bd8e00af872a",
+  "wav": "94235ee4e44da8eceb067ce5f840f46f6ddbb52119286df144a63885e616c741",
+  "song": "5cd92c346c6535ca95a8fdb320b2187519ade52895fc6cbb89bc41f1bee0b8b3",
   "current": true
  }
 }

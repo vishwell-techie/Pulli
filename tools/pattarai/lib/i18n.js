@@ -23,7 +23,7 @@ export const TA = {
   "Put in the code": "நிரலில் சேர்", "Roll: the part in hand": "சுருள்: கையிலுள்ள பகுதி", "By kind": "வகைவாரியாக",
   "Biggest entries": "பெரிய பதிவுகள்", "Each sound, as it is read": "ஒவ்வோர் ஒலியும், படிக்கப்படும்போது",
   "raga": "ராகம்", "tala": "தாளம்", "scale": "சுரவரிசை", "time": "தாளம்", "tempo": "வேகம்", "drone": "சுருதி",
-  "drums": "தாளவாத்தியம்", "cycles": "ஆவர்த்தனங்கள்", "steps a beat": "ஒரு துடிப்பில் படிகள்", "swing": "ஊசல்",
+  "drums": "தாளவாத்தியம்", "cycles": "ஆவர்த்தனங்கள்", "steps a beat": "ஒரு துடிப்பில் படிகள்", "swing": "ஊசல்", "reverb": "எதிரொலி",
   "octave": "ஸ்தாயி", "volume": "ஒலியளவு", "pan": "இடம்–வலம்", "key": "சுருதி", "mono": "ஒற்றை அலைவரிசை",
   "Arohanam": "ஆரோகணம்", "Avarohanam": "அவரோகணம்", "Up": "ஏற்றம்", "Down": "இறக்கம்",
   "arpeggio speed": "ஆர்பெஜியோ வேகம்", "loops from cycle": "மீண்டும் தொடங்கும் ஆவர்த்தனம்",

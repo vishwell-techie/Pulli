@@ -19,6 +19,7 @@
  "drone": true,
  "drums": "thavil",
  "swing": 0,
+ "reverb": 0.45,
  "parts": [
   {
    "name": "lead",
@@ -82,7 +83,7 @@
    "octave": 0,
    "gain": 0.9,
    "pan": 0.1,
-   "text": "thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - ki!6 - tha - ki!8 - tha ki!8 ki!6 - tha - ki!8 - thom ki!8 ki!6 - tha ki!6 ki!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - ki!6 - tha - ki!8 - tha ki!8 ki!6 - tha - ki!8 - thom ki!8 ki!6 - tha ki!6 ki!8 - thom ki!8 dhi!6 - tha ki!6 ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6 | thom - dhi!6 ki!8 tha ki!6 dhi!8 - tha ki!8 ki!6 - tha ki!6 ki!8 - thom - - ki!8 tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 ki!6"
+   "text": "thom+jalra+conch - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - ki!6 - tha+jalra - ki!8 - tha+jalra ki!8 ki!6 - tha+jalra - ki!8 - thom+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6 | thom+jalra - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - ki!6 - tha+jalra - ki!8 - tha+jalra ki!8 ki!6 - tha+jalra - ki!8 - thom+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra ki!8 dhi!6 - tha+jalra ki!6 ki!8 ki!6 | thom+jalra - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6 | thom+jalra+conch - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - dhi!6 ki!8 tha+jalra ki!6 dhi!8 - tha+jalra ki!8 ki!6 - tha+jalra ki!6 ki!8 - thom+jalra - - ki!8 tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 ki!6"
   }
  ],
  "drumPattern": "own",
@@ -90,8 +91,8 @@
  "about": "Mayamalavagowla, Adi (8). The theme follows the opening of Tulasi Dala, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
   "engine": 1,
-  "wav": "df2b475ac43ff997704f11f7d54e8d81753730199b122fe0acb8b9f29f53c923",
-  "song": "6d898c53c480897d7701f89d3d2f072c5b0af1a76fbfa792d21fb3290fa12f3f",
+  "wav": "0f7475b1205be3bc642e788d919c606bb5bc15cf5bc5664be4e4c8c9629c11e2",
+  "song": "88e96f00b38c03464df63ab92d5be6c2f34446af9ae845b000792b716b11023b",
   "current": true
  }
 }

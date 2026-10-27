@@ -263,7 +263,12 @@ drums) தாளத்தையோ time-ஐயோ பின்பற்றித
 thom ki tha ki | dhi ki tha ki      konnakol: deep, light, main, ringing
 kick hat snare hat kick+hat         a kit: two strokes at once with +
 tha ki ta ka!5 - ;                  a quieter stroke (!1 to !9), rests
+thom+bell - jalra - conch          bell, cymbals and conch, on any kit
 ```
+
+ஒவ்வொரு kit-இலும் **bell** (கோயில் மணி), **conch** (சங்கு), **jalra** (சிறு
+தாளம்) உண்டு, ஒவ்வொன்றுக்கும் தனி வரிசை. **எதிரொலி** இசைக்குழுவை ஒரு
+மண்டபத்தில் வைக்கிறது: 0 என்றால் இல்லை.
 
 ஒரு பாடல் ஒரு முன்னிசைக்குப் பின் ஓர் ஆவர்த்தனத்திலிருந்து மீண்டும் தொடங்கலாம்.
 **WAV உருவாக்கு** `music/<name>.wav`-ஐ stereo அல்லது mono-வாக, வினாடிக்கு

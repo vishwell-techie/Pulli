@@ -241,7 +241,12 @@ or kit names, and the roll shows a lane for each kind of stroke:
 thom ki tha ki | dhi ki tha ki      konnakol: deep, light, main, ringing
 kick hat snare hat kick+hat         a kit: two strokes at once with +
 tha ki ta ka!5 - ;                  a quieter stroke (!1 to !9), rests
+thom+bell - jalra - conch          bell, cymbals and conch, on any kit
 ```
+
+Every kit also has **bell** (a temple bell), **conch** (a sangu) and
+**jalra** (small cymbals), each with its own lane. **reverb** puts the band
+in a hall: 0 is none.
 
 A song can loop from a cycle after an intro. **Make WAV** writes
 `music/<name>.wav`, stereo or mono, at 8,000 to 44,100 samples a second;

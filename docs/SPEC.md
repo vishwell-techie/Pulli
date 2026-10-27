@@ -1121,4 +1121,5 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    because Isai's sound uses only `+ - * /` and rounding. The song notes
    the engine and the SHA-256 of the WAV and of itself when its WAV is
    made. `pulli pack` refuses a song or sound `.json` without its WAV and
-   notes a WAV that is out of date.
+   notes a WAV that is out of date. Isai's drum parts also play a bell, a
+   conch and jalra on any kit, and a song may have reverb (none unless set).

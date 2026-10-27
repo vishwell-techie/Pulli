@@ -19,6 +19,7 @@
  "drone": true,
  "drums": "mridangam",
  "swing": 0,
+ "reverb": 0.45,
  "parts": [
   {
    "name": "lead",
@@ -66,7 +67,7 @@
    "octave": 0,
    "gain": 0.9,
    "pan": 0.1,
-   "text": "thom - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom - ki!6 - tha ki!6 ki!8 - thom - - - tha - dhi!8 - | thom - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom - ki!6 - tha ki!6 ki!8 - thom - - - tha - dhi!8 - | thom - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom - ki!6 - tha ki!6 ki!8 - thom - - - tha - dhi!8 - | thom - ki!6 ki!8 tha - - - tha - ki!6 ki!8 tha - - - thom - ki!6 - tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom - ki!6 - tha ki!6 ki!8 - thom - - - tha - dhi!8 - | thom - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom - ki!6 - tha ki!6 ki!8 - thom - - - tha - dhi!8 -"
+   "text": "thom+jalra+bell - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 ki!8 - thom+jalra - - - tha - dhi!8 - | thom+jalra - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 ki!8 - thom+jalra - - - tha - dhi!8 - | thom+jalra - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 ki!8 - thom+jalra - - - tha - dhi!8 - | thom+jalra - ki!6 ki!8 tha - - - tha - ki!6 ki!8 tha - - - thom+jalra - ki!6 - tha - dhi!8 - ki+jalra tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom+jalra+bell - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 ki!8 - thom+jalra - - - tha - dhi!8 - | thom+jalra - ki!6 - tha - - ki!6 tha - ki!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 ki!8 - thom+jalra - - - tha - dhi!8 -"
   }
  ],
  "drumPattern": "own",
@@ -74,8 +75,8 @@
  "about": "Madhyamavati, Adi (8). The theme follows the opening of Alakalalla, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
   "engine": 1,
-  "wav": "fb4649379c8003ef7ff74abc5aba796ac3ba6370b9cb739d2c2209cdbf1fb2a4",
-  "song": "25c5062cf7d7e1743577027efdee8b90b8e04ccff4701683bb47147eabff4e49",
+  "wav": "810dd71ca46f8c2ffe6da3f32bb4bfa093b822bdd180b949a1089a35de2a285d",
+  "song": "a39e477612e75bdfe00ccf78a214eefb4b0d351005e6aacfbdbf9146d8616377",
   "current": true
  }
 }

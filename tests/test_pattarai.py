@@ -156,6 +156,12 @@ def library(t):
             r["drumSame"] == [True, True, True, True], r["drumSame"])
     t.check("with the drum pattern 'my own' and no drum part, no drums play", r["ownSilent"])
     t.check("a part that cannot be read is left out, and the rest of the song still plays", r["brokenPlays"])
+    o = r["ornaments"]
+    t.check("bell, conch and jalra: in any drum part, two at once, a volume, written back by name, each a sound, the same on every kit",
+            o["hits"] == [[0, "bell", None], [2, "conch", None], [2, "strong", None], [3, "jalra", 5]] and
+            o["written"] == "bell - kick+conch jalra!5" and o["sound"] == [True, True, True] and o["sameOnKits"], o)
+    t.check("reverb: off unless asked for (the same samples), and when on it rings on after the notes",
+            r["reverb"] == {"none": True, "rings": True}, r["reverb"])
     nt = r["note"]
     t.check("a song's note: the same song with or without its defaults filled in, the title not counted; "
             "current until it changes", nt["sameWithDefaults"] and nt["titleIgnored"] and nt["current"] is True and

@@ -521,11 +521,13 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
   }
 }
 
+const RINGS = { bell: 2.5, conch: 1.7, jalra: 1.2 };          // seconds a stroke sounds, if not 0.6
+
 function hit(out, start, kind, vel, f0, pan, seed) {
   const [L, R] = out;
   const i0 = Math.floor(start * SR), noise = rng(seed);
-  const n = Math.floor(0.6 * SR);
-  let ph = 0, lp = 0;
+  const n = Math.floor((RINGS[kind] || 0.6) * SR);
+  let ph = 0, lp = 0, hp = 0;
   const gl = vel * X.cos((pan + 1) * Math.PI / 4), gr = vel * X.sin((pan + 1) * Math.PI / 4);
   for (let k = 0; k < n && i0 + k < L.length; k++) {
     const t = k / SR;
@@ -545,6 +547,25 @@ function hit(out, start, kind, vel, f0, pan, seed) {
       case "csnare": if (k % 3 === 0) lp = noise(); s = lp * X.exp(-t * 16) * 0.7; break;   // noise, coarse
       case "chat": s = (noise() > 0 ? 1 : -1) * X.exp(-t * 70) * 0.25; break;              // noise, short
       case "jingle": s = noise() * X.exp(-t * 20) * (0.6 + 0.4 * X.sin(t * 2 * Math.PI * 7000)) * 0.4; break;
+      case "bell": {                                 // a temple bell: partials that are not harmonics
+        ph += 2 * Math.PI * f0 * 4 / SR;
+        s = (X.sin(ph) + 0.6 * X.sin(ph * 2.01) * X.exp(-t * 1.5) + 0.4 * X.sin(ph * 2.76) * X.exp(-t * 3)
+             + 0.25 * X.sin(ph * 5.4) * X.exp(-t * 6)) * X.exp(-t * 1.6) * 0.35 * (t < 0.002 ? t / 0.002 : 1);
+        break;
+      }
+      case "conch": {                                // a sangu: a blown horn, swelling, with breath
+        ph += 2 * Math.PI * f0 * 2 * (1 + 0.01 * X.sin(t * 2 * Math.PI * 4.5)) / SR;
+        const env = (t < 0.25 ? t / 0.25 : 1) * (t > 1.2 ? X.exp(-(t - 1.2) * 8) : 1);
+        lp += 0.1 * (noise() - lp);
+        s = (X.sin(ph) + 0.5 * X.sin(ph * 2) + 0.3 * X.sin(ph * 3) + 0.15 * X.sin(ph * 4) + lp * 0.3) * env * 0.3;
+        break;
+      }
+      case "jalra": {                                // small hand cymbals: bright noise, ringing
+        const x = noise();
+        hp = x - lp; lp += 0.3 * (x - lp);
+        s = hp * (0.6 + 0.4 * X.sin(t * 2 * Math.PI * 5200)) * X.exp(-t * 7) * 0.3;
+        break;
+      }
     }
     L[i0 + k] += s * gl;
     R[i0 + k] += s * gr;
@@ -567,6 +588,8 @@ const KIT_STROKES = {
 //   beat    the main stroke:           tha ta nam na, snare sd
 //   off     the light, quick stroke:   ki ka ti, hat hh
 //   ring    the ringing stroke:        dhi din di tham, open oh
+// Any kit also has bell (a temple bell), conch (a sangu) and jalra (small
+// cymbals), written by name.
 // a+b plays two at once (kick+hat); - or , is a step with no stroke, ; two;
 // | is a bar line; !1 to !9 at the end sets the stroke's volume.
 export const STROKE_KIND = {
@@ -574,12 +597,14 @@ export const STROKE_KIND = {
   tha: "beat", ta: "beat", nam: "beat", na: "beat", snare: "beat", sd: "beat",
   ki: "off", ka: "off", ti: "off", hat: "off", hh: "off",
   dhi: "ring", din: "ring", di: "ring", tham: "ring", open: "ring", oh: "ring",
+  bell: "bell", conch: "conch", jalra: "jalra",
 };
-const KIND_LOUD = { strong: 1, beat: 0.75, off: 0.5, ring: 0.75 };
-export const KIND_ORDER = ["strong", "beat", "off", "ring"];
+const KIND_LOUD = { strong: 1, beat: 0.75, off: 0.5, ring: 0.75, bell: 0.8, conch: 0.8, jalra: 0.6 };
+export const KIND_ORDER = ["strong", "beat", "off", "ring", "bell", "jalra", "conch"];
 // how each kind is written back: konnakol in a Carnatic song, kit names in a western one
-const KIND_WORD = { carnatic: { strong: "thom", beat: "tha", off: "ki", ring: "dhi" },
-                    western: { strong: "kick", beat: "snare", off: "hat", ring: "open" } };
+const OWN = { bell: "bell", jalra: "jalra", conch: "conch" };   // the same on every kit
+const KIND_WORD = { carnatic: { strong: "thom", beat: "tha", off: "ki", ring: "dhi", ...OWN },
+                    western: { strong: "kick", beat: "snare", off: "hat", ring: "open", ...OWN } };
 export const drumWord = (kind, song) => KIND_WORD[song.system][kind];
 export const kitOf = (song) => KIT_STROKES[song.drums] ? song.drums : song.system === "carnatic" ? "mridangam" : "kit";
 
@@ -661,6 +686,35 @@ export function loopFrame(song) {
 
 // Plays the whole song into two Float32Arrays (left, right). It loops
 // without a seam: what rings past the end is folded back onto the start.
+// A hall, after Schroeder: four echoes feeding back, in parallel, then two
+// that smear them; the right channel's a little longer than the left's.
+// `amount` 0-1 is how much of it is heard and how long it rings.
+function reverb(x, amount, right) {
+  const scale = SR / 44100, spread = right ? 23 : 0;
+  const combs = [1557, 1617, 1491, 1422].map((d) => new Float32Array(Math.round((d + spread) * scale)));
+  const passes = [556, 441].map((d) => new Float32Array(Math.round((d + spread) * scale)));
+  const fb = 0.7 + 0.18 * amount, damp = 0.25, wet = 0.35 * amount;
+  const ci = [0, 0, 0, 0], low = [0, 0, 0, 0], pi = [0, 0];
+  for (let i = 0; i < x.length; i++) {
+    const dry = x[i];
+    let y = 0;
+    for (let c = 0; c < 4; c++) {
+      const buf = combs[c], out = buf[ci[c]];
+      low[c] = out * (1 - damp) + low[c] * damp;
+      buf[ci[c]] = dry * 0.25 + low[c] * fb;
+      ci[c] = ci[c] + 1 === buf.length ? 0 : ci[c] + 1;
+      y += out;
+    }
+    for (let a = 0; a < 2; a++) {
+      const buf = passes[a], b = buf[pi[a]];
+      buf[pi[a]] = y + b * 0.5;
+      y = b - y * 0.5;
+      pi[a] = pi[a] + 1 === buf.length ? 0 : pi[a] + 1;
+    }
+    x[i] = dry + y * wet;
+  }
+}
+
 export function render(song) {
   SR = song.rate || RATE;
   const { beats, strong } = cycleOf(song);
@@ -685,7 +739,7 @@ export function render(song) {
     try { read = p.instrument === "drums" ? parseDrums(p.text, song) : parseNotation(p.text, song); } catch (e) { continue; }
     if (p.instrument === "drums") {                  // a drum part: strokes on the song's kit
       for (const x of read.hits)
-        hit(out, x.at * stepSec, kitNow[x.kind], (x.vol ? x.vol / 9 : KIND_LOUD[x.kind]) * 0.8 * p.gain / 0.9, tonic,
+        hit(out, x.at * stepSec, OWN[x.kind] || kitNow[x.kind], (x.vol ? x.vol / 9 : KIND_LOUD[x.kind]) * 0.8 * p.gain / 0.9, tonic,
             x.kind === "strong" ? 0 : p.pan, strokeSeed(x));
       continue;
     }
@@ -702,6 +756,7 @@ export function render(song) {
     for (const x of autoHits(song, steps))
       hit(out, x.at * stepSec, kit[x.kind], KIND_LOUD[x.kind] * 0.8, tonic, x.kind === "strong" ? 0 : 0.15, strokeSeed(x));
   }
+  if (song.reverb > 0) for (const ch of out) reverb(ch, song.reverb, ch === out[1]);
   const L = out[0].subarray(0, len), R = out[1].subarray(0, len);
   const from = loopFrame(song);                     // what rings past the end goes on at the loop point
   for (let i = 0; i < tail && from + i < len; i++) { L[from + i] += out[0][len + i]; R[from + i] += out[1][len + i]; }

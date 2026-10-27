@@ -144,6 +144,26 @@ out.ownSilent = silent.every((v) => v === 0);
 const broken = M.render({ ...M.newSong("carnatic"), parts: [...M.newSong("carnatic").parts, { name: "x", instrument: "drums",
   octave: 0, gain: 0.9, pan: 0, text: "S r g" }] });
 out.brokenPlays = broken[0].length > 0 && broken[0].some((v) => v !== 0);
+// bell, conch and jalra: on any kit, written back by name, each with a sound
+{
+  const own = (kit, text) => ({ ...M.newSong("carnatic"), drums: kit, drumPattern: "own", drone: false, cycles: 1,
+    parts: [{ name: "d", instrument: "drums", octave: 0, gain: 0.9, pan: 0, text }] });
+  const hits = M.parseDrums("bell - conch+thom jalra!5", own("thavil", "")).hits;
+  const energy = (x) => x.reduce((a, v) => a + v * v, 0);
+  out.ornaments = { hits: hits.map((x) => [x.at, x.kind, x.vol || null]),
+    written: M.writeDrums(hits, 4, M.newSong("western"), 0),
+    sound: ["bell", "conch", "jalra"].map((w) => energy(M.render(own("kanjira", w + " - - -"))[0]) > 1),
+    sameOnKits: (() => { const a = M.render(own("mridangam", "bell - - -"))[0], b = M.render(own("kit", "bell - - -"))[0];
+      return a.every((v, i) => v === b[i]); })() };
+}
+// reverb: none unless asked for (the same samples as before), and it rings past the notes
+{
+  const s = { ...M.newSong("carnatic"), drums: "none", drone: false, cycles: 2, loopCycle: 1,
+    parts: [{ name: "a", instrument: "veena", octave: 0, gain: 0.9, pan: 0, text: "S - - - - - - - - - - - - - - -" }] };
+  const dry = M.render(s)[0], zero = M.render({ ...s, reverb: 0 })[0], wet = M.render({ ...s, reverb: 0.8 })[0];
+  const tail = (x) => x.slice(x.length / 2 - 2000, x.length / 2).reduce((a, v) => a + Math.abs(v), 0);
+  out.reverb = { none: dry.every((v, i) => v === zero[i]), rings: tail(wet) > tail(dry) * 2 };
+}
 
 // fingerprints: each example song, rendered whole as Make WAV makes it
 const { createHash } = await import("crypto");

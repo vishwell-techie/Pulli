@@ -19,6 +19,7 @@
  "drone": true,
  "drums": "thavil",
  "swing": 0,
+ "reverb": 0.45,
  "parts": [
   {
    "name": "lead",
@@ -82,7 +83,7 @@
    "octave": 0,
    "gain": 0.9,
    "pan": 0.1,
-   "text": "thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 - | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 - | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 - | thom - ki!6 ki!8 tha - dhi!8 - tha - dhi!6 - tha ki!6 - - thom - ki!6 ki!8 tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 - | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 - | thom - ki!6 ki!8 tha - dhi!8 - tha - dhi!6 - tha ki!6 - - thom - ki!6 ki!8 tha - dhi!8 - thom - ki!6 - tha - ki!8 ki!6 | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 - | thom - ki!6 - tha ki!6 - ki!6 tha - ki!6 - tha ki!6 ki!8 ki!6 thom - ki!6 - tha - ki!8 - thom - ki!6 - tha - dhi!8 -"
+   "text": "thom+jalra+bell+conch - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 - | thom+jalra - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 - | thom+jalra - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 - | thom+jalra - ki!6 ki!8 tha+jalra - dhi!8 - tha+jalra - dhi!6 - tha+jalra ki!6 - - thom+jalra - ki!6 ki!8 tha+jalra - dhi!8 - ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6 | thom+jalra+bell - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 - | thom+jalra - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 - | thom+jalra - ki!6 ki!8 tha+jalra - dhi!8 - tha+jalra - dhi!6 - tha+jalra ki!6 - - thom+jalra - ki!6 ki!8 tha+jalra - dhi!8 - thom+jalra - ki!6 - tha+jalra - ki!8 ki!6 | thom+jalra - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - ki+jalra tha!8 ki!6 tha!8 ki+jalra tha!6 ki!8 thom!6 | thom+jalra+bell+conch - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 - | thom+jalra - ki!6 - tha+jalra ki!6 - ki!6 tha+jalra - ki!6 - tha+jalra ki!6 ki!8 ki!6 thom+jalra - ki!6 - tha+jalra - ki!8 - thom+jalra - ki!6 - tha+jalra - dhi!8 -"
   }
  ],
  "drumPattern": "own",
@@ -90,8 +91,8 @@
  "about": "Shanmukhapriya, Adi (8). The theme follows the opening of Siddhi Vinayakam, Dikshitar (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
   "engine": 1,
-  "wav": "3461d81b3c1dae541945b9470f9b1345ef8b98e52fb3157d32c3ed916e480866",
-  "song": "3eb47ba0e64d868368ec51d779ce1ecd6e5483d8c662a51994fc43a1d5831c2a",
+  "wav": "8a730e08a106fb49fc94bec6a73d856f20d09f79c563f0e31b2745e4551ef8d9",
+  "song": "15763778e7e6d6096009e44dc54d74fb9c26c8e6da5b2e35a21de0ab33b571c2",
   "current": true
  }
 }

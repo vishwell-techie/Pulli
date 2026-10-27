@@ -19,6 +19,7 @@
  "drone": true,
  "drums": "mridangam",
  "swing": 0,
+ "reverb": 0.45,
  "parts": [
   {
    "name": "lead",
@@ -74,7 +75,7 @@
    "octave": 0,
    "gain": 0.9,
    "pan": 0.1,
-   "text": "thom - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom - ki!6 ki!8 tha - ki!8 - thom - - ki!8 tha - dhi!8 - | thom - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom - ki!6 ki!8 tha - ki!8 - thom - - ki!8 tha - dhi!8 - | thom - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom - ki!6 ki!8 tha - ki!8 - thom - - ki!8 tha - dhi!8 - | thom - ki!6 - tha - - - tha - dhi!6 - tha ki!6 dhi!8 - thom - dhi!6 - tha - dhi!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom - ki!6 ki!8 tha - ki!8 - thom - - ki!8 tha - dhi!8 - | thom - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom - ki!6 ki!8 tha - ki!8 - thom - - ki!8 tha - dhi!8 - | thom - ki!6 - tha - - - tha - dhi!6 - tha ki!6 dhi!8 - thom - dhi!6 - tha - dhi!8 - thom - ki!6 - tha ki!6 dhi!8 - | thom - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom - ki!6 ki!8 tha - ki!8 - ki tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6"
+   "text": "thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha - - - tha - dhi!6 - tha ki!6 dhi!8 - thom+jalra - dhi!6 - tha - dhi!8 - ki+jalra tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6 | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - thom+jalra - - ki!8 tha - dhi!8 - | thom+jalra - ki!6 - tha - - - tha - dhi!6 - tha ki!6 dhi!8 - thom+jalra - dhi!6 - tha - dhi!8 - thom+jalra - ki!6 - tha ki!6 dhi!8 - | thom+jalra - ki!6 - tha ki!6 ki!8 - tha - ki!6 - tha - dhi!8 ki!6 thom+jalra - ki!6 ki!8 tha - ki!8 - ki+jalra tha!8 ki!6 tha!8 ki tha!6 ki!8 thom!6"
   }
  ],
  "drumPattern": "own",
@@ -82,8 +83,8 @@
  "about": "Mohanam, Adi (8). The theme follows the opening of Nannu Palimpa, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
   "engine": 1,
-  "wav": "b2428f44ae013d88121a39f3bdbedc2058ed45513ca357993b00b1ed8380bb48",
-  "song": "b7f41475610312c47f0eb4d621a0bf05ccf1759dd059dc387c6f03a673dc765c",
+  "wav": "b9d212b8d1627abc886ee37f50a12fe7bedeb7cdbafad685ba6b096aacc708c9",
+  "song": "3d2345bcccd8a2c0ac0e53444f858993ad4a1dd4aaebbdfe62b65f0cb88c2c1a",
   "current": true
  }
 }
