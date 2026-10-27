@@ -24,6 +24,7 @@ export const api = {
   read: async (path) => new Uint8Array(await (await call("GET", "/api/file?path=" + encodeURIComponent(path))).arrayBuffer()),
   readText: async (path) => (await call("GET", "/api/file?path=" + encodeURIComponent(path))).text(),
   write: async (path, data) => call("PUT", "/api/file?path=" + encodeURIComponent(path), data),
+  budget: async () => (await call("GET", "/api/budget")).json(),
   run: async (liveRun) => (await call("POST", "/api/run" + (liveRun ? "?live=1" : ""))).text(),
   stop: async () => (await call("POST", "/api/stop")).text(),
   sounds: async () => (await call("GET", "/api/sounds")).json(),
@@ -92,9 +93,31 @@ export async function saveSheet() {
   s.dirty = false;
 }
 
+// The budget meter in the header: what the game takes against the target
+// chosen in Project. It warns; it refuses only when the game is set strict
+// (the server does that, on save).
+export async function refreshBudget() {
+  let b;
+  try { b = await api.budget(); } catch (e) { return; }
+  const was = shared.budget?.over?.length;
+  shared.budget = b;
+  const m = document.getElementById("meter");
+  const share = b.room ? b.size / b.room : 0;
+  m.querySelector(".fill").style.width = `${Math.min(100, share * 100)}%`;
+  m.className = "meter" + (b.error ? " unknown" : b.over.length ? " over" : share > 0.8 ? " near" : "");
+  const mb = (n) => (n / 1048576).toFixed(n < 10 * 1048576 ? 2 : 1);
+  m.querySelector(".txt").textContent = b.error ? `${b.target}: not measured`
+    : `${b.target}: ${mb(b.size)} of ${mb(b.room)} MB` + (b.settings.strict ? " · strict" : "");
+  m.title = b.error ? `The game does not pack yet: ${b.error}` : b.over.length ? "Over budget: " + b.over.join("; ")
+    : "What the game takes against its budget; open Project to choose the cartridge.";
+  if (b.over.length && !was) status("Over budget: " + b.over.join("; ") + (b.settings.strict ? "" : ". Saves still work; set the budget strict in Project to stop them."), true);
+  shared.changed("budget");
+}
+
 export async function refreshFiles() {
   const r = await api.files();
   shared.files = r.files;
+  refreshBudget();
   try { shared.sounds = await api.sounds(); } catch (e) { shared.sounds = null; }
   document.getElementById("game").textContent = r.game;
   shared.changed("files");
@@ -127,6 +150,7 @@ async function start() {
   document.getElementById("run").onclick = async () => {
     try { status(await api.run(liveBox.checked)); } catch (e) { status("Could not run the game: " + e.message, true); }
   };
+  document.getElementById("meter").onclick = () => document.querySelector('[data-tab=project]').click();
   document.getElementById("stop").onclick = async () => { try { status(await api.stop()); } catch (e) { status(e.message, true); } };
   try {
     await refreshFiles();

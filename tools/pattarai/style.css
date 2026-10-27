@@ -76,8 +76,17 @@ canvas { image-rendering: pixelated; display: block; }
 .hint { font: 12px/1.6 ui-monospace, monospace; min-height: 20px; padding: 2px 4px; }
 .hint .f { color: var(--accent-2); } .hint b { color: var(--accent); }
 .err { color: var(--bad); } .warn { color: var(--accent); }
-.sizerow { display: grid; grid-template-columns: 150px 1fr 80px; gap: 8px; align-items: center; margin: 3px 0; font-size: 13px; }
+.sizerow { display: grid; grid-template-columns: 210px 1fr 80px; gap: 8px; align-items: center; margin: 3px 0; font-size: 13px; }
 .sizerow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sizerow .track { background: var(--field); height: 10px; border-radius: 5px; overflow: hidden; min-width: 120px; }
 .sizerow .track span { display: block; height: 100%; background: var(--accent-2); }
 .sizerow .num { text-align: right; }
+.meter { position: relative; overflow: hidden; min-width: 210px; text-align: left; padding: 4px 10px; font-size: 13px; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; background: #4fb3a955; width: 0; transition: width .3s; }
+.meter .txt { position: relative; }
+.meter.near .fill { background: #f0a33066; } .meter.over .fill { background: #e5604f88; } .meter.over { border-color: var(--bad); }
+.meter.unknown { color: var(--muted); }
+.limits { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; margin-top: 8px; }
+.limits label { justify-content: space-between; }
+.tab { white-space: nowrap; }
+nav { flex-wrap: wrap; }
