@@ -114,6 +114,8 @@ out.solfa = {
     try { M.parseNotation(t, { ...M.newSong("western"), solfa: v }); return null; } catch (e) { return e.message; } }),
 };
 
+out.eighths = ["3/8", "6/8", "9/8", "12/8"].map((t) => [t, M.cycleOf({ ...M.newSong("western"), tala: t })]);
+
 // letters with octave marks, as typed: the opening of Für Elise
 const fe = { ...M.newSong("western"), key: "A", scale: "harmonic minor" };
 out.elise = M.parseNotation("E' D'# E' D'# E' B D' C' | C E A B | E G# B C' | E. B.b Bb. A''", fe).notes

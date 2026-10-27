@@ -137,6 +137,10 @@ def library(t):
     t.check("letters take octave marks before or after a sharp or flat (E' D'# Bb.), as Für Elise is typed",
             r["elise"] == ["E5", "D#5", "E5", "D#5", "E5", "B4", "D5", "C5", "C4", "E4", "A4", "B4", "E4", "G#4", "B4",
                            "C5", "E3", "Bb3", "Bb3", "A6"], r["elise"])
+    t.check("compound times count eighths, strong at each group of three",
+            r["eighths"] == [["3/8", {"beats": 3, "strong": [0]}], ["6/8", {"beats": 6, "strong": [0, 3]}],
+                             ["9/8", {"beats": 9, "strong": [0, 3, 6]}], ["12/8", {"beats": 12, "strong": [0, 3, 6, 9]}]],
+            r["eighths"])
     t.check("an octave number and an octave mark together are refused", r["markAndNumber"], r["markAndNumber"])
     dr = r["drums"]
     t.check("drum strokes read: konnakol and kit names, two at once, rests, volume", dr == {"steps": 13, "hits": [
