@@ -1122,6 +1122,7 @@ def edit_server(game: str, port: int = 0, token: str = None):
                 f.write(data)
             os.replace(path + ".part", path)
             self.reply(200, "saved")
+            saved()
 
         def do_POST(self):
             if not self.allowed() or not self.authorised():
@@ -1147,26 +1148,66 @@ def edit_server(game: str, port: int = 0, token: str = None):
                         out, ok = "the game did not finish two seconds of frames within a minute", False
                 return self.reply(200, json.dumps({"ok": ok, "out": "\n".join(notes + [out]).strip()}),
                                   "application/json")
+            if call == "/api/stop":
+                live["on"] = False
+                stop_game()
+                return self.reply(200, "stopped")
             if call != "/api/run":
                 return self.reply(404, "no such call")
+            live["on"] = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("live") == ["1"]
             try:
-                notes = []
-                data = build(game, notes=notes)
-                host = find_host("pulli-host")
+                return self.reply(200, start_game() or ("running, restarted on each save" if live["on"] else "running"))
             except (PackageError, OSError) as e:
                 return self.reply(400, str(e))
-            tmp = tempfile.mkdtemp()
-            pkg = os.path.join(tmp, os.path.basename(game) + EXT)
-            with open(pkg, "wb") as f:
-                f.write(data)
 
-            def play():
-                subprocess.call([host, pkg])
-                shutil.rmtree(tmp, ignore_errors=True)
-            threading.Thread(target=play, daemon=True).start()
-            self.reply(200, "\n".join(notes) or "running")
+    # The game the Run button started: one at a time, restarted after each
+    # save while "live" is on (its state starts again; this is not hot reload)
+    live = {"on": False, "proc": None, "tmp": None, "timer": None}
+    lock = threading.Lock()
+
+    def stop_game():
+        with lock:
+            proc, tmp = live["proc"], live["tmp"]
+            live["proc"] = live["tmp"] = None
+        if proc and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def start_game():
+        notes = []
+        data = build(game, notes=notes)
+        host = find_host("pulli-host")
+        stop_game()
+        tmp = tempfile.mkdtemp()
+        pkg = os.path.join(tmp, os.path.basename(game) + EXT)
+        with open(pkg, "wb") as f:
+            f.write(data)
+        with lock:
+            live["proc"], live["tmp"] = subprocess.Popen([host, pkg]), tmp
+        return "\n".join(notes)
+
+    def saved():
+        """After a file is saved: restart a live game, once the saving stops."""
+        if not live["on"] or not live["proc"] or live["proc"].poll() is not None:
+            return
+        if live["timer"]:
+            live["timer"].cancel()
+
+        def restart():
+            try:
+                start_game()
+            except (PackageError, OSError) as e:
+                print(f"live run: {e}", file=sys.stderr)
+        live["timer"] = threading.Timer(0.4, restart)
+        live["timer"].start()
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.stop_game = stop_game
     return server, token
 
 
@@ -1190,6 +1231,7 @@ def cmd_edit(srcdir, port="0"):
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    server.stop_game()
     return 0
 
 

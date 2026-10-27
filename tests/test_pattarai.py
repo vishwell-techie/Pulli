@@ -289,11 +289,51 @@ def server(t):
                     not os.path.exists(os.path.join(game, "run.py")) and
                     not os.path.exists(os.path.join(tmp, "out.png")))
             t.check("the game cannot be checked without the key", ask("POST", "/api/check", key="guess")[0] == 403)
+
+            # Run, and restart on save: with a stand-in for the emulator that notes each start
+            fake = os.path.join(tmp, "fakehost")
+            os.makedirs(fake)
+            starts = os.path.join(tmp, "starts.txt")
+            with open(os.path.join(fake, "pulli-host"), "w") as f:
+                f.write(f"#!/bin/sh\necho \"$1\" >> {starts}\nexec sleep 30\n")
+            os.chmod(os.path.join(fake, "pulli-host"), 0o755)
+            with open(os.path.join(game, "manifest.lua"), "w") as f:
+                f.write('return { id = "test.edit", title = "Edit", spec = 1 }\n')
+            was = os.environ.get("PULLI_HOST_DIR")
+            os.environ["PULLI_HOST_DIR"] = fake
+            import time
+            def count():
+                time.sleep(1.0)
+                return len(open(starts).read().split()) if os.path.exists(starts) else 0
+            try:
+                for junk in ("sprites.png", "map.tmx"):             # not a real picture and map
+                    if os.path.exists(os.path.join(game, junk)):
+                        os.remove(os.path.join(game, junk))
+                first = ask("POST", "/api/run?live=1")
+                ok = first[0] == 200 and count() == 1
+                ask("PUT", "/api/file?path=music/a.json", b"{2}")
+                ok = ok and count() == 2
+                ask("POST", "/api/run")                            # not live: a save leaves it be
+                ask("PUT", "/api/file?path=music/a.json", b"{3}")
+                ok = ok and count() == 3
+                ask("POST", "/api/stop")
+                ask("PUT", "/api/file?path=music/a.json", b"{4}")
+                t.check("Run starts the game; live, each save starts it again; stopped, it stays stopped",
+                        ok and count() == 3, open(starts).read() if os.path.exists(starts) else first)
+                t.check("the game cannot be run without the key", ask("POST", "/api/run", key="guess")[0] == 403)
+            finally:
+                srv.stop_game()
+                if was is None:
+                    os.environ.pop("PULLI_HOST_DIR", None)
+                else:
+                    os.environ["PULLI_HOST_DIR"] = was
+                pass
             if t.need_runtime("checking a game from the page"):
                 with open(os.path.join(game, "manifest.lua"), "w") as f:
                     f.write('return { id = "test.edit", title = "Edit", spec = 1 }\n')
-                os.remove(os.path.join(game, "sprites.png"))
-                os.remove(os.path.join(game, "map.tmx"))
+                for junk in ("sprites.png", "map.tmx"):
+                    if os.path.exists(os.path.join(game, junk)):
+                        os.remove(os.path.join(game, junk))
                 os.environ["PULLI_HOST_DIR"] = os.path.dirname(t.headless)
                 status, body = ask("POST", "/api/check")
                 good = json.loads(body)

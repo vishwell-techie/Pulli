@@ -21,7 +21,8 @@ export const api = {
   read: async (path) => new Uint8Array(await (await call("GET", "/api/file?path=" + encodeURIComponent(path))).arrayBuffer()),
   readText: async (path) => (await call("GET", "/api/file?path=" + encodeURIComponent(path))).text(),
   write: async (path, data) => call("PUT", "/api/file?path=" + encodeURIComponent(path), data),
-  run: async () => (await call("POST", "/api/run")).text(),
+  run: async (liveRun) => (await call("POST", "/api/run" + (liveRun ? "?live=1" : ""))).text(),
+  stop: async () => (await call("POST", "/api/stop")).text(),
   sounds: async () => (await call("GET", "/api/sounds")).json(),
 };
 
@@ -116,9 +117,11 @@ async function start() {
       document.getElementById(b.dataset.tab).classList.add("on");
     };
   }
+  const liveBox = document.getElementById("live");
   document.getElementById("run").onclick = async () => {
-    try { status(await api.run()); } catch (e) { status("Could not run the game: " + e.message, true); }
+    try { status(await api.run(liveBox.checked)); } catch (e) { status("Could not run the game: " + e.message, true); }
   };
+  document.getElementById("stop").onclick = async () => { try { status(await api.stop()); } catch (e) { status(e.message, true); } };
   try {
     await refreshFiles();
     const pal = shared.files.find((f) => f === "palette.hex" || f === "palette.gpl");
