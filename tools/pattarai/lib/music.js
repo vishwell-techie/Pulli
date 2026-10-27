@@ -143,6 +143,8 @@ export function noteName(semi, song) {
 //             into it, \ slides down into it;
 //             {0,4,7} after a note (and its mark) cycles it through those
 //             semitones above it, fast: chiptune's arpeggio chord;
+//             !1 to !9 at the very end sets the note's volume (9, or
+//             nothing, is full): echoes, accents, fades;
 //             // starts a comment, to the end of the line.
 // Returns {notes: [{at, len, semi, mark}], steps} or throws with the token.
 
@@ -159,7 +161,10 @@ export function parseNotation(text, song) {
   const tokens = text.replace(/\/\/[^\n]*/g, "").split(/\s+/).filter((t) => t);
   for (let tok of tokens) {
     if (tok === "|" || tok === "||") continue;
-    let arp = null;
+    let arp = null, vol = null;
+    const bang = tok.match(/^(.+)!([1-9])$/);
+    if (bang) { tok = bang[1]; vol = +bang[2]; }
+    else if (/!/.test(tok)) throw new Error(`cannot read "${tok}": a volume is !1 to !9 at the end`);
     const brace = tok.match(/^(.*?)\{(-?\d+(?:,-?\d+)*)\}$/);
     if (brace) { tok = brace[1]; arp = brace[2].split(",").map(Number); }
     else if (tok.includes("{")) throw new Error(`cannot read "${tok}": an arpeggio is written {0,4,7}`);
@@ -193,7 +198,10 @@ export function parseNotation(text, song) {
       const octave = m[3] === "" ? song.octave : +m[3];
       semi = pitch + 12 * (octave - song.octave) - KEYS.indexOf(song.key);
     }
-    notes.push(arp ? { at, len: 1, semi, mark: m[4] || "", arp } : { at, len: 1, semi, mark: m[4] || "" });
+    const note = { at, len: 1, semi, mark: m[4] || "" };
+    if (arp) note.arp = arp;
+    if (vol) note.vol = vol;
+    notes.push(note);
     at += 1;
   }
   return { notes, steps: at };
@@ -201,7 +209,7 @@ export function parseNotation(text, song) {
 
 // The other way: notes back to a part's text, `perBar` steps between bar
 // lines. Used when notes are placed on the roll.
-const arpText = (n) => (n.arp ? "{" + n.arp.join(",") + "}" : "");
+const arpText = (n) => (n.arp ? "{" + n.arp.join(",") + "}" : "") + (n.vol && n.vol < 9 ? "!" + n.vol : "");
 
 export function writeNotation(notes, steps, song, perBar) {
   const out = [];
@@ -260,6 +268,7 @@ export function newSong(system = "carnatic") {
     key: "C", octave: 4, a4: 440,    // western: the key, the octave its tonic is in, tuning
     tala: c ? "Adi (8)" : "4/4", tempo: 90, steps: 2, cycles: 4,
     rate: RATE, mono: false, arpRate: 30,  // the WAV made: samples a second, one channel or two
+    loopCycle: 0,                          // the cycle it loops back to: 0 its start, or past an intro
     drone: c, drums: c ? "mridangam" : "kit", swing: 0,
     parts: [
       { name: "lead", instrument: c ? "nadaswaram" : "piano", octave: 0, gain: 0.9, pan: 0.1,
@@ -454,6 +463,14 @@ export function songSteps(song) {
   return Math.ceil(most / per) * per;
 }
 
+// The frame the song loops back to: the start of cycle `loopCycle`.
+export function loopFrame(song) {
+  const { beats } = cycleOf(song);
+  const per = beats * song.steps, steps = songSteps(song);
+  const at = Math.min(Math.max(0, song.loopCycle | 0) * per, steps - per);
+  return Math.round(at * 60 / song.tempo / song.steps * (song.rate || RATE));
+}
+
 // Plays the whole song into two Float32Arrays (left, right). It loops
 // without a seam: what rings past the end is folded back onto the start.
 export function render(song) {
@@ -479,7 +496,8 @@ export function render(song) {
     for (const n of notes) {
       const swing = song.swing && n.at % 2 ? song.swing * stepSec * 0.5 : 0;
       voice(out, p.instrument, n.at * stepSec + swing, n.len * stepSec * (CHIP.has(p.instrument) ? 0.9 : 0.97),
-            freqOf(n.semi + 12 * p.octave, song), n.mark, p.gain, p.pan, seed++, n.arp, song.arpRate || 30);
+            freqOf(n.semi + 12 * p.octave, song), n.mark, p.gain * (n.vol ? n.vol / 9 : 1), p.pan, seed++, n.arp,
+            song.arpRate || 30);
     }
   }
   const kit = KIT_STROKES[song.drums];
@@ -495,7 +513,8 @@ export function render(song) {
     }
   }
   const L = out[0].subarray(0, len), R = out[1].subarray(0, len);
-  for (let i = 0; i < tail && i < len; i++) { L[i] += out[0][len + i]; R[i] += out[1][len + i]; }
+  const from = loopFrame(song);                     // what rings past the end goes on at the loop point
+  for (let i = 0; i < tail && from + i < len; i++) { L[from + i] += out[0][len + i]; R[from + i] += out[1][len + i]; }
   let peak = 0;
   for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
   const g = peak > 0 ? 0.8 / peak : 1;

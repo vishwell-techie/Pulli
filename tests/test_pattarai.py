@@ -98,6 +98,15 @@ def library(t):
     lo, hi, back = r["arpHeard"]
     t.check("an arpeggio is heard: the note, the octave above, the note again", hi > 1.8 * lo and abs(back - lo) <= 2,
             r["arpHeard"])
+    t.check("a note's volume is read and written back: !1 to !9, 9 being full", r["vol"] == [3, 9, 1, None] and
+            r["volAgain"] == [3, None, 1, None], (r["vol"], r["volAgain"]))
+    t.check("a volume outside !1 to !9 is refused", r["volBad"])
+    t.check("a note at !3 sounds a third as loud", abs(r["volRatio"] - 3 / 9) < 0.03, r["volRatio"])
+    lp = r["loop"]
+    t.check("the loop point is the start of its cycle; none is the start; past the end is the last cycle",
+            lp["frame"] == lp["want"] and lp["none"] == 0 and 0 < lp["past"], lp)
+    rate, channels, samples, loop = pulli.read_wav(base64.b64decode(r["loopWav"]))
+    t.check("the loop point is kept in the WAV where pack reads it", loop == lp["frame"], (loop, lp["frame"]))
     rate, channels, samples, _ = pulli.read_wav(base64.b64decode(r["chipWav"]))
     t.check("a chiptune's WAV is mono at 8,000 and pack reads it", (rate, channels) == (8000, 1) and
             len(samples) == c["len"])

@@ -80,6 +80,22 @@ const probe = (arpNotes) => {
 };
 out.arpHeard = probe("C4{0,12} ; ; ,");
 out.chipWav = b64(encodeWAV([cr[0]], 8000));
+// volume and the loop point
+const vs = M.parseNotation("C!3 , E{0,4}!9 G~!1 A", chip);
+out.vol = vs.notes.map((n) => n.vol || null);
+out.volAgain = M.parseNotation(M.writeNotation(vs.notes, vs.steps, chip, 0), chip).notes.map((n) => n.vol || null);
+try { M.parseNotation("C!0", chip); out.volBad = false; } catch (e) { out.volBad = true; }
+const loud = (text) => { const [L] = M.render({ ...chip, drums: "none", parts: [{ ...chip.parts[0], gain: 0.5, text }] });
+  return [...L].reduce((m, v) => Math.max(m, Math.abs(v)), 0); };
+const two = { ...chip, drums: "none", cycles: 1, parts: [{ name: "a", instrument: "square", octave: 0, gain: 0.5, pan: 0, text: "C ; ; ; , - - - - - - - -" },
+  { name: "b", instrument: "square", octave: 0, gain: 0.5, pan: 0, text: "- - - - - - - - E!3 ; ; ; ," }] };
+const [tw] = M.render(two), half = tw.length / 2;
+const peak = (a, b) => { let m = 0; for (let i = a; i < b; i++) m = Math.max(m, Math.abs(tw[i])); return m; };
+out.volRatio = peak(half + 100, tw.length - 100) / peak(100, half - 100);
+const intro = { ...chip, cycles: 4, loopCycle: 2 };
+out.loop = { frame: M.loopFrame(intro), want: Math.round(2 * M.cycleOf(intro).beats * intro.steps * 60 / intro.tempo / intro.steps * intro.rate), none: M.loopFrame(chip),
+  past: M.loopFrame({ ...chip, loopCycle: 99 }) };
+out.loopWav = b64(encodeWAV([M.render(intro)[0]], intro.rate, M.loopFrame(intro)));
 
 // files
 const px = new Uint8Array(24 * 16 * 4);

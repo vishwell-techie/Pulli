@@ -34,7 +34,7 @@ export function isai(root) {
       h("div", { className: "wide" }, partsBox,
         h("button", { onclick: addPart }, "+ Part"),
         h("p", { className: "muted", style: "font-size:12px;max-width:720px" },
-          "The parts are mixed into one track; the game plays it with music(n), " + CHANNEL_NOTE.slice(CHANNEL_NOTE.indexOf("Music is") ).replace("Music is", "one track at a time, mixed") )),
+          "The parts are mixed into one track, which the game plays with music(n). " + CHANNEL_NOTE)),
       h("div", { className: "box", style: "max-width:100%" }, h("h3", {}, "Roll: the part in hand"),
         h("p", { className: "muted", style: "margin:0 0 6px" },
           "Click to place a note (drag right to hold it), click a note to remove it."),
@@ -86,6 +86,9 @@ export function isai(root) {
       field("swing", h("input", { type: "range", min: 0, max: 0.6, step: 0.05, value: song.swing,
         onchange: (e) => { song.swing = +e.target.value; changed(); } })),
       field("arpeggio speed", num("arpRate", 4, 60)),
+      field("loops from cycle", h("input", { type: "number", min: 0, max: 63, value: song.loopCycle || 0, style: "width:60px",
+        title: "0: the whole song loops. 2: cycles 0 and 1 are an intro, played once, then it loops from cycle 2",
+        onchange: (e) => { song.loopCycle = Math.max(0, +e.target.value | 0); changed(); drawRoll(); } })),
       h("span", { className: "sep" }),
       field("WAV", h("select", { title: "Samples a second in the WAV made: fewer is smaller and rougher, as chiptune was",
         onchange: (e) => { song.rate = +e.target.value; changed(); drawHead(); } },
@@ -115,8 +118,8 @@ export function isai(root) {
       h("p", { className: "muted", style: "margin:8px 0 4px" }, song.system === "carnatic" ? "Avarohanam" : "Down"), keys(s.down),
       h("p", { className: "muted", style: "margin:10px 0 0;max-width:330px;font-size:12px" },
         song.system === "carnatic"
-          ? "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' an octave up, . down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio."
-          : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio."));
+          ? "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' an octave up, . down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
+          : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
   }
 
   // ---- parts --------------------------------------------------------------------
@@ -197,8 +200,24 @@ export function isai(root) {
     }
     for (const n of parsed.notes) {
       const r = rows.indexOf(n.semi);
+      g.globalAlpha = n.vol ? 0.3 + 0.7 * n.vol / 9 : 1;    // quieter notes, fainter
       g.fillStyle = n.mark ? "#4fb3a9" : "#f0a330";
       g.fillRect(LABEL + n.at * CW + 1, r * RH + 2, n.len * CW - 2, RH - 4);
+      g.globalAlpha = 1;
+      for (const a of n.arp || []) {                       // an arpeggio's other notes, as ticks where they sound
+        if (!a) continue;
+        const rr = rows.indexOf(n.semi + a);
+        if (rr < 0) continue;                              // a note off the roll's rows
+        const yy = rr * RH + RH / 2;
+        g.fillStyle = "#e0789a";
+        for (let k = 0; k < n.len; k++) g.fillRect(LABEL + (n.at + k) * CW + 3, yy - 2, CW - 6, 4);
+      }
+      if (n.vol) { g.fillStyle = "#fff"; g.font = "9px monospace"; g.fillText(String(n.vol), LABEL + n.at * CW + 3, r * RH + RH / 2); }
+    }
+    if (song.loopCycle > 0) {                              // the loop point
+      const x = LABEL + Math.min(song.loopCycle * per, steps) * CW;
+      g.fillStyle = "#4fb3a9"; g.fillRect(x - 1, 0, 3, roll.height);
+      g.font = "10px sans-serif"; g.fillText("loop ↺", x + 4, 10);
     }
     if (source) {
       const x = LABEL + ((audio.currentTime - playStart) % playLen) / playLen * M.songSteps(song) * CW;
@@ -279,6 +298,7 @@ export function isai(root) {
       b.copyToChannel(L, 0); b.copyToChannel(R, 1);
       source = a.createBufferSource();
       source.buffer = b; source.loop = true; source.connect(a.destination);
+      if (only === null) source.loopStart = M.loopFrame(song) / rate;     // as the game will loop it
       playStart = a.currentTime; playLen = L.length / rate;
       source.start();
       playBtn.textContent = "■ Stop"; playBtn.classList.add("on");
@@ -345,7 +365,7 @@ export function isai(root) {
     try {
       status("Making the WAV…");
       const ch = mix(await renderAsync(JSON.parse(JSON.stringify(song))));
-      const wav = encodeWAV(song.mono ? [ch[0]] : ch, song.rate || M.RATE);
+      const wav = encodeWAV(song.mono ? [ch[0]] : ch, song.rate || M.RATE, M.loopFrame(song) || null);
       await api.write(wavOf(path), wav);
       await save();
       status(`Made ${wavOf(path)} (${(ch[0].length / (song.rate || M.RATE)).toFixed(1)} s, ${Math.round(wav.length / 1024)} KB) and saved ${path}.`);
