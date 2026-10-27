@@ -20,7 +20,10 @@ export function ooru(root) {
   const eyes = [0, 1].map((n) => h("label", {}, h("input", { type: "checkbox", checked: true,
     onchange: (e) => { shown[n] = e.target.checked; draw(); } }), `show ${n}`));
   const tools = {};
-  for (const [k, label] of [["paint", "✎ Paint"], ["fill", "◧ Fill"], ["erase", "⌫ Erase"], ["pick", "⊙ Pick"]])
+  // rect: drag a box and fill it with the brush (repeated); copy: drag a box
+  // of the map and it becomes the brush
+  for (const [k, label] of [["paint", "✎ Paint"], ["rect", "▭ Box"], ["fill", "◧ Fill"], ["erase", "⌫ Erase"],
+                            ["pick", "⊙ Pick"], ["copy", "⧉ Copy"]])
     tools[k] = h("button", { onclick: () => { tool = k; bar(); } }, label);
   const fx = h("button", { title: "Place tiles turned over left to right (X)", onclick: () => { flipX = !flipX; bar(); } }, "⇋ Flip");
   const fy = h("button", { title: "Place tiles turned over top to bottom (Y)", onclick: () => { flipY = !flipY; bar(); } }, "⇵ Flip");
@@ -115,7 +118,11 @@ export function ooru(root) {
     }
     g.strokeStyle = "#f0a33066";                         // the screen, 40x30 tiles, from the top left
     g.strokeRect(0, 0, 40 * 8 * zoom, 30 * 8 * zoom);
-    if (hover) {
+    if (boxFrom && hover) {
+      const [ax, ay, w, hh] = boxOf(boxFrom, hover);
+      g.fillStyle = "#f0a33030"; g.fillRect(ax * 8 * zoom, ay * 8 * zoom, w * 8 * zoom, hh * 8 * zoom);
+      g.strokeStyle = "#f0a330"; g.strokeRect(ax * 8 * zoom, ay * 8 * zoom, w * 8 * zoom, hh * 8 * zoom);
+    } else if (hover) {
       g.strokeStyle = "#f0a330";
       g.strokeRect(hover[0] * 8 * zoom, hover[1] * 8 * zoom, brush.w * 8 * zoom, brush.h * 8 * zoom);
     }
@@ -172,7 +179,8 @@ export function ooru(root) {
     const ax = Math.min(x0, x1), ay = Math.min(y0, y1), w = Math.abs(x1 - x0) + 1, hh = Math.abs(y1 - y0) + 1;
     brush = { w, h: hh, cells: [] };
     for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) brush.cells.push((ay + y) * cols() + ax + x);
-    if (tool !== "paint" && tool !== "fill") tool = "paint";
+    if (tool === "copy") tool = "paint";
+    if (!["paint", "fill", "rect"].includes(tool)) tool = "paint";
     bar();
     drawPicker();
     drawFlags();
@@ -201,7 +209,8 @@ export function ooru(root) {
       // a flipped block is placed mirrored, so a 16x16 sprite stays whole
       const sx = flipX ? brush.w - 1 - bx : bx, sy = flipY ? brush.h - 1 - by : by;
       const tx = x + bx, ty = y + by;
-      if (tx < map.width && ty < map.height) cells[ty * map.width + tx] = placed(brush.cells[sy * brush.w + sx]);
+      const c = brush.cells[sy * brush.w + sx];
+      if (tx < map.width && ty < map.height) cells[ty * map.width + tx] = brush.raw ? c ^ (flipX ? 0x8000 : 0) ^ (flipY ? 0x4000 : 0) : placed(c);
     }
   }
   function fillAt(x, y, value) {
@@ -221,7 +230,30 @@ export function ooru(root) {
     dirty = true;
   }
 
-  let painting = false, hover = null;
+  let painting = false, hover = null, boxFrom = null;
+  const boxOf = ([x0, y0], [x1, y1]) => [Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0) + 1, Math.abs(y1 - y0) + 1];
+  function boxDone(to) {
+    const [ax, ay, w, hh] = boxOf(boxFrom, to);
+    boxFrom = null;
+    const cells = map.layers[layer].cells;
+    if (tool === "copy") {                      // the region, flips and all, becomes the brush
+      brush = { w, h: hh, cells: [], raw: true };
+      for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++)
+        brush.cells.push(ax + x < map.width && ay + y < map.height ? cells[(ay + y) * map.width + ax + x] : 0);
+      tool = "paint"; flipX = flipY = false;
+      bar(); drawPicker(); drawFlags();
+      status(`Copied ${w}×${hh} tiles of layer ${layer}: paint with them.`);
+    } else {                                    // the box filled with the brush, repeated
+      snapshot();
+      for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) {
+        const bx = flipX ? brush.w - 1 - (x % brush.w) : x % brush.w, by = flipY ? brush.h - 1 - (y % brush.h) : y % brush.h;
+        const c = brush.cells[by * brush.w + bx];
+        if (ax + x < map.width && ay + y < map.height) cells[(ay + y) * map.width + ax + x] = brush.raw ? c : placed(c);
+      }
+      dirty = true;
+    }
+    draw();
+  }
   const cellOf = (e) => [Math.floor(e.offsetX / 8 / zoom), Math.floor(e.offsetY / 8 / zoom)];
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   canvas.addEventListener("mousedown", (e) => {
@@ -235,8 +267,9 @@ export function ooru(root) {
       bar(); drawPicker(); drawFlags();
       return;
     }
+    if (tool === "rect" || tool === "copy") { boxFrom = [x, y]; draw(); return; }
     snapshot();
-    if (tool === "fill") { fillAt(x, y, placed(brush.cells[0])); dirty = true; draw(); return; }
+    if (tool === "fill") { fillAt(x, y, placed(brush.cells[0] & 0x3fff)); dirty = true; draw(); return; }
     painting = true;
     act(x, y);
     draw();
@@ -250,7 +283,7 @@ export function ooru(root) {
     draw();
   });
   canvas.addEventListener("mouseleave", () => { hover = null; draw(); });
-  addEventListener("mouseup", () => { painting = false; });
+  addEventListener("mouseup", () => { painting = false; if (boxFrom && hover) boxDone(hover); boxFrom = null; });
 
   addEventListener("keydown", (e) => {
     if (!root.classList.contains("on") || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)) return;
@@ -261,7 +294,9 @@ export function ooru(root) {
     else if (k === "x") { flipX = !flipX; bar(); }
     else if (k === "y") { flipY = !flipY; bar(); }
     else if (k === "1" || k === "2") { layer = +k - 1; bar(); draw(); }
-    else if ({ p: 1, f: 1, e: 1, k: 1 }[k]) { tool = { p: "paint", f: "fill", e: "erase", k: "pick" }[k]; bar(); }
+    else if ({ p: 1, f: 1, e: 1, k: 1, r: 1, c: 1 }[k] && !e.ctrlKey) {
+      tool = { p: "paint", f: "fill", e: "erase", k: "pick", r: "rect", c: "copy" }[k]; bar();
+    }
   });
 
   // ---- files -------------------------------------------------------------------
