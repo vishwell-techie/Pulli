@@ -215,6 +215,22 @@ def vidhi(t, r):
             r["numbered"] == ["sfx/10.wav", "sfx/a.WAV", "sfx/b.wav"], r["numbered"])
 
 
+def project(t):
+    r = pulli.project_report(os.path.join(ROOT, "examples", "manickam"))
+    entries = dict(pulli.parse(pulli.build(os.path.join(ROOT, "examples", "manickam"))))
+    t.check("the project report measures the package pack builds", r["ok"] and r["error"] is None and
+            r["size"] == len(pulli.build(os.path.join(ROOT, "examples", "manickam"))) and
+            dict(r["entries"]) == {n: len(b) for n, b in entries.items()}, r["checks"])
+    clips = pulli.read_bank(entries["sfx.oli"])
+    t.check("each sound is measured as it is read, one at a time", [b for n, b in r["sounds"] if n.startswith("sfx(")] ==
+            [c[5] for c in clips])
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "manifest.lua"), "w") as f:
+            f.write("return {}\n")
+        bad = pulli.project_report(tmp)
+        t.check("a game that does not pack says why", not bad["ok"] and "main.lua" in bad["error"], bad)
+
+
 def palette(t):
     text = open(os.path.join(HERE, "lib", "palette.js")).read()
     colours = [int(v, 16) for v in re.findall(r"0x([0-9a-f]{6})", text.split("export function")[0])]
@@ -349,6 +365,7 @@ def server(t):
 def main():
     t = Suite("Pattarai, the editors")
     palette(t)
+    project(t)
     server(t)
     library(t)
     return t.finish()

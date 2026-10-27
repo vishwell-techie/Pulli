@@ -1012,6 +1012,41 @@ def edit_path(game: str, rel: str):
     return path if path.startswith(root + os.sep) else None
 
 
+BOARD_FLASH = 4 * 1024 * 1024     # the Pico 2 board: the firmware and the game linked into it
+
+
+def project_report(game: str):
+    """The game as pack builds it, measured against SPEC §2's limits:
+    {"ok", "size", "entries": [(name, bytes)], "sounds": [(name, bytes)],
+    "checks": [(ok, text)], "notes", "error"}."""
+    notes = []
+    try:
+        data = build(game, notes=notes)
+    except (PackageError, OSError) as e:
+        return {"ok": False, "error": str(e), "checks": [], "entries": [], "sounds": [], "notes": notes, "size": 0}
+    entries = [(n, len(b)) for n, b in parse(data)]
+    sounds = []                                         # a bank is read a sound at a time
+    for name, blob in parse(data):
+        if name in ("sfx.oli", "music.isai"):
+            kind = "sfx" if name == "sfx.oli" else "music"
+            sounds += [(f"{kind}({i})", c[5]) for i, c in enumerate(read_bank(blob))]
+    parts = [(n, b) for n, b in entries if n not in ("sfx.oli", "music.isai")] + sounds
+    biggest = max(parts, key=lambda p: p[1], default=("", 0))
+    kb = lambda n: f"{n / 1024:,.0f} KB" if n < 1024 * 1024 else f"{n / 1048576:.1f} MB"
+    start = sum(b for n, b in entries if n in ("manifest.lua", "main.lua", "sprites.kolam", "map.ooru"))
+    checks = [
+        (len(data) <= MAX_SIZE, f"package {kb(len(data))} of the {kb(MAX_SIZE)} a package may be"),
+        (len(entries) <= MAX_ENTRIES, f"{len(entries)} entries of the {MAX_ENTRIES} a package may hold"),
+        (biggest[1] <= ACTIVE_MAX, f"the biggest part, {biggest[0]}, is {kb(biggest[1])}: each part must fit in the "
+                                   f"{kb(ACTIVE_MAX)} the game holds in memory at once"),
+        (start <= ACTIVE_MAX, f"{kb(start)} in memory as it starts (manifest, main.lua, sprites, map)"),
+        (len(data) <= BOARD_FLASH, f"{kb(len(data))} of the Pico 2 board's {kb(BOARD_FLASH)} flash, which also holds "
+                                   f"the firmware (the console reads games from its SD card instead)"),
+    ]
+    return {"ok": all(ok for ok, _ in checks[:4]), "size": len(data), "entries": sorted(entries, key=lambda e: -e[1]),
+            "sounds": sounds, "checks": checks, "notes": notes, "error": None}
+
+
 def edit_server(game: str, port: int = 0, token: str = None):
     """An HTTP server for Pattarai on 127.0.0.1 (port 0: any free one).
     Returns (server, token); call serve_forever() on it."""
@@ -1148,6 +1183,8 @@ def edit_server(game: str, port: int = 0, token: str = None):
                         out, ok = "the game did not finish two seconds of frames within a minute", False
                 return self.reply(200, json.dumps({"ok": ok, "out": "\n".join(notes + [out]).strip()}),
                                   "application/json")
+            if call == "/api/project":
+                return self.reply(200, json.dumps(project_report(game)), "application/json")
             if call == "/api/stop":
                 live["on"] = False
                 stop_game()

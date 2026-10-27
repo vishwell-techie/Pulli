@@ -7,6 +7,7 @@ import { ooru } from "./ooru.js";
 import { isai } from "./isai.js";
 import { vidhi } from "./vidhi.js";
 import { oli } from "./oli.js";
+import { project } from "./project.js";
 
 const token = location.hash.slice(1);
 
@@ -131,6 +132,7 @@ async function start() {
     ooru(document.getElementById("ooru"));
     oli(document.getElementById("oli"));
     isai(document.getElementById("isai"));
+    project(document.getElementById("project"));
     shared.changed("files");                       // the editors were made after the files were listed
     if (shared.files.includes("sprites.png")) await loadSheet("sprites.png");
     status(`Editing ${document.getElementById("game").textContent}: ${shared.files.length} files the editors can open.`);

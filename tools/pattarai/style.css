@@ -75,3 +75,9 @@ canvas { image-rendering: pixelated; display: block; }
 .complete div.on span { color: #1a1408; }
 .hint { font: 12px/1.6 ui-monospace, monospace; min-height: 20px; padding: 2px 4px; }
 .hint .f { color: var(--accent-2); } .hint b { color: var(--accent); }
+.err { color: var(--bad); } .warn { color: var(--accent); }
+.sizerow { display: grid; grid-template-columns: 150px 1fr 80px; gap: 8px; align-items: center; margin: 3px 0; font-size: 13px; }
+.sizerow .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sizerow .track { background: var(--field); height: 10px; border-radius: 5px; overflow: hidden; min-width: 120px; }
+.sizerow .track span { display: block; height: 100%; background: var(--accent-2); }
+.sizerow .num { text-align: right; }
