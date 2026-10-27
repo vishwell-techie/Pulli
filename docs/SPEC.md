@@ -1090,7 +1090,9 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    call under the cursor names, and checks the game (two seconds with no
    window) listing errors by line; **Kolam** draws the game's `.png` sprite sheets
    in its 64 colours, **Ooru** paints Tiled `.tmx` maps with the sheet's
-   tiles (two layers, flips), and **Isai** writes music in western scales
+   tiles (two layers, flips), **Oli** makes sound effects from a kind
+   (jump, coin, hit, tabla...) and a few settings, kept as
+   `sfx/<name>.json` beside the `sfx/<name>.wav` it makes, and **Isai** writes music in western scales
    or Carnatic ragas (the 72 melakartas and common janyas, sargam or note
    names, a tala, a synthesised band) and makes it into
    `music/<name>.wav`, keeping the song as `music/<name>.json`. They write

@@ -64,3 +64,6 @@ canvas { image-rendering: pixelated; display: block; }
 .linkcard .err, .problems .err { color: var(--bad); }
 .problems { font: 12px/1.5 ui-monospace, monospace; margin-top: 6px; max-height: 120px; overflow: auto; }
 .problems .link { cursor: pointer; text-decoration: underline dotted; }
+.knobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 4px 18px; }
+.knob input[type=range] { flex: 1; min-width: 100px; }
+.knob { display: flex; }

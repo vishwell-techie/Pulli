@@ -6,6 +6,7 @@ import { parseTMX, writeTMX, newTMX, newTSX } from "../tools/pattarai/lib/tmx.js
 import { encodePNG } from "../tools/pattarai/lib/png.js";
 import { encodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
+import * as O from "../tools/pattarai/lib/sfx.js";
 import { API, highlight, callAt, numbered } from "../tools/pattarai/lib/lua.js";
 
 const [, , village] = process.argv;
@@ -72,6 +73,23 @@ const fresh = newTMX(10, 6, 2);
 fresh.layers[1].cells[3] = 2;
 out.fresh = writeTMX(fresh);
 out.freshTSX = newTSX(64, 32);
+// Oli
+const o1 = O.render(O.preset("coin", 3)), o2 = O.render(O.preset("coin", 3));
+out.oli = { same: o1.every((v, i) => v === o2[i]), len: o1.length, want: Math.floor((O.preset("coin", 3).attack +
+  O.preset("coin", 3).sustain + O.preset("coin", 3).decay) * O.RATE), varies: O.render(O.preset("coin", 4)).length !== o1.length ||
+  O.render(O.preset("coin", 4)).some((v, i) => v !== o1[i]) };
+out.oliBad = [];
+for (const name of Object.keys(O.PRESETS)) for (const seed of [1, 2, 3]) {
+  const s = O.preset(name, seed);
+  for (const wave of O.WAVES) for (const m of [s, O.mutate(s, seed + 9)]) {
+    const v = O.render({ ...m, wave });
+    if (!v.every((x) => Number.isFinite(x) && Math.abs(x) <= 1) || !v.some((x) => x !== 0)) out.oliBad.push(`${name} ${seed} ${wave}`);
+  }
+}
+out.oliInRange = Object.keys(O.PRESETS).every((n) => O.KNOBS.every(([k, min, max]) => {
+  const v = O.mutate(O.preset(n, 5), 6)[k]; return v >= min - 1e-9 && v <= max + 1e-9; }));
+out.oliWav = b64(encodeWAV([O.render(O.preset("jump", 1))], O.RATE));
+
 // Vidhi
 out.api = API;
 out.calls = ["  spr(12, x, y)", "sfx(3) music(1, 500)", 'map.load("hall.ooru")', 'preload("sfx 7", "music 2")',

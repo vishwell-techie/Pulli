@@ -6,6 +6,7 @@ import { kolam } from "./kolam.js";
 import { ooru } from "./ooru.js";
 import { isai } from "./isai.js";
 import { vidhi } from "./vidhi.js";
+import { oli } from "./oli.js";
 
 const token = location.hash.slice(1);
 
@@ -123,6 +124,7 @@ async function start() {
     vidhi(document.getElementById("vidhi"));
     kolam(document.getElementById("kolam"));
     ooru(document.getElementById("ooru"));
+    oli(document.getElementById("oli"));
     isai(document.getElementById("isai"));
     shared.changed("files");                       // the editors were made after the files were listed
     if (shared.files.includes("sprites.png")) await loadSheet("sprites.png");

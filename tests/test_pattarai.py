@@ -10,6 +10,9 @@ Run: python3 tests/test_pattarai.py
   - Isai's scales: the 72 melakartas, the swaras of each raga, the
     notation read and written both ways, and a song plays the same every
     time;
+  - Oli's sound effects are the same every time, every kind and wave
+    makes a sound within full scale, and pack takes them into sfx.oli
+    with the Oli files beside them left out;
   - Vidhi, the code editor, colours Lua, finds the asset a call names and
     numbers sounds as pack does, and its functions are the spec's;
   - the server lets the page reach the game's files and nothing else, and
@@ -113,7 +116,28 @@ def library(t):
         fresh = ooru(r["fresh"], "new.tmx")
         t.check("a new map and its tileset are what pack reads", fresh[:2] == (10, 6) and len(fresh[2]) == 2 and
                 fresh[2][1][3] == 2 and sum(map(sum, fresh[2])) == 2, fresh[:2])
+    oli(t, r)
     vidhi(t, r)
+
+
+def oli(t, r):
+    o = r["oli"]
+    t.check("a sound effect is the same every time, as long as its envelope, and a new seed varies it",
+            o["same"] and o["len"] == o["want"] and o["varies"], o)
+    t.check("every kind of sound with every wave sounds, within full scale", r["oliBad"] == [], r["oliBad"][:5])
+    t.check("a variation keeps every setting within its range", r["oliInRange"])
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, "sfx"))
+        for name in ("00-jump.wav", "01-jump.wav"):
+            with open(os.path.join(tmp, "sfx", name), "wb") as f:
+                f.write(base64.b64decode(r["oliWav"]))
+        with open(os.path.join(tmp, "sfx", "00-jump.json"), "w") as f:
+            f.write("{}")
+        sounds = pulli.read_bank(pulli.bank_from_folder("sfx", os.path.join(tmp, "sfx")))
+        rate, channels, samples, _ = pulli.read_wav(base64.b64decode(r["oliWav"]))
+        t.check("pack takes Oli's WAV files into sfx.oli, mono at 22,050, the .json beside them left out",
+                (rate, channels) == (22050, 1) and len(sounds) == 2 and
+                all(c[:3] == (22050, 1, len(samples)) for c in sounds), sounds)
 
 
 def vidhi(t, r):
