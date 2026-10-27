@@ -93,3 +93,54 @@ export function newTSX(sheetWidth, sheetHeight) {
 </tileset>
 `;
 }
+
+// ---- tile flags, kept in the tileset (.tsx) --------------------------------
+// pack reads two properties of a tileset's tiles: `flags` (0-255) and
+// `solid` (a tick box that sets bit 0); a tile's flags are the two put
+// together.
+
+const TILE = /<tile\b[^>]*\bid="(\d+)"[^>]*?(?:\/>|>([\s\S]*?)<\/tile>)/g;
+
+export function parseTSX(text) {
+  const head = text.match(/<tileset\b[^>]*>/);
+  if (!head) throw new Error("not a Tiled tileset");
+  const flags = new Map();
+  let m;
+  TILE.lastIndex = 0;
+  while ((m = TILE.exec(text))) {
+    const body = m[2] || "";
+    let v = 0;
+    const f = body.match(/<property\b[^>]*name="flags"[^>]*>/);
+    if (f) v |= (+attr(f[0], "value") || 0) & 255;
+    const s = body.match(/<property\b[^>]*name="solid"[^>]*>/);
+    if (s && attr(s[0], "value") === "true") v |= 1;
+    if (v) flags.set(+m[1], v);
+  }
+  return { columns: +attr(head[0], "columns") || 0, flags };
+}
+
+// The tileset's text with tile `id`'s flags set to `value`; everything else
+// in it is kept.
+export function setTileFlags(text, id, value) {
+  value &= 255;
+  const prop = `<property name="flags" type="int" value="${value}"/>`;
+  TILE.lastIndex = 0;
+  let m, found = null, after = null;
+  while ((m = TILE.exec(text))) {
+    if (+m[1] === id) { found = m; break; }
+    if (+m[1] > id && after === null) after = m.index;
+  }
+  if (found) {
+    let body = found[2] || "";
+    if (/<property\b[^>]*name="flags"/.test(body)) body = body.replace(/<property\b[^>]*name="flags"[^>]*\/>/, prop);
+    else if (/<properties>/.test(body)) body = body.replace(/<properties>/, `<properties>\n   ${prop}`);
+    else body = `\n  <properties>\n   ${prop}\n  </properties>\n ` + body;
+    body = body.replace(/(<property\b[^>]*name="solid"[^>]*value=")(true|false)/, (_, a) => a + (value & 1 ? "true" : "false"));
+    const open = found[0].match(/^<tile\b[^>]*?(?=\/?>)/)[0];
+    return text.slice(0, found.index) + `${open}>${body}</tile>` + text.slice(found.index + found[0].length);
+  }
+  if (!value) return text;
+  const xml = `<tile id="${id}">\n  <properties>\n   ${prop}\n  </properties>\n </tile>\n `;
+  if (after !== null) return text.slice(0, after) + xml + text.slice(after);
+  return text.replace(/<\/tileset>/, ` ${xml.trimEnd()}\n</tileset>`);
+}

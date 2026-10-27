@@ -129,6 +129,22 @@ def library(t):
         fresh = ooru(r["fresh"], "new.tmx")
         t.check("a new map and its tileset are what pack reads", fresh[:2] == (10, 6) and len(fresh[2]) == 2 and
                 fresh[2][1][3] == 2 and sum(map(sum, fresh[2])) == 2, fresh[:2])
+        flags_of = lambda: dict(enumerate(pulli.read_ooru(pulli.ooru_from_tmx(os.path.join(tmp, "map.tmx")))[3]))
+        shutil.copy(os.path.join(os.path.dirname(VILLAGE), "sprites.tsx"), tmp)
+        ooru(r["mapSame"])
+        before = {k: v for k, v in flags_of().items() if v}
+        t.check("Ooru reads each tile's flags as pack does", {int(k): v for k, v in r["tsxFlags"].items()} == before,
+                (r["tsxFlags"], before))
+        with open(os.path.join(tmp, "sprites.tsx"), "w") as f:
+            f.write(r["tsxChanged"])
+        after = {k: v for k, v in flags_of().items() if v}
+        want = {**before, 43: 5, 10: 3, 2000: 128}
+        want.pop(44, None)
+        t.check("flags Ooru sets are what pack reads: changed, added, added past the end, cleared", after == want,
+                sorted(set(after.items()) ^ set(want.items())))
+        t.check("setting a tile's flags to what they are leaves the tileset as it was", r["tsxSame"])
+        t.check("a solid tick box counts as bit 0, and is kept in step with the flags set",
+                r["solid"] == [{"2": 1}, {"2": 6}], r["solid"])
     oli(t, r)
     vidhi(t, r)
 

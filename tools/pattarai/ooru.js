@@ -2,7 +2,7 @@
 // pack` turns into .ooru; their tiles are the game's sprite sheet, so tile
 // n is spr(n), and tile 0 is empty. Two layers, as the console draws.
 import { api, h, shared, status, refreshFiles } from "./app.js";
-import { parseTMX, writeTMX, newTMX, newTSX } from "./lib/tmx.js";
+import { parseTMX, writeTMX, newTMX, newTSX, parseTSX, setTileFlags } from "./lib/tmx.js";
 
 export function ooru(root) {
   let map = null, path = "", layer = 0, tool = "paint", zoom = 3, flipX = false, flipY = false, dirty = false;
@@ -10,6 +10,7 @@ export function ooru(root) {
   const shown = [true, true];
   const undo = [], redo = [];
   let tiles = null;                                        // the sheet drawn once, see-through kept
+  let tsx = null, tsxPath = "", tsxDirty = false, showFlags = false;   // the tileset: each tile's flags
 
   const files = h("select", { title: "Maps in the game folder" });
   const canvas = h("canvas");
@@ -23,6 +24,8 @@ export function ooru(root) {
     tools[k] = h("button", { onclick: () => { tool = k; bar(); } }, label);
   const fx = h("button", { title: "Place tiles turned over left to right (X)", onclick: () => { flipX = !flipX; bar(); } }, "⇋ Flip");
   const fy = h("button", { title: "Place tiles turned over top to bottom (Y)", onclick: () => { flipY = !flipY; bar(); } }, "⇵ Flip");
+  const flagBox = h("div");
+  const flagsEye = h("label", {}, h("input", { type: "checkbox", onchange: (e) => { showFlags = e.target.checked; draw(); } }), "show flags");
   const zoomSel = h("select", { onchange: () => { zoom = +zoomSel.value; draw(); } },
     ...[1, 2, 3, 4, 6].map((n) => h("option", { value: n, selected: n === zoom }, `${n}×`)));
 
@@ -36,13 +39,13 @@ export function ooru(root) {
       h("span", { className: "sep" }),
       h("button", { title: "Undo (Ctrl+Z)", onclick: () => step(undo, redo) }, "↶"),
       h("button", { title: "Redo (Ctrl+Y)", onclick: () => step(redo, undo) }, "↷"),
-      h("label", {}, "zoom", zoomSel), info),
+      h("label", {}, "zoom", zoomSel), flagsEye, info),
     h("div", { className: "cols", style: "flex-wrap:nowrap" },
       h("div", { className: "box wide", style: "min-width:0" }, h("h3", {}, "Map"), h("div", { className: "scroll" }, canvas)),
       h("div", { className: "box", style: "width:420px;flex:none" }, h("h3", {}, "Tiles"),
         h("p", { className: "muted", style: "margin:0 0 6px;max-width:400px" },
           "The tiles are the picture open in Kolam: tile n is spr(n). Drag across tiles to paint with a block of them."),
-        h("div", { className: "scroll", style: "max-height:calc(100vh - 260px)" }, picker))));
+        h("div", { className: "scroll", style: "max-height:calc(100vh - 360px)" }, picker), flagBox)));
 
   function bar() {
     layerButtons.forEach((b, i) => b.classList.toggle("on", i === layer));
@@ -94,6 +97,17 @@ export function ooru(root) {
         drawTile(g, l.cells[y * map.width + x], x * 8 * zoom, y * 8 * zoom, zoom);
     });
     g.globalAlpha = 1;
+    if (showFlags && tsx) {                              // tiles with flags: solid red, the rest numbered
+      g.font = `${Math.max(7, 3 * zoom)}px monospace`; g.textBaseline = "top";
+      for (let y = 0; y < map.height; y++) for (let x = 0; x < map.width; x++) {
+        let f = 0;
+        for (const l of map.layers.slice(0, 2)) f |= tsx.flags.get(l.cells[y * map.width + x] & 0x3fff) || 0;
+        if (!f) continue;
+        g.fillStyle = f & 1 ? "#e5604f88" : "#4fb3a966";
+        g.fillRect(x * 8 * zoom, y * 8 * zoom, 8 * zoom, 8 * zoom);
+        if (f > 1 && zoom >= 3) { g.fillStyle = "#fff"; g.fillText(String(f), x * 8 * zoom + 1, y * 8 * zoom + 1); }
+      }
+    }
     if (zoom >= 2) {
       g.strokeStyle = "#ffffff10";
       for (let x = 0; x <= map.width; x++) { g.beginPath(); g.moveTo(x * 8 * zoom, 0); g.lineTo(x * 8 * zoom, canvas.height); g.stroke(); }
@@ -126,6 +140,28 @@ export function ooru(root) {
     g.lineWidth = 1;
   }
 
+  // The flags of the tile in hand (the brush's first), as pack reads them
+  function drawFlags() {
+    if (!tsx) {
+      flagBox.replaceChildren(h("p", { className: "muted" }, map ? `No tileset to keep flags in (${tsxPath || "none"}).` : ""));
+      return;
+    }
+    const n = brush.cells[0] & 0x3fff, v = tsx.flags.get(n) || 0;
+    flagBox.replaceChildren(
+      h("h3", { style: "margin:10px 0 4px" }, `Flags of tile ${n} = ${v}`, tsxDirty ? " •" : ""),
+      h("div", { className: "bar", style: "gap:4px 12px" }, ...[0, 1, 2, 3, 4, 5, 6, 7].map((b) =>
+        h("label", { title: b ? `bit ${b}: map.flags(tile) & ${1 << b}` : "bit 0: solid (map.flags(tile) & 1)" },
+          h("input", { type: "checkbox", checked: !!(v & (1 << b)), onchange: (e) => {
+            const now = e.target.checked ? v | (1 << b) : v & ~(1 << b);
+            tsx.text = setTileFlags(tsx.text, n, now);
+            Object.assign(tsx, parseTSX(tsx.text));
+            tsxDirty = true;
+            drawFlags(); draw();
+          } }), b ? String(b) : "0 solid"))),
+      h("p", { className: "muted", style: "margin:4px 0 0;font-size:12px" },
+        `Kept in ${tsxPath}, saved with the map. The game reads them with map.flags(tile).`));
+  }
+
   let pickFrom = null;
   const pickCell = (e) => [Math.floor(e.offsetX / 24), Math.floor(e.offsetY / 24)];
   picker.addEventListener("mousedown", (e) => { if (!shared.sheet) return; pickFrom = pickCell(e); pickTo(e); });
@@ -139,6 +175,7 @@ export function ooru(root) {
     if (tool !== "paint" && tool !== "fill") tool = "paint";
     bar();
     drawPicker();
+    drawFlags();
   }
 
   // ---- editing -----------------------------------------------------------------
@@ -195,7 +232,7 @@ export function ooru(root) {
       brush = { w: 1, h: 1, cells: [c & 0x3fff] };
       flipX = !!(c & 0x8000); flipY = !!(c & 0x4000);
       if (tool === "pick") tool = "paint";
-      bar(); drawPicker();
+      bar(); drawPicker(); drawFlags();
       return;
     }
     snapshot();
@@ -232,8 +269,10 @@ export function ooru(root) {
     if (!files.value) return;
     if (dirty && !confirm(`${path} has changes that are not saved. Open another anyway?`)) return;
     try {
+      if (tsxDirty && !confirm(`${tsxPath} has flags that are not saved. Open another map anyway?`)) return;
       map = parseTMX(await api.readText(files.value));
       path = files.value;
+      await loadTileset();
       dirty = false;
       undo.length = redo.length = 0;
       layer = 0;
@@ -244,6 +283,19 @@ export function ooru(root) {
       bar(); draw();
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }
+  async function loadTileset() {
+    const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+    tsxPath = map.tileset ? dir + map.tileset : "";
+    tsx = null; tsxDirty = false;
+    if (tsxPath && shared.files.includes(tsxPath)) {
+      try {
+        const text = await api.readText(tsxPath);
+        tsx = { text, ...parseTSX(text) };
+      } catch (e) { status(`${tsxPath}: ${e.message}`, true); }
+    }
+    drawFlags();
+  }
+
   async function create() {
     const name = prompt("File name for the new map", "map.tmx");
     if (!name) return;
@@ -255,8 +307,11 @@ export function ooru(root) {
     path = name;
     dirty = true;
     undo.length = redo.length = 0;
-    if (!shared.files.includes("sprites.tsx") && shared.sheet)
+    if (!shared.files.includes("sprites.tsx") && shared.sheet) {
       await api.write("sprites.tsx", newTSX(shared.sheet.width, shared.sheet.height));
+      await refreshFiles();
+    }
+    await loadTileset();
     await save();
   }
   async function save() {
@@ -264,6 +319,7 @@ export function ooru(root) {
     try {
       const text = writeTMX(map);
       await api.write(path, text);
+      if (tsx && tsxDirty) { await api.write(tsxPath, tsx.text); tsxDirty = false; drawFlags(); }
       map.text = text;
       dirty = false;
       await refreshFiles();
@@ -281,6 +337,6 @@ export function ooru(root) {
     }
     if (what === "sheet" || what === "pixels") { buildTiles(); drawPicker(); draw(); }
   });
-  shared.dirtyChecks.push(() => dirty);
+  shared.dirtyChecks.push(() => dirty || tsxDirty);
   draw();
 }

@@ -2,7 +2,7 @@
 // prints what they make, as JSON, for the Python side to check against
 // pulli.py (the reader of everything the editors write).
 import * as M from "../tools/pattarai/lib/music.js";
-import { parseTMX, writeTMX, newTMX, newTSX } from "../tools/pattarai/lib/tmx.js";
+import { parseTMX, writeTMX, newTMX, newTSX, parseTSX, setTileFlags } from "../tools/pattarai/lib/tmx.js";
 import { encodePNG } from "../tools/pattarai/lib/png.js";
 import { encodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
@@ -98,6 +98,16 @@ const fresh = newTMX(10, 6, 2);
 fresh.layers[1].cells[3] = 2;
 out.fresh = writeTMX(fresh);
 out.freshTSX = newTSX(64, 32);
+const tsxText = readFileSync(village.replace(/[^/]*$/, "sprites.tsx"), "utf8");
+out.tsxFlags = Object.fromEntries(parseTSX(tsxText).flags);
+let flagged = setTileFlags(tsxText, 43, 5);            // has flags: changed
+flagged = setTileFlags(flagged, 10, 3);                // has none: added in order
+flagged = setTileFlags(flagged, 2000, 128);            // past the last: added at the end
+flagged = setTileFlags(flagged, 44, 0);                // cleared
+out.tsxChanged = flagged;
+out.tsxSame = setTileFlags(tsxText, 43, parseTSX(tsxText).flags.get(43)) === tsxText && setTileFlags(tsxText, 999, 0) === tsxText;
+const solid = '<tileset columns="4"><tile id="2"><properties><property name="solid" type="bool" value="true"/></properties></tile></tileset>';
+out.solid = [Object.fromEntries(parseTSX(solid).flags), Object.fromEntries(parseTSX(setTileFlags(solid, 2, 6)).flags)];
 // Oli
 const o1 = O.render(O.preset("coin", 3)), o2 = O.render(O.preset("coin", 3));
 out.oli = { same: o1.every((v, i) => v === o2[i]), len: o1.length, want: Math.floor((O.preset("coin", 3).attack +
