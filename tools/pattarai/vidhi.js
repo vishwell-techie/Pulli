@@ -293,7 +293,7 @@ export function vidhi(root) {
     } else if (tab === "backdrops") {
       const pics = shared.files.filter((f) => f.endsWith(".png") && !f.includes("/") && f !== "sprites.png");
       assets.replaceChildren(h("p", { className: "muted", style: "margin:0 0 8px;font-size:12px" },
-          "backdrop(name) once, then cls() each frame starts from it. A backdrop is 320 × 240; make one in the Backdrop tab."),
+          "backdrop(name) once, then cls() each frame starts from it. A backdrop is 320 × 240; make one in Thirai."),
         pics.length ? h("div", {}, ...pics.map((f) => h("div", { className: "bar", style: "margin:0 0 4px" },
           h("button", { onclick: () => insert(`backdrop("${f.replace(/\.png$/, ".kolam")}")`) }, `backdrop("${f.replace(/\.png$/, ".kolam")}")`))),
           h("button", { onclick: () => insert("backdrop()") }, "backdrop()  -- let it go"))

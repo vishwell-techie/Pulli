@@ -1,4 +1,4 @@
-// Backdrops: whole-screen pictures, 320 x 240, that backdrop("name.kolam")
+// Thirai (திரை, "curtain" or "screen"): backdrops, whole-screen pictures, 320 x 240, that backdrop("name.kolam")
 // sets and cls() starts each frame from (SPEC §3). Paint one in the game's
 // colours, fill a sky with a dithered gradient, or bring in a picture made
 // elsewhere, fitted to the screen and put in the 64 colours. A map can be
