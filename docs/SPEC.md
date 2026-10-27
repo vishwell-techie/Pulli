@@ -4,8 +4,8 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 64-colour palette, named Pulli). Architecture revised per ADR-001 (GPU
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
-what was added or changed. All of it was approved by 18 October 2026; a new
-change goes there until it is approved.
+what was added or changed. Items 1 to 28 were approved by 18 October 2026
+and item 32 on 27 October 2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
 are decision records kept outside this repository.
@@ -906,7 +906,8 @@ and `run` work, as do `palette` (write the palette for a paint program),
 `cart` (a cartridge's flash as a file, which `pulli-headless --cart` runs
 like a console runs the cartridge, saves included); `check`
 runs the game with no window and reports errors and peak memory, without the
-static checks yet; hot reload and `flash` do not exist yet.
+static checks yet; hot reload and `flash` do not exist yet. `edit` opens
+Pattarai, the editors, in a web browser (§10 item 32).
 
 ---
 
@@ -964,7 +965,8 @@ static checks yet; hot reload and `flash` do not exist yet.
 ## 10. Changes in this revision (October 2026)
 
 Made while building and testing the first runtime. Items 1 to 28 were
-approved by 18 October 2026; later items await approval. Each is
+approved by 18 October 2026, and item 32 on 27 October 2026; the others
+await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
 1. **Names.** The platform is Pulli; the package is `.pulli` with magic
@@ -1093,7 +1095,39 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `lua_heap` cap are in the console's bytes, within about 1% of a Pico 2
    for whole games and never under it. Lua's own
    `collectgarbage("count")` is not scaled.
-32. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
+32. **Pattarai, the editors** (§6), approved 27 October 2026. `pulli edit <dir>`
+   serves the editors in `tools/pattarai` to a web browser on the same
+   computer and opens it: **Vidhi** edits the game's Lua, with the spec's
+   functions offered as they are typed and their arguments shown, find and
+   replace, a sprite, sound, track, map or sheet put in as the call that
+   uses it, what the call under the cursor names, and a check (two seconds
+   with no window) listing errors by line; **Kolam** draws the game's
+   `.png` sprite sheets in its 64 colours, sprites up to 64x64, with
+   mirror drawing, an animation preview and onion skin; **Ooru** paints
+   Tiled `.tmx` maps with the sheet's tiles (two layers, flips, boxes,
+   copied regions) and sets the tiles' flags in the tileset; **Thirai**
+   paints 320 x 240 backdrops (§3), fills skies with dithered gradients,
+   brings in a picture made elsewhere fitted to the screen and put in the
+   64 colours, and shows a map over it; **Oli** makes
+   sound effects from a kind (jump, coin, hit, tabla...) and a few
+   settings, kept as `sfx/<name>.json` beside the `sfx/<name>.wav` it
+   makes, and trims, fades and levels any WAV; **Isai** writes music in
+   western scales or Carnatic ragas (the 72 melakartas and common janyas,
+   sargam or note names, a tala, a synthesised band, or chiptune: pulse,
+   triangle and noise voices, noise drums, arpeggios), with a volume for
+   each note and a loop point past an intro, and makes it into
+   `music/<name>.wav`, stereo or mono, at 8,000 to 44,100 Hz, keeping the
+   song as `music/<name>.json`; **Project** packs the game and measures it
+   against this section's limits. Sounds are listed with the number pack
+   gives them, their channels and rate. They write the files `pack`
+   already reads, so no format changes; a map or tileset saved keeps
+   everything else Tiled put in it. The server answers only on 127.0.0.1,
+   only to requests addressed to it there, only with a key made for each
+   run, and writes only Lua, pictures, maps, tilesets, sounds, songs and
+   palettes inside the game's folder. Run packs the game and plays it in
+   the emulator, and can start it again after each save (not hot reload:
+   the game starts over). The editors' words can be shown in Tamil.
+35. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
    A cartridge is 8, 16, 32 or 64 MB: one or two chips of 8 or 32 MB,
    each on its own select line, read as one address range, the first chip
    then the second. The package and its seal start at offset 0 and the

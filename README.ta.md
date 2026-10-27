@@ -24,7 +24,7 @@
 | Engine: rasterizer, package reader, save store, Lua API | உருவாக்கிச் சோதிக்கப்பட்டது; இன்னும் முழு API அல்ல ("இன்னும் செய்யப்படாதவை" பாருங்கள்) |
 | கணினி host, சாளரத்துடனும் சாளரமின்றியும் | Linux-இல் (Raspberry Pi 5) உருவாக்கிச் சோதிக்கப்பட்டது |
 | Reference rasterizer, conformance சோதனைகள் | தேர்ச்சி; C engine அதனுடன் பைட்டுக்குப் பைட் பொருந்துகிறது |
-| பேக்கேஜ் வடிவமும் கட்டளை வரியும் | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add` |
+| பேக்கேஜ் வடிவமும் கட்டளை வரியும் | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add`, `edit` |
 | கணிதம் (`sin`, `cos`, `^` மற்றவை) | engine-இன் சொந்தம், ஒவ்வொரு கணினியிலும் அதே பிட்கள்; Pico 2 தன் சுயசோதனையில் தேறுகிறது |
 | 16.16 fixed point (`fix`) | விளையாட்டுகளுக்கு விருப்பத்துக்குரியது; உருவாக்கிச் சோதிக்கப்பட்டது |
 | இரண்டு கன்சோல்களுக்கு இடையே link | இரண்டு emulator சாளரங்களுக்கு இடையே வேலை செய்கிறது; இன்னும் வன்பொருள் link இல்லை |
@@ -35,7 +35,8 @@
 | எடுத்துக்காட்டுகள் | hello, pong, manickam, talk, catch; அனைத்தும் SDK உதவி நிரல்களைப் பயன்படுத்துகின்றன |
 | ஒலி | 8 விளைவு அலைவரிசைகளும் இசையும், WAV கோப்புகளிலிருந்து உருவாக்கப்படுபவை; சாளரத்தில் ஒலிக்கிறது; board-இல் இன்னும் ஒலி வெளியீடு இல்லை |
 | Firmware | ஒரே chip firmware ஒரு Pico 2 (RP2350)-இல் ஓடுகிறது: நொடிக்கு 60 ஃப்ரேம்களில் Pong, Manickam-உம் அதன் benchmark-உம்; இன்னும் திரையும் பொத்தான்களும் இல்லை; அதன் இரண்டாம் core வரைய உதவுகிறது. GPU chip-இன் firmware இன்னும் தொடங்கப்படவில்லை |
-| திருத்தி (Pattarai), கடை (Santhai), தொடக்கி (Vaasal) | தொடங்கப்படவில்லை |
+| Pattarai, பட்டறை | உலாவியில்: Vidhi (நிரல்), Kolam (உருவங்கள்), Ooru (வரைபடங்கள்), Thirai (பின்னணிகள்), Oli (ஒலி விளைவுகள்), Isai (இசை, மேற்கத்தியமும் கர்நாடகமும்); [docs/pattarai.ta.md](docs/pattarai.ta.md) பாருங்கள் |
+| கடை (Santhai), தொடக்கி (Vaasal) | தொடங்கப்படவில்லை |
 
 ## இன்னும் செய்யப்படாதவை
 
@@ -64,12 +65,12 @@
 ## அமைப்பு
 
 ```
-docs/        SPEC.md, the platform contract; guide/, the game developer's guide
+docs/        SPEC.md, the platform contract; guide/, the game developer's guide; pattarai.md, the tools
 runtime/     the engine, shared unchanged by every port
 host/        desktop frontends: pulli-host (SDL2 window, keyboard and game controllers), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 sdk/         helpers written in Lua for games to require: tween, dialog and more
-tools/       pulli.py command line, reference rasterizer and mixer, font generator
+tools/       pulli.py command line, Pattarai (pattarai/), reference rasterizer and mixer, font generator
 tests/       font, conformance, package, runtime, maths, audio, asset, SDK, guide, link and example tests
 examples/    hello, pong, manickam, talk, catch (the tutorial's game)
 cmake/       pinned Lua build shared by host and firmware
@@ -131,6 +132,21 @@ python3 tools/pulli.py run examples/pong 2 # 2 = window scale; 3 when left out
 கடைசி வரியில் 2 என்பது சாளரப் பெரிதாக்கல். அது இல்லாவிட்டால் `run` சாளரத்தைக்
 கன்சோலின் 320×240-ஐ விட மூன்று மடங்காக, 960×720-இல் திறக்கும்; விளையாட்டுக்குப்
 பின் 1 முதல் ஒரு எண் கொடுத்தால் வேறு அளவு.
+
+### Pattarai
+
+**[Pattarai, பட்டறை](docs/pattarai.ta.md)** விளையாட்டு உருவாக்கப்படும் இடம்:
+நிரலுக்கு Vidhi, உருவங்களுக்கு Kolam, வரைபடங்களுக்கு Ooru, பின்னணிகளுக்கு
+Thirai, ஒலி விளைவுகளுக்கு Oli, மேற்கத்திய சுரவரிசைகளிலோ கர்நாடக ராகங்களிலோ
+இசைக்கு Isai. அது இணைய உலாவியில் திறந்து, கீழே சொல்லப்படும் கோப்புகளை நேரடியாக
+விளையாட்டின் கோப்புறையில் சேமிக்கிறது.
+
+```bash
+python3 tools/pulli.py edit mygame          # Pattarai, in the browser
+```
+
+இக்கருவிகள் கட்டாயமல்ல: எந்த ஓவிய நிரலும், Tiled-உம், ஓர் ஒலித் திருத்தியும்
+அதே கோப்புகளை உருவாக்கும்.
 
 படங்களுக்கு, எந்த ஓவிய நிரலிலும் 8x8 ஸ்பிரைட் கட்டம் வரைந்து, விளையாட்டின்
 கோப்புறையில் `sprites.png` என்று சேமியுங்கள்: `spr(n)` n-ஆவதை வரையும்.

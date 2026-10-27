@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pattarai</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <strong class="brand">Pattarai</strong>
+  <span id="game" class="muted"></span>
+  <nav>
+    <button data-tab="vidhi" class="tab on">Vidhi <small>code</small></button>
+    <button data-tab="kolam" class="tab">Kolam <small>sprites</small></button>
+    <button data-tab="ooru" class="tab">Ooru <small>maps</small></button>
+    <button data-tab="backdrop" class="tab">Thirai <small>backdrops</small></button>
+    <button data-tab="oli" class="tab">Oli <small>sounds</small></button>
+    <button data-tab="isai" class="tab">Isai <small>music</small></button>
+    <button data-tab="project" class="tab">Project</button>
+  </nav>
+  <button id="lang" title="தமிழ் / English">தமிழ்</button>
+  <label title="Start the game again each time a file is saved (it starts from the beginning)"><input type="checkbox" id="live"> restart on save</label>
+  <button id="stop" title="Close the game">■</button>
+  <button id="run" title="Pack the game and play it in the emulator">▶ Run game</button>
+</header>
+<main>
+  <section id="vidhi" class="panel on"></section>
+  <section id="kolam" class="panel"></section>
+  <section id="ooru" class="panel"></section>
+  <section id="backdrop" class="panel"></section>
+  <section id="oli" class="panel"></section>
+  <section id="isai" class="panel"></section>
+  <section id="project" class="panel"></section>
+</main>
+<footer id="status">Ready.</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>

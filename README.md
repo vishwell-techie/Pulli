@@ -22,7 +22,7 @@ Software first; hardware comes last.
 | Engine: rasterizer, package reader, save store, Lua API | built and tested; not yet the whole API (see "Not implemented yet") |
 | Desktop host, windowed and headless | built and tested on Linux (Raspberry Pi 5) |
 | Reference rasterizer and conformance suite | passing; the C engine matches it byte for byte |
-| Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add` |
+| Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add`, `edit` |
 | Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; a Pico 2 passes the self-check |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
@@ -33,7 +33,8 @@ Software first; hardware comes last.
 | Examples | hello, pong, manickam, talk, catch; all use the SDK helpers |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; no sound output on a board yet |
 | Firmware | one-chip firmware runs on a Pico 2 (RP2350): Pong at 60 frames a second, and Manickam and its benchmark, with no screen or buttons yet; its second core helps draw. The GPU chip's firmware is not started |
-| Editor (Pattarai), store (Santhai), launcher (Vaasal) | not started |
+| Pattarai, the workshop | in a browser: Vidhi (code), Kolam (sprites), Ooru (maps), Thirai (backdrops), Oli (sound effects), Isai (music, western and Carnatic); see [docs/pattarai.md](docs/pattarai.md) |
+| Store (Santhai), launcher (Vaasal) | not started |
 
 ## Not implemented yet
 
@@ -59,12 +60,12 @@ Measured against `docs/SPEC.md`:
 ## Layout
 
 ```
-docs/        SPEC.md, the platform contract; guide/, the game developer's guide
+docs/        SPEC.md, the platform contract; guide/, the game developer's guide; pattarai.md, the tools
 runtime/     the engine, shared unchanged by every port
 host/        desktop frontends: pulli-host (SDL2 window, keyboard and game controllers), pulli-headless
 firmware/    RP2350 port (bring-up stage)
 sdk/         helpers written in Lua for games to require: tween, dialog and more
-tools/       pulli.py command line, reference rasterizer and mixer, font generator
+tools/       pulli.py command line, Pattarai (pattarai/), reference rasterizer and mixer, font generator
 tests/       font, conformance, package, runtime, maths, audio, asset, SDK, guide, link and example tests
 examples/    hello, pong, manickam, talk, catch (the tutorial's game)
 cmake/       pinned Lua build shared by host and firmware
@@ -111,6 +112,21 @@ python3 tools/pulli.py run examples/pong 2 # 2 = window scale; 3 when left out
 
 `run` opens the window at three times the console's 320×240, 960×720;
 a number after the game, from 1 up, picks another size.
+
+### Pattarai
+
+**[Pattarai, the workshop](docs/pattarai.md)** is where a game is made:
+Vidhi for the code, Kolam for sprites, Ooru for maps, Thirai for
+backdrops, Oli for sound effects and Isai for music, in western scales or
+Carnatic ragas. It opens in a web browser and saves the files below
+straight into the game's folder.
+
+```bash
+python3 tools/pulli.py edit mygame          # Pattarai, in the browser
+```
+
+The tools are optional: any paint program, Tiled and a sound editor make
+the same files.
 
 For pictures, draw an 8x8 grid of sprites in any paint program and save it
 as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.
