@@ -26,7 +26,7 @@ Deliberately dependency-free: this has to run on a student's laptop with a
 stock Python install and nothing else. `run` and `check` also need the host
 built (see README.md).
 """
-import base64, gzip, hashlib, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
+import base64, gzip, hashlib, json, os, re, shlex, shutil, struct, subprocess, sys, tempfile, zlib
 import xml.etree.ElementTree as ET
 
 MAGIC = b"PULI"
@@ -236,6 +236,7 @@ def build(srcdir: str, flags: int = 0, notes=None) -> bytes:
             entries.append((entry, ooru_from_tmx(os.path.join(srcdir, source), sheet_columns, notes)))
     for kind, (entry, _) in BANKS.items():
         folder = os.path.join(srcdir, kind)
+        check_songs(folder, srcdir, notes)
         if not os.path.isdir(folder) or not any(f.lower().endswith(".wav") for f in os.listdir(folder)):
             continue
         if entry in names:
@@ -743,6 +744,64 @@ def bank(kind: str, clips) -> bytes:
         payload += blob
         offset += len(blob)
     return BANKS[kind][1] + struct.pack("<HH", len(clips), 0) + table + payload
+
+
+def isai_engine():
+    """The version of Isai's engine that comes with this pulli.py, or None."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pattarai", "lib", "music.js")
+    try:
+        with open(path) as f:
+            m = re.search(r"export const ENGINE = (\d+);", f.read())
+        return int(m.group(1)) if m else None
+    except OSError:
+        return None
+
+
+def check_songs(folder: str, srcdir: str, notes=None):
+    """Songs made in Isai and sounds made in Oli are kept as <name>.json beside
+    the <name>.wav made from them, and the WAV need not be kept in git. A
+    song or sound with no WAV stops the pack: music(n) and sfx(n) count the
+    WAV files, so one missing would move every sound after it. A song whose
+    WAV is out of date (changed since, made by another engine, or not the
+    WAV it made) is said in `notes`."""
+    if not os.path.isdir(folder):
+        return
+    missing, engine = [], None
+    for n in sorted(f for f in os.listdir(folder) if f.endswith(".json")):
+        try:
+            with open(os.path.join(folder, n), encoding="utf-8") as f:
+                song = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(song, dict) or song.get("format") not in ("isai-song", "oli-sfx"):
+            continue
+        rel = f"{os.path.basename(folder)}/{n}"
+        wav = os.path.join(folder, n[:-5] + ".wav")
+        if not os.path.isfile(wav):
+            missing.append((rel, song["format"]))
+            continue
+        made = song.get("made") if song["format"] == "isai-song" else None
+        if notes is None or not isinstance(made, dict):
+            continue
+        engine = engine if engine is not None else isai_engine()
+        with open(wav, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        if made.get("wav") != digest:
+            notes.append(f"{rel[:-5]}.wav is not the WAV Isai made from {rel}: make it again to be sure")
+        elif not made.get("current", True):
+            notes.append(f"{rel} has changed since its WAV was made: make it again (Isai's Make all WAVs)")
+        elif engine is not None and made.get("engine") != engine:
+            notes.append(f"{rel[:-5]}.wav was made by Isai engine {made.get('engine')}; this Isai is engine {engine}")
+    if missing:
+        songs = [r for r, k in missing if k == "isai-song"]
+        sounds = [r for r, k in missing if k == "oli-sfx"]
+        how = []
+        if songs:
+            how.append(f"make them in Pattarai (Isai, Make all WAVs) or run: node tools/pattarai/make-wavs.mjs {srcdir}")
+        if sounds:
+            how.append("open each in Pattarai's Oli and save it")
+        raise PackageError(f"{', '.join(r for r, _ in missing)} {'has' if len(missing) == 1 else 'have'} no WAV, "
+                           f"and {os.path.basename(folder)}(n) counts the WAV files: " + "; ".join(how))
 
 
 def bank_from_folder(kind: str, folder: str) -> bytes:

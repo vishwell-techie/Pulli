@@ -5,7 +5,7 @@
 // the WAV files in order of name.
 import { api, h, shared, status, refreshFiles, CHANNEL_NOTE } from "./app.js";
 import * as M from "./lib/music.js";
-import { encodeWAV } from "./lib/wav.js";
+import { wavOf as wavBytes, madeNote, refreshNote, needsWav } from "./lib/make.js";
 
 const SRUTI = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -34,6 +34,8 @@ export function isai(root) {
       h("button", { title: "Open an example song as a new, unsaved song", onclick: openExample }, "Open example"),
       h("button", { onclick: save }, "Save"),
       h("button", { title: "Write music/<name>.wav, the file the game plays", onclick: exportWav }, "Make WAV"),
+      h("button", { title: "Make the WAV of every song in music/ that has none, or has changed since, or was made by an older Isai",
+        onclick: makeAll }, "Make all WAVs"),
       h("span", { className: "sep" }), playBtn),
     head,
     h("div", { className: "cols" },
@@ -84,6 +86,10 @@ export function isai(root) {
             ...Object.entries(M.NOTE_NAMES).map(([v, label]) => h("option", { value: v, selected: v === (song.solfa || "letters") }, label)))));
     head.replaceChildren(
       h("strong", {}, path || "(new song)", dirty ? " •" : ""),
+      path ? h("span", { className: song.made && song.made.current && song.made.engine === M.ENGINE ? "muted" : "warn",
+        title: "The WAV the game plays" },
+        !song.made ? "no WAV made here yet" : song.made.engine !== M.ENGINE ? `WAV from engine ${song.made.engine}`
+          : song.made.current && !dirty ? "WAV up to date" : "WAV out of date: Make WAV") : "",
       h("span", { className: "sep" }),
       field(c ? "raga" : "scale", scaleSel), tonic,
       field(c ? "tala" : "time", talaSel),
@@ -445,7 +451,9 @@ export function isai(root) {
       song = { ...M.newSong(s.system), ...s };
       path = files.value; dirty = false; partIndex = 0;
       stop(); drawAll();
-      status(`Opened ${path}.`);
+      const old = song.made && song.made.engine !== M.ENGINE;
+      status(old ? `Opened ${path}. Its WAV was made by Isai engine ${song.made.engine}; this is engine ${M.ENGINE}, ` +
+        "so making it again will change its sound a little." : `Opened ${path}.`, old);
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }
   // An example song, opened as a new song: Save puts it in this game's music folder
@@ -478,6 +486,7 @@ export function isai(root) {
   async function save() {
     if (!(await ensurePath())) return;
     try {
+      await refreshNote(song);                         // still what its WAV was made from?
       await api.write(path, JSON.stringify(song, null, 1) + "\n");
       dirty = false;
       await refreshFiles();
@@ -490,12 +499,39 @@ export function isai(root) {
     if (!(await ensurePath())) return;
     try {
       status("Making the WAV…");
-      const ch = mix(await renderAsync(JSON.parse(JSON.stringify(song))));
-      const wav = encodeWAV(song.mono ? [ch[0]] : ch, song.rate || M.RATE, M.loopFrame(song) || null);
+      const ch = await renderAsync(JSON.parse(JSON.stringify(song)));
+      const wav = wavBytes(song, ch);
       await api.write(wavOf(path), wav);
+      song.made = await madeNote(song, wav);           // the note pack reads: which engine, which WAV, which song
       await save();
       status(`Made ${wavOf(path)} (${(ch[0].length / (song.rate || M.RATE)).toFixed(1)} s, ${Math.round(wav.length / 1024)} KB) and saved ${path}.`);
+      drawHead();
     } catch (e) { status("No WAV made: " + e.message, true); }
+  }
+
+  // Every song in the game's music folder whose WAV is missing or out of date
+  async function makeAll() {
+    if (dirty && !confirm("The song in hand has changes that are not saved; Make all WAVs uses the saved songs. Go on?")) return;
+    const songs = shared.files.filter((f) => /^music\/[^/]+\.json$/.test(f));
+    let made = 0;
+    try {
+      for (const f of songs) {
+        const s = JSON.parse(await api.readText(f));
+        if (s.format !== "isai-song") continue;
+        await refreshNote(s);
+        const why = needsWav(s, shared.files.includes(wavOf(f)));
+        if (!why) continue;
+        status(`Making ${wavOf(f)} (${why})…`);
+        const wav = wavBytes(s, await renderAsync(s));
+        await api.write(wavOf(f), wav);
+        s.made = await madeNote(s, wav);
+        await api.write(f, JSON.stringify(s, null, 1) + "\n");
+        made++;
+        if (f === path) song.made = s.made;
+      }
+      await refreshFiles();
+      status(made ? `Made ${made} WAV${made > 1 ? "s" : ""}; every song's WAV is up to date.` : "Every song's WAV was already up to date.");
+    } catch (e) { status("Stopped: " + e.message, true); }
   }
 
   function drawAll() { drawHead(); drawScale(); drawParts(); drawRoll(); }

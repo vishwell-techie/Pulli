@@ -31,7 +31,7 @@ export const TA = {
   "Sprite ": "உருவம் ",
   "backdrops": "பின்னணிகள்", "Backdrops": "பின்னணிகள்", "Backdrop ": "பின்னணி ", "Import picture…": "படத்தைக் கொண்டுவா…",
   "■ Filled box": "■ நிரம்பிய பெட்டி", "▤ Gradient": "▤ வண்ணச்சரிவு", "dither": "புள்ளிக் கலப்பு",
-  "Map over it": "மேலே வரைபடம்", "capitals long": "பெரிய எழுத்து இரு அட்சரம்", "note names": "சுரப் பெயர்கள்", "drum pattern": "தாள அமைப்பு", "+ Drum part": "+ தாளப் பகுதி", "Open example": "எடுத்துக்காட்டைத் திற", "Example songs…": "எடுத்துக்காட்டுப் பாடல்கள்…",
+  "Map over it": "மேலே வரைபடம்", "capitals long": "பெரிய எழுத்து இரு அட்சரம்", "note names": "சுரப் பெயர்கள்", "drum pattern": "தாள அமைப்பு", "+ Drum part": "+ தாளப் பகுதி", "Open example": "எடுத்துக்காட்டைத் திற", "Make all WAVs": "எல்லா WAV-களையும் உருவாக்கு", "Example songs…": "எடுத்துக்காட்டுப் பாடல்கள்…",
 };
 
 let lang = "en";

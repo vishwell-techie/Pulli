@@ -2,6 +2,14 @@
 // written in, and the band that plays a song into samples. Everything here
 // runs in the browser and in node (tests/test_pattarai.py).
 
+import * as X from "./exact.js";
+
+// The engine's version: a song records the one that made its WAV, and the
+// same song makes the same WAV, to the bit, with the same version. Raised
+// whenever a change alters a song's sound (tests/isai.sha256 holds each
+// example song's fingerprint for it).
+export const ENGINE = 1;
+
 export const RATE = 44100;
 // The rate the song in hand is rendered at (its `rate`, or RATE): chiptune
 // is often made at 8,000 or 11,025 for small files.
@@ -393,10 +401,22 @@ function rng(seed) {
 }
 
 export function freqOf(semi, song) {
-  if (song.system === "carnatic") return song.sa * 2 ** (semi / 12);
-  const tonic = song.a4 * 2 ** ((keyIndex(song.key) - 9) / 12 + (song.octave - 4));
-  return tonic * 2 ** (semi / 12);
+  if (song.system === "carnatic") return song.sa * X.pow(2, semi / 12);
+  const tonic = song.a4 * X.pow(2, (keyIndex(song.key) - 9) / 12 + (song.octave - 4));
+  return tonic * X.pow(2, semi / 12);
 }
+
+// sin(h·x) for h = 1..n into S, each from the two before it (sin hx =
+// 2 cos x · sin (h-1)x − sin (h-2)x): two sines a sample, not one a harmonic
+const S = new Float64Array(20), S2 = new Float64Array(20);
+function harmonics(into, x, n) {
+  const s1 = X.sin(x), c2 = 2 * X.cos(x);
+  into[1] = s1; into[2] = c2 * s1;
+  for (let h = 3; h <= n; h++) into[h] = c2 * into[h - 1] - into[h - 2];
+}
+// each harmonic's level, the same for every sample
+const REED = Array.from({ length: 17 }, (_, h) => (h ? X.pow(h, -0.55) : 0));
+const REEDS = Array.from({ length: 13 }, (_, h) => (h ? X.pow(h, -0.9) * (h % 2 ? 1.4 : 1) : 0));
 
 // One note of a melodic voice into out (stereo, adds). arp: semitones to
 // cycle the note through, chiptune's chords, `arpRate` times a second.
@@ -409,21 +429,21 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
   const n = Math.floor((dur + tail) * SR), i0 = Math.floor(start * SR);
   const noise = rng(seed);
   let ph = 0, lp = 0;
-  const gl = gain * Math.cos((pan + 1) * Math.PI / 4), gr = gain * Math.sin((pan + 1) * Math.PI / 4);
+  const gl = gain * X.cos((pan + 1) * Math.PI / 4), gr = gain * X.sin((pan + 1) * Math.PI / 4);
   const held = Math.floor(dur * SR);
   for (let k = 0; k < n && i0 + k < L.length; k++) {
     const t = k / SR;
     let cents = 0;
-    if (mark === "~" && t > 0.08) cents += 100 * (0.5 - 0.5 * Math.cos(2 * Math.PI * 5.5 * (t - 0.08)));
-    if (mark === "/") cents -= 200 * Math.exp(-t * 14);
-    if (mark === "\\") cents += 200 * Math.exp(-t * 14);
-    const vib = pluck || chip ? 0 : 6 * Math.sin(2 * Math.PI * 5.2 * t) * Math.min(1, t * 3);
+    if (mark === "~" && t > 0.08) cents += 100 * (0.5 - 0.5 * X.cos(2 * Math.PI * 5.5 * (t - 0.08)));
+    if (mark === "/") cents -= 200 * X.exp(-t * 14);
+    if (mark === "\\") cents += 200 * X.exp(-t * 14);
+    const vib = pluck || chip ? 0 : 6 * X.sin(2 * Math.PI * 5.2 * t) * Math.min(1, t * 3);
     if (arp && arp.length) cents += 100 * arp[Math.floor(t * arpRate) % arp.length];
-    const fr = f * 2 ** ((cents + vib) / 1200);
+    const fr = f * X.pow(2, (cents + vib) / 1200);
     ph += 2 * Math.PI * fr / SR;
     let env;
-    if (pluck) env = Math.min(1, t * 400) * Math.exp(-t * (inst === "bass" ? 3 : inst === "piano" ? 2.2 : 2.8)) *
-      (k > held ? Math.exp(-(k - held) / SR * 12) : 1);
+    if (pluck) env = Math.min(1, t * 400) * X.exp(-t * (inst === "bass" ? 3 : inst === "piano" ? 2.2 : 2.8)) *
+      (k > held ? X.exp(-(k - held) / SR * 12) : 1);
     else if (chip) env = (k > held ? Math.max(0, 1 - (k - held) / (tail * SR)) : 1) * Math.min(1, t * 2000);
     else {
       const a = inst === "harmonium" || inst === "strings" ? 0.06 : 0.025;
@@ -432,43 +452,48 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
     let s = 0;
     switch (inst) {
       case "nadaswaram": {                          // a double reed: bright, a formant near 1.6 kHz
+        harmonics(S, ph, 16);
         for (let h = 1; h <= 16 && fr * h < SR * 0.45; h++)
-          s += h ** -0.55 * (1 + 2.2 * Math.exp(-(((fr * h - 1600) / 900) ** 2))) * Math.sin(h * ph);
+          { const q = (fr * h - 1600) / 900; s += REED[h] * (1 + 2.2 * X.exp(-q * q)) * S[h]; }
         lp += 0.2 * (noise() - lp);
         s = s * 0.2 + lp * 0.15;
         break;
       }
       case "venu": case "flute":
         lp += 0.1 * (noise() - lp);
-        s = Math.sin(ph) + 0.28 * Math.sin(2 * ph) + 0.12 * Math.sin(3 * ph) + lp * 0.5 * (0.4 + env);
+        harmonics(S, ph, 3);
+        s = S[1] + 0.28 * S[2] + 0.12 * S[3] + lp * 0.5 * (0.4 + env);
         s *= 0.5;
         break;
       case "harmonium": {                           // two reeds a little apart
-        for (let h = 1; h <= 12 && fr * h < SR * 0.45; h++)
-          s += h ** -0.9 * (h % 2 ? 1.4 : 1) * (Math.sin(h * ph) + 0.8 * Math.sin(h * ph * 1.0025));
+        harmonics(S, ph, 12); harmonics(S2, ph * 1.0025, 12);
+        for (let h = 1; h <= 12 && fr * h < SR * 0.45; h++) s += REEDS[h] * (S[h] + 0.8 * S2[h]);
         s *= 0.12;
         break;
       }
       case "violin": case "strings": {              // a bowed saw, softened
-        for (let h = 1; h <= 14 && fr * h < SR * 0.45; h++) s += Math.sin(h * ph) / h * (inst === "strings" ? 0.8 : 1);
-        if (inst === "strings") for (let h = 1; h <= 8; h++) s += Math.sin(h * ph * 1.004) / h * 0.6;
+        harmonics(S, ph, 14);
+        for (let h = 1; h <= 14 && fr * h < SR * 0.45; h++) s += S[h] / h * (inst === "strings" ? 0.8 : 1);
+        if (inst === "strings") { harmonics(S2, ph * 1.004, 8); for (let h = 1; h <= 8; h++) s += S2[h] / h * 0.6; }
         s *= 0.18;
         break;
       }
       case "veena": {                               // a stretched pluck
-        for (let h = 1; h <= 10; h++) s += Math.sin(h * ph * (1 + 0.0007 * h * h)) * Math.exp(-t * h * 0.9) / h;
+        const fade = X.exp(-t * 0.9);                // each harmonic fades as this to the power h
+        for (let h = 1, f = fade; h <= 10; h++, f *= fade) s += X.sin(h * ph * (1 + 0.0007 * h * h)) * f / h;
         s *= 0.5;
         break;
       }
       case "piano":
-        for (let h = 1; h <= 8; h++) s += Math.sin(h * ph * (1 + 0.0004 * h * h)) * Math.exp(-t * h * 0.7) / (h * h * 0.6 + 0.4);
+        { const fade = X.exp(-t * 0.7);
+          for (let h = 1, f = fade; h <= 8; h++, f *= fade) s += X.sin(h * ph * (1 + 0.0004 * h * h)) * f / (h * h * 0.6 + 0.4); }
         s *= 0.45;
         break;
       case "pluck":
-        s = (Math.sin(ph) + 0.5 * Math.sin(2 * ph) * Math.exp(-t * 6)) * 0.5;
+        s = (X.sin(ph) + 0.5 * X.sin(2 * ph) * X.exp(-t * 6)) * 0.5;
         break;
       case "bass":
-        s = (Math.sin(ph) + 0.3 * Math.sin(2 * ph) * Math.exp(-t * 4)) * 0.7;
+        s = (X.sin(ph) + 0.3 * X.sin(2 * ph) * X.exp(-t * 4)) * 0.7;
         break;
       case "square": case "pulse25": case "pulse12": {    // a pulse, high for this part of each cycle
         const p = (ph / (2 * Math.PI)) % 1;
@@ -487,7 +512,7 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
         s = lp * 0.18;
         break;
       }
-      default: s = Math.sin(ph) * 0.5;
+      default: s = X.sin(ph) * 0.5;
     }
     s *= env;
     L[i0 + k] += s * gl;
@@ -500,25 +525,25 @@ function hit(out, start, kind, vel, f0, pan, seed) {
   const i0 = Math.floor(start * SR), noise = rng(seed);
   const n = Math.floor(0.6 * SR);
   let ph = 0, lp = 0;
-  const gl = vel * Math.cos((pan + 1) * Math.PI / 4), gr = vel * Math.sin((pan + 1) * Math.PI / 4);
+  const gl = vel * X.cos((pan + 1) * Math.PI / 4), gr = vel * X.sin((pan + 1) * Math.PI / 4);
   for (let k = 0; k < n && i0 + k < L.length; k++) {
     const t = k / SR;
     let s = 0;
     switch (kind) {
-      case "thom": ph += 2 * Math.PI * f0 * 0.5 * (1 + 0.6 * Math.exp(-t * 30)) / SR;
-        s = Math.sin(ph) * Math.exp(-t * 9); break;                       // the left (bass) head
+      case "thom": ph += 2 * Math.PI * f0 * 0.5 * (1 + 0.6 * X.exp(-t * 30)) / SR;
+        s = X.sin(ph) * X.exp(-t * 9); break;                       // the left (bass) head
       case "nam": ph += 2 * Math.PI * f0 * 2 / SR;                      // the right head, ringing
-        s = (Math.sin(ph) + 0.5 * Math.sin(ph * 2.76)) * Math.exp(-t * 14) * 0.6 + noise() * Math.exp(-t * 90) * 0.3; break;
-      case "ki": lp += 0.5 * (noise() - lp); s = lp * Math.exp(-t * 60) * 0.8; break;
-      case "din": ph += 2 * Math.PI * f0 * 2 / SR; s = Math.sin(ph) * Math.exp(-t * 6) * 0.5; break;
-      case "kick": ph += 2 * Math.PI * (50 + 90 * Math.exp(-t * 25)) / SR; s = Math.sin(ph) * Math.exp(-t * 7); break;
-      case "snare": ph += 2 * Math.PI * 190 / SR; s = (Math.sin(ph) * 0.4 + noise() * 0.6) * Math.exp(-t * 18); break;
-      case "hat": lp += 0.9 * (noise() - lp); s = (noise() - lp) * Math.exp(-t * 45) * 0.4; break;
-      case "ckick": ph += 2 * Math.PI * (40 + 160 * Math.exp(-t * 40)) / SR;           // a triangle dropping
-        s = (Math.round(((((ph / (2 * Math.PI)) % 1) < 0.5 ? 4 * ((ph / (2 * Math.PI)) % 1) - 1 : 3 - 4 * ((ph / (2 * Math.PI)) % 1))) * 7.5) / 7.5) * Math.exp(-t * 12); break;
-      case "csnare": if (k % 3 === 0) lp = noise(); s = lp * Math.exp(-t * 16) * 0.7; break;   // noise, coarse
-      case "chat": s = (noise() > 0 ? 1 : -1) * Math.exp(-t * 70) * 0.25; break;              // noise, short
-      case "jingle": s = noise() * Math.exp(-t * 20) * (0.6 + 0.4 * Math.sin(t * 2 * Math.PI * 7000)) * 0.4; break;
+        s = (X.sin(ph) + 0.5 * X.sin(ph * 2.76)) * X.exp(-t * 14) * 0.6 + noise() * X.exp(-t * 90) * 0.3; break;
+      case "ki": lp += 0.5 * (noise() - lp); s = lp * X.exp(-t * 60) * 0.8; break;
+      case "din": ph += 2 * Math.PI * f0 * 2 / SR; s = X.sin(ph) * X.exp(-t * 6) * 0.5; break;
+      case "kick": ph += 2 * Math.PI * (50 + 90 * X.exp(-t * 25)) / SR; s = X.sin(ph) * X.exp(-t * 7); break;
+      case "snare": ph += 2 * Math.PI * 190 / SR; s = (X.sin(ph) * 0.4 + noise() * 0.6) * X.exp(-t * 18); break;
+      case "hat": lp += 0.9 * (noise() - lp); s = (noise() - lp) * X.exp(-t * 45) * 0.4; break;
+      case "ckick": ph += 2 * Math.PI * (40 + 160 * X.exp(-t * 40)) / SR;           // a triangle dropping
+        s = (Math.round(((((ph / (2 * Math.PI)) % 1) < 0.5 ? 4 * ((ph / (2 * Math.PI)) % 1) - 1 : 3 - 4 * ((ph / (2 * Math.PI)) % 1))) * 7.5) / 7.5) * X.exp(-t * 12); break;
+      case "csnare": if (k % 3 === 0) lp = noise(); s = lp * X.exp(-t * 16) * 0.7; break;   // noise, coarse
+      case "chat": s = (noise() > 0 ? 1 : -1) * X.exp(-t * 70) * 0.25; break;              // noise, short
+      case "jingle": s = noise() * X.exp(-t * 20) * (0.6 + 0.4 * X.sin(t * 2 * Math.PI * 7000)) * 0.4; break;
     }
     L[i0 + k] += s * gl;
     R[i0 + k] += s * gr;
@@ -649,7 +674,7 @@ export function render(song) {
     const fifth = notes.includes(7) ? 7 : 5;
     const pattern = [fifth - 12, 0, 0, -12];
     for (let t = 0, n = 0; t < len / SR; n++) {
-      voice(out, "veena", t, 0.4, tonic * 2 ** (pattern[n % 4] / 12), "", 0.25, n % 2 ? -0.5 : 0.5, seed++);
+      voice(out, "veena", t, 0.4, tonic * X.pow(2, pattern[n % 4] / 12), "", 0.25, n % 2 ? -0.5 : 0.5, seed++);
       t += n % 4 === 3 ? 1.3 : 0.9;
     }
   }

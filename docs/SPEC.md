@@ -1115,3 +1115,10 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    palettes inside the game's folder. Run packs the game and plays it in
    the emulator, and can start it again after each save (not hot reload:
    the game starts over). The editors' words can be shown in Tamil.
+34. **Songs are text; their WAVs are made** (§6), awaiting approval. A song
+   made in Isai is a `.json` file, and its WAV is made from it, the same to
+   the byte in any browser and in Node (`tools/pattarai/make-wavs.mjs`),
+   because Isai's sound uses only `+ - * /` and rounding. The song notes
+   the engine and the SHA-256 of the WAV and of itself when its WAV is
+   made. `pulli pack` refuses a song or sound `.json` without its WAV and
+   notes a WAV that is out of date.

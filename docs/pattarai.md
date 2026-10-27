@@ -247,6 +247,21 @@ A song can loop from a cycle after an intro. **Make WAV** writes
 `music/<name>.wav`, stereo or mono, at 8,000 to 44,100 samples a second;
 its size is shown as you choose.
 
+The song's `.json` is the source; the WAV is made from it. Isai does its
+own sums (no `Math.sin` or `**`), so a song makes the same WAV, byte for
+byte, in every browser and in Node. Each WAV made notes in the song which
+engine made it and the WAV's and the song's SHA-256; the header says
+whether the WAV is up to date. **Make all WAVs** makes every song's WAV
+that is missing or out of date, and so does Node without a browser:
+
+```
+node tools/pattarai/make-wavs.mjs examples/mygame
+node tools/pattarai/make-wavs.mjs examples/mygame --all
+```
+
+`pulli pack` refuses a game whose song has no WAV (`music(n)` counts the
+WAV files), and notes one that is out of date.
+
 ## Project
 
 **Measure** packs the game as `pulli pack` does and checks it against the

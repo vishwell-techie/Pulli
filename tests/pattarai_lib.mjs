@@ -8,6 +8,7 @@ import { encodeWAV, decodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
 import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
+import { songWav, madeNote, refreshNote, needsWav, songDigest } from "../tools/pattarai/lib/make.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
 const [, , village, ...exampleSongs] = process.argv;
@@ -143,6 +144,30 @@ out.ownSilent = silent.every((v) => v === 0);
 const broken = M.render({ ...M.newSong("carnatic"), parts: [...M.newSong("carnatic").parts, { name: "x", instrument: "drums",
   octave: 0, gain: 0.9, pan: 0, text: "S r g" }] });
 out.brokenPlays = broken[0].length > 0 && broken[0].some((v) => v !== 0);
+
+// fingerprints: each example song, rendered whole as Make WAV makes it
+const { createHash } = await import("crypto");
+out.engine = M.ENGINE;
+out.fingerprints = exampleSongs.map((f) => {
+  const song = JSON.parse(readFileSync(f, "utf8"));
+  return [f.split("/").pop(), createHash("sha256").update(songWav(song)).digest("hex")];
+});
+
+// the note a song keeps about its WAV
+{
+  const song = JSON.parse(readFileSync(exampleSongs[0], "utf8"));
+  const sparse = Object.fromEntries(Object.entries(song).filter(([k]) => !["swing", "a4", "arpRate"].includes(k)));
+  const full = { ...M.newSong(song.system), ...sparse };
+  const a = await songDigest(sparse), b = await songDigest(full), c = await songDigest({ ...full, title: "another" });
+  const wav = songWav({ ...song, cycles: 1, parts: song.parts.map((p) => ({ ...p, text: p.text.split("|")[0] })) });
+  const note = await madeNote(full, wav);
+  const later = await refreshNote({ ...full, made: { ...note } });
+  const changedSong = await refreshNote({ ...full, tempo: full.tempo + 1, made: { ...note } });
+  out.note = { sameWithDefaults: a === b, titleIgnored: b === c, current: later.made.current, changed: changedSong.made.current,
+    engine: note.engine === M.ENGINE,
+    needs: [needsWav(full, false), needsWav({ ...full, made: undefined }, true), needsWav(changedSong, true),
+            needsWav({ ...full, made: { ...note, engine: 0 } }, true), needsWav(later, true)] };
+}
 
 // the example songs: every part reads, and the song plays (a few seconds of it, to keep the test quick)
 out.examples = exampleSongs.map((f) => {

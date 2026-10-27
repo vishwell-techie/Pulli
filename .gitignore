@@ -11,3 +11,6 @@ private/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+
+# made from the songs by Isai or make-wavs.mjs
+examples/nizhalattam/music/*.wav
