@@ -98,6 +98,13 @@ def library(t):
     lo, hi, back = r["arpHeard"]
     t.check("an arpeggio is heard: the note, the octave above, the note again", hi > 1.8 * lo and abs(back - lo) <= 2,
             r["arpHeard"])
+    d = r["decoded"]
+    t.check("a WAV is read back sample for sample, with its loop point", d == {
+        "rate": 12345, "loop": 2, "ch": [[0, 16384, -16383, 8192], [32767, -32767, 0, 0]]}, d)
+    rate, channels, samples, _ = pulli.read_wav(open(os.path.join(ROOT, "examples", "catch", "sfx", "0-catch.wav"), "rb").read())
+    t.check("a game's WAV reads as pack reads it", r["real"] == {"rate": rate, "channels": channels,
+            "frames": len(samples) // channels, "first": list(samples[:50 * channels:channels])}, r["real"]["frames"])
+    t.check("a file that is not a WAV is refused", r["notWav"])
     t.check("a note's volume is read and written back: !1 to !9, 9 being full", r["vol"] == [3, 9, 1, None] and
             r["volAgain"] == [3, None, 1, None], (r["vol"], r["volAgain"]))
     t.check("a volume outside !1 to !9 is refused", r["volBad"])

@@ -32,3 +32,35 @@ export function encodeWAV(channels, rate, loop = null) {
   }
   return new Uint8Array(out);
 }
+
+// A PCM WAV file's sound: {rate, channels: [Float32Array...], loop}, the
+// samples as they are (no resampling, which the browser's own decoder does).
+export function decodeWAV(bytes) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (at) => String.fromCharCode(...bytes.subarray(at, at + 4));
+  if (bytes.length < 12 || tag(0) !== "RIFF" || tag(8) !== "WAVE") throw new Error("not a WAV file");
+  let fmt = null, data = null, loop = null;
+  for (let at = 12; at + 8 <= bytes.length;) {
+    const id = tag(at), size = v.getUint32(at + 4, true), body = at + 8;
+    if (id === "fmt ") fmt = { kind: v.getUint16(body, true), channels: v.getUint16(body + 2, true),
+      rate: v.getUint32(body + 4, true), bits: v.getUint16(body + 14, true) };
+    else if (id === "data") data = [body, Math.min(size, bytes.length - body)];
+    else if (id === "smpl" && size >= 60 && v.getUint32(body + 28, true) >= 1) loop = v.getUint32(body + 44, true);
+    at = body + size + (size & 1);
+  }
+  if (!fmt || !data) throw new Error("a WAV file with no sound in it");
+  if (fmt.kind !== 1 && fmt.kind !== 0xfffe) throw new Error("only plain PCM WAV files can be read");
+  const step = fmt.bits / 8, frames = Math.floor(data[1] / (step * fmt.channels));
+  const chans = Array.from({ length: fmt.channels }, () => new Float32Array(frames));
+  for (let i = 0; i < frames; i++) for (let c = 0; c < fmt.channels; c++) {
+    const at = data[0] + (i * fmt.channels + c) * step;
+    let s;
+    if (fmt.bits === 8) s = (bytes[at] - 128) / 128;
+    else if (fmt.bits === 16) s = v.getInt16(at, true) / 32768;
+    else if (fmt.bits === 24) s = ((bytes[at] | (bytes[at + 1] << 8) | (bytes[at + 2] << 16)) << 8 >> 8) / 8388608;
+    else if (fmt.bits === 32) s = v.getInt32(at, true) / 2147483648;
+    else throw new Error(`${fmt.bits}-bit WAV files cannot be read`);
+    chans[c][i] = s;
+  }
+  return { rate: fmt.rate, channels: chans, loop: loop !== null && loop < frames ? loop : null };
+}
