@@ -201,6 +201,7 @@ S , r G P D Ṡ N D |                 as written by hand: capitals long, small s
 s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
+E' D'# E' B D' C'                   ' above the song's octave, . below
 do re mi fa so , la ti do' -        movable do: do is the key note
 do re me fa so le te do'            ... a minor scale, do-based
 G~  P/  D\                          shake (kampita), slide up into, slide down into
@@ -224,6 +225,19 @@ major's minor third, not A♯.
 The **roll** under the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play
 each note.
+
+**Drums.** A song's kit (mridangam, thavil, kanjira, a drum kit or chip
+drums) plays a pattern on its own, following the tala or time: **drum
+pattern: automatic**. For a beat of your own, **+ Drum part** writes that
+pattern out as a part to change, and sets **drum pattern: my own**, so only
+the drum parts play. A drum part is written one stroke a step, in konnakol
+or kit names, and the roll shows a lane for each kind of stroke:
+
+```
+thom ki tha ki | dhi ki tha ki      konnakol: deep, light, main, ringing
+kick hat snare hat kick+hat         a kit: two strokes at once with +
+tha ki ta ka!5 - ;                  a quieter stroke (!1 to !9), rests
+```
 
 A song can loop from a cycle after an intro. **Make WAV** writes
 `music/<name>.wav`, stereo or mono, at 8,000 to 44,100 samples a second;

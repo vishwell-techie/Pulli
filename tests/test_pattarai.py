@@ -134,6 +134,24 @@ def library(t):
             sf["letters"])
     t.check("mistakes are named: an octave number in movable do, a movable syllable in fixed do, a stray word",
             all(sf["errors"]) and "' above" in sf["errors"][0] and "fixed do" in sf["errors"][1], sf["errors"])
+    t.check("letters take octave marks before or after a sharp or flat (E' D'# Bb.), as Für Elise is typed",
+            r["elise"] == ["E5", "D#5", "E5", "D#5", "E5", "B4", "D5", "C5", "C4", "E4", "A4", "B4", "E4", "G#4", "B4",
+                           "C5", "E3", "Bb3", "Bb3", "A6"], r["elise"])
+    t.check("an octave number and an octave mark together are refused", r["markAndNumber"], r["markAndNumber"])
+    dr = r["drums"]
+    t.check("drum strokes read: konnakol and kit names, two at once, rests, volume", dr == {"steps": 13, "hits": [
+        [0, "strong", None], [1, "off", None], [2, "beat", None], [3, "off", None], [4, "ring", None], [6, "beat", None],
+        [6, "off", None], [7, "off", 5], [10, "strong", None], [10, "off", None], [12, "beat", None]]}, dr)
+    t.check("a drum part written back reads the same", r["drumsAgain"] == dr["hits"][:len(r["drumsAgain"])] and
+            len(r["drumsAgain"]) == len(dr["hits"]), r["drumsAgain"])
+    t.check("the automatic pattern written out: Adi in konnakol, 4/4 on a kit",
+            r["drumsWritten"] == ["thom ki tha ki tha ki tha ki | thom ki tha ki thom ki tha ki",
+                                  "kick hat snare hat kick hat snare hat"], r["drumsWritten"])
+    t.check("a word that is not a stroke is refused, saying what is", r["drumBad"] and "thom" in r["drumBad"], r["drumBad"])
+    t.check("the automatic pattern written out as a drum part plays exactly the same, on every kit",
+            r["drumSame"] == [True, True, True, True], r["drumSame"])
+    t.check("with the drum pattern 'my own' and no drum part, no drums play", r["ownSilent"])
+    t.check("a part that cannot be read is left out, and the rest of the song still plays", r["brokenPlays"])
     d = r["decoded"]
     t.check("a WAV is read back sample for sample, with its loop point", d == {
         "rate": 12345, "loop": 2, "ch": [[0, 16384, -16383, 8192], [32767, -32767, 0, 0]]}, d)

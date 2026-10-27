@@ -222,6 +222,7 @@ S , r G P D Ṡ N D |                 as written by hand: capitals long, small s
 s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
+E' D'# E' B D' C'                   ' above the song's octave, . below
 do re mi fa so , la ti do' -        movable do: do is the key note
 do re me fa so le te do'            ... a minor scale, do-based
 G~  P/  D\                          shake (kampita), slide up into, slide down into
@@ -245,6 +246,20 @@ do எப்போதும் C, si என்பது B; `#`, `b`, ஸ்த�
 பகுதிகளின் கீழுள்ள **சுருள்** கையிலுள்ள பகுதியைக் காட்டுகிறது: ஒரு சுரத்தை
 வைக்கச் சொடுக்குங்கள், நீட்ட வலப்புறம் இழுங்கள், நீக்க ஒரு சுரத்தைச்
 சொடுக்குங்கள். சுரவரிசையின் விசைகள் ஒவ்வொரு சுரத்தையும் ஒலிக்கின்றன.
+
+**தாளம்.** பாடலின் தாளக் கருவி (மிருதங்கம், தவில், கஞ்சிரா, drum kit, அல்லது chip
+drums) தாளத்தையோ time-ஐயோ பின்பற்றித் தானாக ஓர் அமைப்பை வாசிக்கிறது: **தாள
+அமைப்பு: automatic**. உங்கள் சொந்தத் தாளத்துக்கு, **+ தாளப் பகுதி** அந்த அமைப்பை
+மாற்றுவதற்கான ஒரு பகுதியாக எழுதி, **தாள அமைப்பு: my own** என அமைக்கிறது; அப்போது
+தாளப் பகுதிகள் மட்டுமே வாசிக்கும். ஒரு தாளப் பகுதி ஒரு படிக்கு ஒரு அடியாக,
+கொன்னக்கோலிலோ kit பெயர்களிலோ எழுதப்படுகிறது; சுருள் ஒவ்வொரு வகை அடிக்கும் ஒரு
+வரிசையைக் காட்டுகிறது:
+
+```
+thom ki tha ki | dhi ki tha ki      konnakol: deep, light, main, ringing
+kick hat snare hat kick+hat         a kit: two strokes at once with +
+tha ki ta ka!5 - ;                  a quieter stroke (!1 to !9), rests
+```
 
 ஒரு பாடல் ஒரு முன்னிசைக்குப் பின் ஓர் ஆவர்த்தனத்திலிருந்து மீண்டும் தொடங்கலாம்.
 **WAV உருவாக்கு** `music/<name>.wav`-ஐ stereo அல்லது mono-வாக, வினாடிக்கு

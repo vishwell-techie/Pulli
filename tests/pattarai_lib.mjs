@@ -50,7 +50,7 @@ out.render = { len: r1[0].length, same: r1[0].every((v, i) => v === r2[0][i]) &&
   steps: M.songSteps(song), tempo: song.tempo, perStep: song.steps };
 for (const sys of ["carnatic", "western"]) {
   const s = M.newSong(sys);
-  for (const inst of Object.values(M.INSTRUMENTS).flat())
+  for (const inst of Object.values(M.INSTRUMENTS).flat().filter((i) => i !== "drums"))
     for (const kit of M.KITS) {
       const [L] = M.render({ ...s, cycles: 1, parts: [{ ...s.parts[0], instrument: inst }], drums: kit });
       if (!L.every(Number.isFinite)) out.badRender = `${sys} ${inst} ${kit}`;
@@ -113,6 +113,34 @@ out.solfa = {
   errors: [["do4", undefined], ["me", "fixed"], ["xo", undefined]].map(([t, v]) => {
     try { M.parseNotation(t, { ...M.newSong("western"), solfa: v }); return null; } catch (e) { return e.message; } }),
 };
+
+// letters with octave marks, as typed: the opening of Für Elise
+const fe = { ...M.newSong("western"), key: "A", scale: "harmonic minor" };
+out.elise = M.parseNotation("E' D'# E' D'# E' B D' C' | C E A B | E G# B C' | E. B.b Bb. A''", fe).notes
+  .map((n) => M.noteName(n.semi, fe, n.way));
+try { M.parseNotation("E'5", fe); out.markAndNumber = null; } catch (e) { out.markAndNumber = e.message; }
+
+// drums: strokes, the automatic pattern written out, and played the same
+const kd = M.newSong("carnatic");
+const dp = M.parseDrums("thom ki tha ki | dhi - tha+ki ka!5 ; kick+hat , snare", kd);
+out.drums = { steps: dp.steps, hits: dp.hits.map((x) => [x.at, x.kind, x.vol || null]) };
+out.drumsAgain = M.parseDrums(M.writeDrums(dp.hits, dp.steps, kd, 4), kd).hits.map((x) => [x.at, x.kind, x.vol || null]);
+out.drumsWritten = [M.writeDrums(M.autoHits(kd, 16), 16, kd, 8), M.writeDrums(M.autoHits(M.newSong("western"), 8), 8, M.newSong("western"), 8)];
+try { M.parseDrums("boom", kd); out.drumBad = null; } catch (e) { out.drumBad = e.message; }
+out.drumSame = [["carnatic", "mridangam"], ["carnatic", "kanjira"], ["western", "kit"], ["western", "chip"]].map(([sys, kit]) => {
+  const base = { ...M.newSong(sys), drums: kit, drone: false, cycles: 4, parts: [] };
+  const steps = M.songSteps(base), a = M.render(base)[0];
+  const own = { ...base, drumPattern: "own", parts: [{ name: "d", instrument: "drums", octave: 0, gain: 0.9, pan: 0.15,
+    text: M.writeDrums(M.autoHits(base, steps), steps, base, 0) }] };
+  const b = M.render(own)[0];
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+});
+const silent = M.render({ ...M.newSong("carnatic"), drums: "mridangam", drumPattern: "own", drone: false,
+  parts: [{ name: "x", instrument: "veena", octave: 0, gain: 0.9, pan: 0, text: "-" }] })[0];
+out.ownSilent = silent.every((v) => v === 0);
+const broken = M.render({ ...M.newSong("carnatic"), parts: [...M.newSong("carnatic").parts, { name: "x", instrument: "drums",
+  octave: 0, gain: 0.9, pan: 0, text: "S r g" }] });
+out.brokenPlays = broken[0].length > 0 && broken[0].some((v) => v !== 0);
 
 // reading WAV files back, exactly
 const back = decodeWAV(encodeWAV([new Float32Array([0, 0.5, -0.5, 0.25]), new Float32Array([1, -1, 0, 0])], 12345, 2));

@@ -177,7 +177,8 @@ export function noteName(semi, song, way = "") {
 //             small letter one, the way lines are written out by hand:
 //             "S , r G P D Ṡ N D |" 
 //   western:  C D E F G A B with # or b and an octave number (C4, F#3, Bb5);
-//             the octave can be left out, and is then the song's octave; or
+//             the octave can be left out, and is then the song's octave, or
+//             marked ' above it and . below (E' D'# B.); or
 //             solfège: do re mi fa so la ti, movable (do is the key note,
 //             di ri fi si li raise a step, ra me se le te lower one, ' and .
 //             for octaves), or fixed when the song's `solfa` is "fixed" (do
@@ -257,12 +258,18 @@ export function parseNotation(text, song) {
       }
       m = [null, null, null, null, m[5]];
     } else {
-      m = tok.match(/^([A-Ga-g])(##|bb|[#b]?)(-?\d?)([~/\\]?)$/);
+      // a letter, its octave marks (' up, . down, before or after a sharp
+      // or flat: E' D'# Bb.), or an octave number: C4 F#3
+      m = tok.match(/^([A-Ga-g])([.']*)(##|bb|[#b]?)([.']*)(-?\d?)([~/\\]?)$/);
       if (!m) throw new Error(`cannot read "${tok}"`);
-      const pitch = NATURAL[m[1].toUpperCase()] + (m[2].length ? (m[2][0] === "#" ? 1 : -1) * m[2].length : 0);
-      way = m[2][0] === "#" ? "up" : m[2][0] === "b" ? "down" : "";
-      const octave = m[3] === "" ? song.octave : +m[3];
+      const marks = m[2] + m[4];
+      if (marks && m[5] !== "") throw new Error(`"${tok}": give an octave number or ' and ., not both`);
+      const pitch = NATURAL[m[1].toUpperCase()] + (m[3].length ? (m[3][0] === "#" ? 1 : -1) * m[3].length : 0);
+      way = m[3][0] === "#" ? "up" : m[3][0] === "b" ? "down" : "";
+      const ticks = (marks.match(/'/g) || []).length - (marks.match(/\./g) || []).length;
+      const octave = m[5] === "" ? song.octave + ticks : +m[5];
       semi = pitch + 12 * (octave - song.octave) - keyIndex(song.key);
+      m = [null, null, null, null, m[6]];
     }
     const note = { at, len: long ? 2 : 1, semi, mark: m[4] || "" };
     if (arp) note.arp = arp;
@@ -375,6 +382,7 @@ export const INSTRUMENTS = {
   carnatic: ["nadaswaram", "venu", "veena", "harmonium", "violin"],
   western: ["piano", "strings", "flute", "bass", "pluck"],
   chip: ["square", "pulse25", "pulse12", "triangle", "saw", "noise"],
+  drums: ["drums"],
 };
 export const KITS = ["mridangam", "thavil", "kanjira", "kit", "chip", "none"];
 const CHIP = new Set(INSTRUMENTS.chip);
@@ -525,13 +533,94 @@ const KIT_STROKES = {
   chip: { strong: "ckick", beat: "csnare", off: "chat", ring: "chat" },
 };
 
+// ---- drum parts ---------------------------------------------------------------
+// A part whose instrument is "drums" is written in strokes, one a step, and
+// played on the song's kit (mridangam when it has none, or a western kit in
+// a western song). Each stroke is one of four kinds, which every kit has:
+//   strong  the deep, accented stroke: thom dhom tom, kick bd
+//   beat    the main stroke:           tha ta nam na, snare sd
+//   off     the light, quick stroke:   ki ka ti, hat hh
+//   ring    the ringing stroke:        dhi din di tham, open oh
+// a+b plays two at once (kick+hat); - or , is a step with no stroke, ; two;
+// | is a bar line; !1 to !9 at the end sets the stroke's volume.
+export const STROKE_KIND = {
+  thom: "strong", dhom: "strong", tom: "strong", kick: "strong", bd: "strong",
+  tha: "beat", ta: "beat", nam: "beat", na: "beat", snare: "beat", sd: "beat",
+  ki: "off", ka: "off", ti: "off", hat: "off", hh: "off",
+  dhi: "ring", din: "ring", di: "ring", tham: "ring", open: "ring", oh: "ring",
+};
+const KIND_LOUD = { strong: 1, beat: 0.75, off: 0.5, ring: 0.75 };
+export const KIND_ORDER = ["strong", "beat", "off", "ring"];
+// how each kind is written back: konnakol in a Carnatic song, kit names in a western one
+const KIND_WORD = { carnatic: { strong: "thom", beat: "tha", off: "ki", ring: "dhi" },
+                    western: { strong: "kick", beat: "snare", off: "hat", ring: "open" } };
+export const drumWord = (kind, song) => KIND_WORD[song.system][kind];
+export const kitOf = (song) => KIT_STROKES[song.drums] ? song.drums : song.system === "carnatic" ? "mridangam" : "kit";
+
+export function parseDrums(text, song) {
+  const hits = [];
+  let at = 0;
+  for (let tok of text.replace(/\/\/[^\n]*/g, "").split(/\s+/).filter((t) => t)) {
+    if (tok === "|" || tok === "||") continue;
+    if (tok === "-" || tok === "," || tok === "_") { at += 1; continue; }
+    if (tok === ";") { at += 2; continue; }
+    let vol = null;
+    const bang = tok.match(/^(.+)!([1-9])$/);
+    if (bang) { tok = bang[1]; vol = +bang[2]; }
+    for (const word of tok.toLowerCase().split("+")) {
+      const kind = STROKE_KIND[word];
+      if (!kind) throw new Error(`"${word}" is not a stroke: write thom tha ki dhi, or kick snare hat open`);
+      hits.push(vol ? { at, kind, vol } : { at, kind });
+    }
+    at += 1;
+  }
+  return { hits, steps: at };
+}
+
+export function writeDrums(hits, steps, song, perBar) {
+  const out = [];
+  for (let at = 0; at < steps; at++) {
+    if (perBar && at && at % perBar === 0) out.push("|");
+    const here = hits.filter((x) => x.at === at).sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
+    if (!here.length) { out.push("-"); continue; }
+    const vol = here.find((x) => x.vol)?.vol;
+    out.push([...new Set(here.map((x) => drumWord(x.kind, song)))].join("+") + (vol && vol < 9 ? "!" + vol : ""));
+  }
+  return out.join(" ");
+}
+
+// The automatic pattern, as hits: the tala's (or time's) strong beats, the
+// others, a light stroke between, and a fill at the end of every fourth
+// cycle. The same pattern plays when the song's drum pattern is automatic,
+// and + Drum part writes it out to start from.
+export function autoHits(song, steps) {
+  const { beats, strong } = cycleOf(song);
+  const per = beats * song.steps, hits = [];
+  const busy = song.drums === "kit" || song.drums === "chip";
+  for (let st = 0; st < steps; st++) {
+    const b = Math.floor((st % per) / song.steps), sub = st % song.steps;
+    const fill = Math.floor(st / per) % 4 === 3 && b >= beats - 1;
+    if (sub === 0) hits.push({ at: st, kind: strong.includes(b) ? "strong" : "beat" });
+    else if (fill || sub === song.steps / 2 || busy) hits.push({ at: st, kind: "off" });
+  }
+  return hits;
+}
+
+// each stroke's own noise, the same whether the pattern or a part plays it
+const strokeSeed = (x) => 7001 + x.at * 4 + KIND_ORDER.indexOf(x.kind);
+
+// The steps a part runs to, whatever it is written in.
+export function partSteps(p, song) {
+  return p.instrument === "drums" ? parseDrums(p.text, song).steps : parseNotation(p.text, song).steps;
+}
+
 // The song's length: its cycles, or longer if a part runs past them.
 export function songSteps(song) {
   const { beats } = cycleOf(song);
   const per = beats * song.steps;
   let most = song.cycles * per;
   for (const p of song.parts) {
-    try { most = Math.max(most, parseNotation(p.text, song).steps); } catch (e) { /* shown by the editor */ }
+    try { most = Math.max(most, partSteps(p, song)); } catch (e) { /* shown by the editor */ }
   }
   return Math.ceil(most / per) * per;
 }
@@ -564,8 +653,17 @@ export function render(song) {
       t += n % 4 === 3 ? 1.3 : 0.9;
     }
   }
+  const kitNow = KIT_STROKES[kitOf(song)];
   for (const p of song.parts) {
-    const { notes } = parseNotation(p.text, song);
+    let read;                                        // a part that cannot be read is left out; the editor says why
+    try { read = p.instrument === "drums" ? parseDrums(p.text, song) : parseNotation(p.text, song); } catch (e) { continue; }
+    if (p.instrument === "drums") {                  // a drum part: strokes on the song's kit
+      for (const x of read.hits)
+        hit(out, x.at * stepSec, kitNow[x.kind], (x.vol ? x.vol / 9 : KIND_LOUD[x.kind]) * 0.8 * p.gain / 0.9, tonic,
+            x.kind === "strong" ? 0 : p.pan, strokeSeed(x));
+      continue;
+    }
+    const { notes } = read;
     for (const n of notes) {
       const swing = song.swing && n.at % 2 ? song.swing * stepSec * 0.5 : 0;
       voice(out, p.instrument, n.at * stepSec + swing, n.len * stepSec * (CHIP.has(p.instrument) ? 0.9 : 0.97),
@@ -574,16 +672,9 @@ export function render(song) {
     }
   }
   const kit = KIT_STROKES[song.drums];
-  if (kit) {
-    const per = beats * song.steps;
-    for (let s = 0; s < steps; s++) {
-      const b = Math.floor((s % per) / song.steps), sub = s % song.steps;
-      const fill = Math.floor(s / per) % 4 === 3 && b >= beats - 1;
-      let kind = null, vel = 0.7;
-      if (sub === 0) { kind = strong.includes(b) ? kit.strong : kit.beat; vel = strong.includes(b) ? 1 : 0.75; }
-      else if (fill || (sub === song.steps / 2) || song.drums === "kit" || song.drums === "chip") { kind = kit.off; vel = 0.5; }
-      if (kind) hit(out, s * stepSec, kind, vel * 0.8, tonic, kind === kit.strong ? 0 : 0.15, seed++);
-    }
+  if (kit && song.drumPattern !== "own") {           // the automatic pattern, unless the song has its own
+    for (const x of autoHits(song, steps))
+      hit(out, x.at * stepSec, kit[x.kind], KIND_LOUD[x.kind] * 0.8, tonic, x.kind === "strong" ? 0 : 0.15, strokeSeed(x));
   }
   const L = out[0].subarray(0, len), R = out[1].subarray(0, len);
   const from = loopFrame(song);                     // what rings past the end goes on at the loop point

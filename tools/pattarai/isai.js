@@ -32,7 +32,8 @@ export function isai(root) {
     head,
     h("div", { className: "cols" },
       h("div", { className: "wide" }, partsBox,
-        h("button", { onclick: addPart }, "+ Part"),
+        h("div", { className: "bar" }, h("button", { onclick: addPart }, "+ Part"),
+          h("button", { title: "A drum part of your own, starting from the automatic pattern written out", onclick: addDrumPart }, "+ Drum part")),
         h("p", { className: "muted", style: "font-size:12px;max-width:720px" },
           "The parts are mixed into one track, which the game plays with music(n). " + CHANNEL_NOTE)),
       h("div", { className: "box", style: "max-width:100%" }, h("h3", {}, "Roll: the part in hand"),
@@ -89,6 +90,10 @@ export function isai(root) {
       field("drone", h("input", { type: "checkbox", checked: song.drone, onchange: (e) => { song.drone = e.target.checked; changed(); } })),
       field("drums", h("select", { onchange: (e) => { song.drums = e.target.value; changed(); } },
         ...M.KITS.map((k) => h("option", { value: k, selected: k === song.drums }, k)))),
+      field("drum pattern", h("select", { title: "Automatic: the kit plays the tala's (or time's) pattern. My own: only the drum parts you write play.",
+        onchange: (e) => { song.drumPattern = e.target.value; changed(); } },
+        h("option", { value: "auto", selected: song.drumPattern !== "own" }, "automatic"),
+        h("option", { value: "own", selected: song.drumPattern === "own" }, "my own"))),
       field("swing", h("input", { type: "range", min: 0, max: 0.6, step: 0.05, value: song.swing,
         onchange: (e) => { song.swing = +e.target.value; changed(); } })),
       field("arpeggio speed", num("arpRate", 4, 60)),
@@ -162,17 +167,20 @@ export function isai(root) {
       const err = h("div", { className: "err" });
       const check = () => {
         try {
-          const r = M.parseNotation(p.text, song);
+          const drums = p.instrument === "drums";
+          const r = drums ? M.parseDrums(p.text, song) : M.parseNotation(p.text, song);
           const per = M.cycleOf(song).beats * song.steps;
           err.className = "err muted";
-          err.textContent = `${r.notes.length} notes, ${r.steps} steps (${(r.steps / per).toFixed(2).replace(/\.00$/, "")} cycles)`;
+          err.textContent = `${drums ? r.hits.length + " strokes on the " + M.kitOf(song) : r.notes.length + " notes"}, ` +
+            `${r.steps} steps (${(r.steps / per).toFixed(2).replace(/\.00$/, "")} cycles)` +
+            (drums && song.drumPattern !== "own" && song.drums !== "none" ? "; the automatic pattern plays too (drum pattern: my own turns it off)" : "");
         } catch (e) { err.className = "err"; err.textContent = e.message; }
       };
       const text = h("textarea", { rows: 3, value: p.text, spellcheck: false,
         onfocus: () => { if (partIndex !== i) { partIndex = i; drawParts(); drawRoll(); } },
         oninput: (e) => { p.text = e.target.value; changed(); check(); drawRoll(); } });
       check();
-      const inst = h("select", { onchange: (e) => { p.instrument = e.target.value; changed(); } },
+      const inst = h("select", { onchange: (e) => { p.instrument = e.target.value; changed(); drawParts(); drawRoll(); } },
         ...Object.entries(M.INSTRUMENTS).map(([group, list]) => h("optgroup", { label: group },
           ...list.map((n) => h("option", { value: n, selected: n === p.instrument }, n)))));
       const knob = (key, min, max, stepBy) => h("input", { type: "number", min, max, step: stepBy, value: p[key], style: "width:70px",
@@ -188,9 +196,26 @@ export function isai(root) {
             if (song.parts.length > 1 && confirm(`Remove the part "${p.name}"?`)) {
               song.parts.splice(i, 1); partIndex = 0; changed(); drawParts(); drawRoll();
             } } }, "✕")),
-        text, err);
+        text, err,
+        p.instrument === "drums" ? h("div", { className: "muted", style: "font-size:12px" },
+          `Strokes, one a step: thom (deep), tha (main), ki (light), dhi (ringing) — or kick, snare, hat, open. ` +
+          `kick+hat plays two at once; - or , is a step with none; | a bar line; !1 to !9 the volume.`) : "");
     }));
   }
+  // A drum part to start from: the automatic pattern for a cycle, written
+  // out, and the automatic pattern turned off so the two do not double.
+  function addDrumPart() {
+    const { beats } = M.cycleOf(song);
+    const per = beats * song.steps;
+    if (song.drums === "none") song.drums = M.kitOf(song);
+    song.parts.push({ name: "drums", instrument: "drums", octave: 0, gain: 0.9, pan: 0.15,
+                      text: M.writeDrums(M.autoHits(song, per), per, song, per) });
+    song.drumPattern = "own";
+    partIndex = song.parts.length - 1;
+    changed(); drawAll();
+    status("Drum part added from the automatic pattern; drum pattern is now 'my own'. Change the strokes, or click on the roll.");
+  }
+
   function addPart() {
     song.parts.push({ name: "part " + (song.parts.length + 1), instrument: song.system === "carnatic" ? "veena" : "strings",
                       octave: 0, gain: 0.7, pan: -0.3, text: "" });
@@ -204,6 +229,7 @@ export function isai(root) {
   function drawRoll() {
     const p = song.parts[partIndex];
     if (!p) return;
+    if (p.instrument === "drums") return drawDrumRoll(p);
     const scale = M.SCALES[song.scale].notes;
     rows = [];
     for (let o = 1; o >= -1; o--) for (let k = scale.length - 1; k >= 0; k--) rows.push(scale[k] + 12 * o);
@@ -258,8 +284,55 @@ export function isai(root) {
       g.fillStyle = "#fff"; g.fillRect(x, 0, 2, roll.height);
     }
   }
+  // A drum part's roll: a lane for each kind of stroke; click to add or remove
+  function drawDrumRoll(p) {
+    let parsed;
+    try { parsed = M.parseDrums(p.text, song); } catch (e) { parsed = { hits: [], steps: 0 }; }
+    const { beats, strong } = M.cycleOf(song);
+    const per = beats * song.steps;
+    const steps = Math.max(M.songSteps(song), parsed.steps + per);
+    rows = M.KIND_ORDER;
+    roll.width = LABEL + steps * CW; roll.height = rows.length * RH * 1.5;
+    const g = roll.getContext("2d"), rh = RH * 1.5;
+    g.fillStyle = "#1b1c24"; g.fillRect(0, 0, roll.width, roll.height);
+    g.font = "11px ui-monospace, monospace"; g.textBaseline = "middle";
+    rows.forEach((kind, r) => {
+      g.fillStyle = r % 2 ? "#20222b" : "#1d1f27"; g.fillRect(LABEL, r * rh, roll.width, rh);
+      g.fillStyle = "#c9c7c0"; g.fillText(M.drumWord(kind, song), 4, r * rh + rh / 2);
+    });
+    for (let st = 0; st <= steps; st++) {
+      const beat = st % song.steps === 0, b = Math.floor((st % per) / song.steps);
+      g.strokeStyle = st % per === 0 ? "#f0a33088" : beat && strong.includes(b) ? "#ffffff30" : beat ? "#ffffff18" : "#ffffff08";
+      g.beginPath(); g.moveTo(LABEL + st * CW, 0); g.lineTo(LABEL + st * CW, roll.height); g.stroke();
+    }
+    for (const x of parsed.hits) {
+      const r = rows.indexOf(x.kind);
+      g.globalAlpha = x.vol ? 0.3 + 0.7 * x.vol / 9 : 1;
+      g.fillStyle = ["#e5604f", "#f0a330", "#4fb3a9", "#e0789a"][r];
+      g.beginPath(); g.arc(LABEL + x.at * CW + CW / 2, r * rh + rh / 2, CW * 0.36, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    }
+    if (source) {
+      const xx = LABEL + ((audio.currentTime - playStart) % playLen) / playLen * M.songSteps(song) * CW;
+      g.fillStyle = "#fff"; g.fillRect(xx, 0, 2, roll.height);
+    }
+  }
+  function clickDrumRoll(p, e) {
+    let parsed;
+    try { parsed = M.parseDrums(p.text, song); } catch (err) { return status("Mend the drum part first: " + err.message, true); }
+    const at = Math.floor((e.offsetX - LABEL) / CW), kind = M.KIND_ORDER[Math.floor(e.offsetY / (RH * 1.5))];
+    if (!kind || at < 0) return;
+    const there = parsed.hits.findIndex((x) => x.at === at && x.kind === kind);
+    if (there >= 0) parsed.hits.splice(there, 1); else parsed.hits.push({ at, kind });
+    const { beats } = M.cycleOf(song), per = beats * song.steps;
+    const end = Math.max(parsed.steps, at + 1);
+    p.text = M.writeDrums(parsed.hits, Math.ceil(end / per) * per, song, per);
+    changed(); drawParts(); drawRoll();
+  }
+
   roll.addEventListener("mousedown", (e) => {
     const p = song.parts[partIndex];
+    if (p && p.instrument === "drums") { if (e.offsetX >= LABEL) clickDrumRoll(p, e); return; }
     if (!p || e.offsetX < LABEL) return;
     let parsed;
     try { parsed = M.parseNotation(p.text, song); } catch (err) { return status("Mend the part's notation first: " + err.message, true); }
