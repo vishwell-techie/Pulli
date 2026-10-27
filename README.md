@@ -77,9 +77,9 @@ pixel it draws stay the same, and `tests/` exists to keep that true.
 
 ## Build and test
 
-Needs a C compiler, CMake 3.16+, Python 3 and, for the window, SDL2. Lua is
-downloaded and built by CMake on the first configure; the system's Lua is
-not used.
+Needs a C compiler, CMake 3.16+, Python 3 and, for the window and game
+controllers, SDL2 2.24.0 or newer (below). Lua is downloaded and built by
+CMake on the first configure; the system's Lua is not used.
 
 ```bash
 # Debian, Ubuntu, Raspberry Pi OS
@@ -94,6 +94,47 @@ ninja -C build
 
 Without SDL2 everything except the windowed `pulli-host` still builds and
 the tests still run.
+
+### SDL2 2.24.0 or newer
+
+The window and game controllers need **SDL2 2.24.0 or newer**: the
+controller support, and the test that checks it with a virtual controller,
+use SDL calls added in 2.24.0. With an older SDL2, CMake leaves the window
+out and says so. Check what you have:
+
+```bash
+pkg-config --modversion sdl2      # or: sdl2-config --version
+```
+
+| System | SDL2 from the package manager |
+|---|---|
+| Debian 12, Raspberry Pi OS (Bookworm), Ubuntu 23.04 and later | 2.26 or newer: `libsdl2-dev` is enough |
+| macOS (Homebrew) | newer than 2.24: `brew install sdl2` is enough |
+| Ubuntu 22.04, Debian 11, Raspberry Pi OS (Bullseye) | too old (2.0.x): build SDL2 as below |
+
+To build SDL2 from source (Debian and Ubuntu shown):
+
+```bash
+# 1. what SDL needs for a window, sound and controllers
+sudo apt install build-essential cmake ninja-build git pkg-config \
+    libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+    libxss-dev libwayland-dev libxkbcommon-dev wayland-protocols \
+    libasound2-dev libpulse-dev libudev-dev libdbus-1-dev
+# 2. the source of the last SDL2 release
+git clone --depth 1 --branch release-2.32.10 https://github.com/libsdl-org/SDL.git SDL2
+# 3. build and install it (into /usr/local)
+cmake -S SDL2 -B SDL2/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C SDL2/build
+sudo ninja -C SDL2/build install
+sudo ldconfig
+# 4. check, then configure Pulli again from a clean build folder
+pkg-config --modversion sdl2
+rm -rf build
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=/usr/local
+```
+
+`libudev-dev` matters: without it SDL does not see a controller plugged in
+while a game runs.
 
 ## Make and run a game
 

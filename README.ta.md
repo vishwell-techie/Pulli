@@ -94,8 +94,9 @@ cmake/       pinned Lua build shared by host and firmware
 
 ## உருவாக்குதலும் சோதித்தலும்
 
-ஒரு C கம்பைலர், CMake 3.16+, Python 3, சாளரத்துக்கு SDL2 தேவை. முதல் configure-இல்
-CMake Lua-வைப் பதிவிறக்கி உருவாக்குகிறது; கணினியில் உள்ள Lua பயன்படுத்தப்படுவதில்லை.
+ஒரு C கம்பைலர், CMake 3.16+, Python 3, சாளரத்துக்கும் கட்டுப்படுத்திகளுக்கும்
+SDL2 2.24.0 அல்லது புதியது (கீழே) தேவை. முதல் configure-இல் CMake Lua-வைப்
+பதிவிறக்கி உருவாக்குகிறது; கணினியில் உள்ள Lua பயன்படுத்தப்படுவதில்லை.
 
 ```bash
 # Debian, Ubuntu, Raspberry Pi OS
@@ -110,6 +111,48 @@ ninja -C build
 
 SDL2 இல்லாமல், சாளரமுள்ள `pulli-host` தவிர அனைத்தும் உருவாகும், சோதனைகளும்
 ஓடும்.
+
+### SDL2 2.24.0 அல்லது புதியது
+
+சாளரத்துக்கும் விளையாட்டுக் கட்டுப்படுத்திகளுக்கும் (controllers) **SDL2
+2.24.0 அல்லது புதியது** தேவை: கட்டுப்படுத்தி ஆதரவும், அதை ஒரு மெய்நிகர்
+கட்டுப்படுத்தியால் சரிபார்க்கும் சோதனையும் 2.24.0-இல் சேர்க்கப்பட்ட SDL
+அழைப்புகளைப் பயன்படுத்துகின்றன. பழைய SDL2 இருந்தால், CMake சாளரத்தை விட்டுவிட்டு
+அதைச் சொல்லும். உங்களிடம் உள்ள பதிப்பைப் பாருங்கள்:
+
+```bash
+pkg-config --modversion sdl2      # or: sdl2-config --version
+```
+
+| கணினி | தொகுப்பு மேலாளரின் SDL2 |
+|---|---|
+| Debian 12, Raspberry Pi OS (Bookworm), Ubuntu 23.04 மற்றும் பிந்தையவை | 2.26 அல்லது புதியது: `libsdl2-dev` போதும் |
+| macOS (Homebrew) | 2.24-ஐ விடப் புதியது: `brew install sdl2` போதும் |
+| Ubuntu 22.04, Debian 11, Raspberry Pi OS (Bullseye) | மிகப் பழையது (2.0.x): கீழே உள்ளபடி SDL2-ஐ உருவாக்குங்கள் |
+
+மூலத்திலிருந்து SDL2-ஐ உருவாக்க (Debian, Ubuntu):
+
+```bash
+# 1. what SDL needs for a window, sound and controllers
+sudo apt install build-essential cmake ninja-build git pkg-config \
+    libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+    libxss-dev libwayland-dev libxkbcommon-dev wayland-protocols \
+    libasound2-dev libpulse-dev libudev-dev libdbus-1-dev
+# 2. the source of the last SDL2 release
+git clone --depth 1 --branch release-2.32.10 https://github.com/libsdl-org/SDL.git SDL2
+# 3. build and install it (into /usr/local)
+cmake -S SDL2 -B SDL2/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C SDL2/build
+sudo ninja -C SDL2/build install
+sudo ldconfig
+# 4. check, then configure Pulli again from a clean build folder
+pkg-config --modversion sdl2
+rm -rf build
+cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=/usr/local
+```
+
+`libudev-dev` முக்கியம்: அது இல்லாவிட்டால், விளையாட்டு ஓடும்போது செருகப்படும்
+கட்டுப்படுத்தியை SDL காணாது.
 
 ## ஒரு விளையாட்டை உருவாக்கி ஓட்டுதல்
 
