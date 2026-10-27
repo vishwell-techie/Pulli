@@ -27,7 +27,7 @@ out.janyaInParent = Object.entries(M.SCALES).filter(([, s]) => s.parent)
   .map(([n, s]) => [n, s.notes.every((x) => M.melakarta(s.parent).includes(x))]);
 
 // notation
-const c = { ...M.newSong("carnatic"), scale: "Mayamalavagowla" };
+const c = { ...M.newSong("carnatic"), scale: "Mayamalavagowla", longCaps: false };   // one letter, one step
 const text = "S , R G M ; P | D. N. S' S'' ~ - G3 M2/ P\\";
 try { M.parseNotation(text, c); out.badTilde = false; } catch (e) { out.badTilde = true; }
 const ok = "S , R G M ; P | D. N. S' S'' - G3 M2/ P\\ ,";
@@ -81,6 +81,20 @@ const probe = (arpNotes) => {
 };
 out.arpHeard = probe("C4{0,12} ; ; ,");
 out.chipWav = b64(encodeWAV([cr[0]], 8000));
+// lines as written by hand: capitals two aksharas, small letters one, dots for octaves
+const bil = { ...M.newSong("carnatic"), scale: "Bilahari" };
+const handLine = "S  ,  r      G  P     D  Ṡ   N D     |    P  d  p    m g  r s      r s   ṇ  ḍ           S ;        ||";
+const hp = M.parseNotation(handLine, bil);
+out.hand = { steps: hp.steps, notes: hp.notes.map((n) => [n.semi, n.len]) };
+const hw = M.writeNotation(hp.notes, hp.steps, bil, 16);
+out.handAgain = M.parseNotation(hw, bil).notes.map((n) => [n.semi, n.len]);
+out.handWritten = hw;
+out.oldSong = M.parseNotation("S , R G s r", { ...bil, longCaps: undefined }).notes.map((n) => [n.at, n.len]);
+const flat = { ...bil, longCaps: false }, flatText = M.writeNotation(hp.notes, hp.steps, flat, 16);
+out.toggled = M.parseNotation(flatText, flat).notes.map((n) => [n.semi, n.len]);
+out.starter = M.newSong("carnatic").parts.map((p) => M.parseNotation(p.text, M.newSong("carnatic")).steps);
+out.dots = M.parseNotation("Ṡ ṡ Ṇ ṇ S' n.", { ...bil }).notes.map((n) => [n.semi, n.len]);
+
 // reading WAV files back, exactly
 const back = decodeWAV(encodeWAV([new Float32Array([0, 0.5, -0.5, 0.25]), new Float32Array([1, -1, 0, 0])], 12345, 2));
 out.decoded = { rate: back.rate, loop: back.loop, ch: back.channels.map((c) => [...c].map((v) => Math.round(v * 32768))) };

@@ -190,10 +190,15 @@ Carnatic raga, played by a synthesised band.
 - **New chiptune:** square, pulse, triangle and noise voices with noise
   drums, as old consoles had, in a small mono WAV.
 
-A part is written one note a step:
+A part is written one note a step. In a new Carnatic song, as lines are
+written by hand, a capital is two aksharas and a small letter one, and a
+dot above or below a swara moves it an octave; **capitals long** switches
+this off (the parts are rewritten to sound the same), and songs made
+before it read every letter as one step:
 
 ```
-S , R G M ; P | D. N. S' -          sargam: the raga's own swaras
+S , r G P D Ṡ N D |                 as written by hand: capitals long, small short
+s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
 G~  P/  D\                          shake (kampita), slide up into, slide down into

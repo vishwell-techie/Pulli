@@ -98,6 +98,19 @@ def library(t):
     lo, hi, back = r["arpHeard"]
     t.check("an arpeggio is heard: the note, the octave above, the note again", hi > 1.8 * lo and abs(back - lo) <= 2,
             r["arpHeard"])
+    hand = r["hand"]
+    t.check("a line written by hand reads as written: capitals two aksharas, small letters one, an avartanam of Adi",
+            hand["steps"] == 32 and [n for _, n in hand["notes"]] ==
+            [3, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4], hand)
+    t.check("a dot above is the octave up and below the octave down; the raga's own swaras",
+            [s for s, _ in hand["notes"]] == [0, 2, 4, 7, 9, 12, 11, 9, 7, 9, 7, 5, 4, 2, 0, 2, 0, -1, -3, 0], hand)
+    t.check("dots read the same as ' and ., on capitals and small letters",
+            r["dots"] == [[12, 2], [12, 1], [-1, 2], [-1, 1], [12, 2], [-1, 1]], r["dots"])
+    t.check("a hand-written line written back reads the same", r["handAgain"] == hand["notes"], r["handWritten"])
+    t.check("a song saved before reads every letter as one step, small letters too",
+            r["oldSong"] == [[0, 2], [2, 1], [3, 1], [4, 1], [5, 1]], r["oldSong"])
+    t.check("switching capitals off rewrites a part to sound the same", r["toggled"] == hand["notes"], r["toggled"])
+    t.check("a new Carnatic song's parts fill their cycle", r["starter"] == [16, 16], r["starter"])
     d = r["decoded"]
     t.check("a WAV is read back sample for sample, with its loop point", d == {
         "rate": 12345, "loop": 2, "ch": [[0, 16384, -16383, 8192], [32767, -32767, 0, 0]]}, d)

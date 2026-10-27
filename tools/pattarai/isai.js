@@ -80,6 +80,9 @@ export function isai(root) {
       field("tempo", num("tempo", 30, 300)),
       field("steps a beat", num("steps", 1, 8)),
       field("cycles", num("cycles", 1, 64)),
+      c ? field("capitals long", h("input", { type: "checkbox", checked: !!song.longCaps,
+        title: "As lines are written by hand: a capital is two aksharas, a small letter one. The parts are rewritten so they sound the same.",
+        onchange: (e) => setLongCaps(e.target.checked) })) : "",
       field("drone", h("input", { type: "checkbox", checked: song.drone, onchange: (e) => { song.drone = e.target.checked; changed(); } })),
       field("drums", h("select", { onchange: (e) => { song.drums = e.target.value; changed(); } },
         ...M.KITS.map((k) => h("option", { value: k, selected: k === song.drums }, k)))),
@@ -106,6 +109,18 @@ export function isai(root) {
       `${(samples / 2 / 1024).toFixed(0)} KB packed`;
   }
 
+  // Switching how capitals are read keeps the music: each part is read the
+  // old way and written out the new way.
+  function setLongCaps(on) {
+    const { beats } = M.cycleOf(song);
+    const parsed = song.parts.map((p) => { try { return M.parseNotation(p.text, song); } catch (e) { return null; } });
+    song.longCaps = on;
+    song.parts.forEach((p, i) => { if (parsed[i]) p.text = M.writeNotation(parsed[i].notes, parsed[i].steps, song, beats * song.steps); });
+    changed(); drawAll();
+    status(on ? "Capitals are two aksharas, small letters one; the parts were rewritten to sound the same."
+              : "Every letter is one step; the parts were rewritten to sound the same.");
+  }
+
   // The scale, up and down, with a key for each note to hear it.
   function drawScale() {
     const s = M.SCALES[song.scale];
@@ -118,7 +133,8 @@ export function isai(root) {
       h("p", { className: "muted", style: "margin:8px 0 4px" }, song.system === "carnatic" ? "Avarohanam" : "Down"), keys(s.down),
       h("p", { className: "muted", style: "margin:10px 0 0;max-width:330px;font-size:12px" },
         song.system === "carnatic"
-          ? "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' an octave up, . down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
+          ? (song.longCaps ? "Capitals are two aksharas, small letters one: S , r G P D Ṡ N D |. " : "") +
+            "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' or a dot above (Ṡ) an octave up, . or a dot below (Ṇ) down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
           : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
   }
 

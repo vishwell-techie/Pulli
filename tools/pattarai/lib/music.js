@@ -134,7 +134,12 @@ export function noteName(semi, song) {
 // A part is written one token a step (a step is 1/`steps` of a beat):
 //   carnatic: S R G M P D N, the raga's own variant; R1, G3, M2... for a
 //             note from outside it; ' after for the octave above, . for the
-//             one below (S' P. N..)
+//             one below (S' P. N..), or a dot above or below the letter as
+//             written by hand (Ṡ, Ṇ). Small letters (s r g m p d n) are one
+//             step too; when the song's `longCaps` is set, as it is in new
+//             Carnatic songs, a capital is two steps (two aksharas) and a
+//             small letter one, the way lines are written out by hand:
+//             "S , r G P D Ṡ N D |" 
 //   western:  C D E F G A B with # or b and an octave number (C4, F#3, Bb5);
 //             the octave can be left out, and is then the song's octave
 //   both:     , holds the note before one more step; ; holds it two;
@@ -176,10 +181,14 @@ export function parseNotation(text, song) {
       continue;
     }
     if (tok === "-" || tok === "_") { at += 1; continue; }
-    let semi, m;
+    let semi, m, long = false;
     if (song.system === "carnatic") {
-      m = tok.match(/^([SRGMPDN])([123]?)([.']*)([~/\\]?)$/);
+      // a dot above or below the letter (Ṡ, ṇ) reads as ' or .
+      const t = tok.normalize("NFD").replace(/^(.)\u0307/, "$1'").replace(/^(.)\u0323/, "$1.");
+      m = t.match(/^([SRGMPDNsrgmpdn])([123]?)([.']*)([~/\\]?)$/);
       if (!m) throw new Error(`cannot read "${tok}"`);
+      long = song.longCaps && m[1] === m[1].toUpperCase();
+      m[1] = m[1].toUpperCase();
       if (m[2]) {
         semi = EXPLICIT[m[1] + m[2]];
         if (semi === undefined) throw new Error(`there is no ${m[1]}${m[2]}`);
@@ -198,11 +207,11 @@ export function parseNotation(text, song) {
       const octave = m[3] === "" ? song.octave : +m[3];
       semi = pitch + 12 * (octave - song.octave) - KEYS.indexOf(song.key);
     }
-    const note = { at, len: 1, semi, mark: m[4] || "" };
+    const note = { at, len: long ? 2 : 1, semi, mark: m[4] || "" };
     if (arp) note.arp = arp;
     if (vol) note.vol = vol;
     notes.push(note);
-    at += 1;
+    at += note.len;
   }
   return { notes, steps: at };
 }
@@ -215,11 +224,12 @@ export function writeNotation(notes, steps, song, perBar) {
   const out = [];
   const sorted = [...notes].sort((a, b) => a.at - b.at);
   let at = 0, i = 0;
-  const token = (n) => {
+  const token = (n, small) => {
     if (song.system === "carnatic") {
       const s = ((n.semi % 12) + 12) % 12, oct = Math.floor(n.semi / 12);
       const own = swaraNames(SCALES[song.scale].notes)[s];
-      const name = own ? (own.length > 1 ? own[0] : own) : noteName(s, song).replace(/[.']/g, "");
+      let name = own ? (own.length > 1 ? own[0] : own) : noteName(s, song).replace(/[.']/g, "");
+      if (small) name = name.toLowerCase();
       return name + (oct > 0 ? "'".repeat(oct) : ".".repeat(-oct)) + n.mark + arpText(n);
     }
     return noteName(n.semi, song) + n.mark + arpText(n);
@@ -228,8 +238,12 @@ export function writeNotation(notes, steps, song, perBar) {
     if (perBar && at && at % perBar === 0) out.push("|");
     const n = sorted[i];
     if (n && n.at === at) {
-      out.push(token(n));
-      for (let k = 1; k < n.len && at + k < steps; k++) {
+      // with long capitals: a capital for two steps (unless a bar line falls
+      // between them), a small letter for one
+      const capital = song.longCaps && song.system === "carnatic" && n.len >= 2 && at + 1 < steps &&
+        !(perBar && (at + 1) % perBar === 0);
+      out.push(token(n, song.longCaps && song.system === "carnatic" && !capital));
+      for (let k = capital ? 2 : 1; k < n.len && at + k < steps; k++) {
         if (perBar && (at + k) % perBar === 0) out.push("|");
         out.push(",");
       }
@@ -267,14 +281,15 @@ export function newSong(system = "carnatic") {
     sa: 138.6,                       // carnatic: Sa in Hz (138.6 is C#3, a common sruti)
     key: "C", octave: 4, a4: 440,    // western: the key, the octave its tonic is in, tuning
     tala: c ? "Adi (8)" : "4/4", tempo: 90, steps: 2, cycles: 4,
+    longCaps: c,                           // carnatic: capitals two aksharas, small letters one
     rate: RATE, mono: false, arpRate: 30,  // the WAV made: samples a second, one channel or two
     loopCycle: 0,                          // the cycle it loops back to: 0 its start, or past an intro
     drone: c, drums: c ? "mridangam" : "kit", swing: 0,
     parts: [
       { name: "lead", instrument: c ? "nadaswaram" : "piano", octave: 0, gain: 0.9, pan: 0.1,
-        text: c ? "S , R G M , P , | D , P M G R S ," : "C , D E F , G , | A , G F E D C ," },
+        text: c ? "S r g M P | D p m g r S" : "C , D E F , G , | A , G F E D C ," },
       { name: "bass", instrument: c ? "harmonium" : "bass", octave: -1, gain: 0.5, pan: -0.2,
-        text: c ? "S ; ; ; , P ; ; ; ," : "C3 ; ; ; , G2 ; ; ; ," },
+        text: c ? "S ; ; ; P ; ; ;" : "C3 ; ; ; , G2 ; ; ; ," },
     ],
   };
 }
@@ -284,7 +299,7 @@ export function newSong(system = "carnatic") {
 // mono at 11,025 samples a second.
 export function newChipSong(system = "carnatic") {
   const c = system === "carnatic";
-  return { ...newSong(system), scale: c ? "Mohanam" : "major pentatonic", drone: false, drums: "chip",
+  return { ...newSong(system), longCaps: false, scale: c ? "Mohanam" : "major pentatonic", drone: false, drums: "chip",
     tempo: 120, steps: 2, rate: 11025, mono: true,
     parts: [
       { name: "lead", instrument: "pulse25", octave: 1, gain: 0.8, pan: 0,

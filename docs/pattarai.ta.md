@@ -211,10 +211,15 @@ arguments-ஐக் காட்டும்; தட்டச்சு செய
 - **புதிய சிப்ட்யூன்:** பழைய கன்சோல்களில் இருந்தது போல square, pulse,
   triangle, noise குரல்களும் noise தாளங்களும், ஒரு சிறிய mono WAV-இல்.
 
-ஒரு பகுதி ஒரு படிக்கு ஒரு சுரமாக எழுதப்படுகிறது:
+ஒரு பகுதி ஒரு படிக்கு ஒரு சுரமாக எழுதப்படுகிறது. புதிய கர்நாடகப் பாடலில், கையால்
+எழுதுவது போலவே, பெரிய எழுத்து இரண்டு அட்சரங்கள், சிறிய எழுத்து ஒன்று; ஒரு
+சுரத்தின் மேலோ கீழோ உள்ள புள்ளி அதை ஒரு ஸ்தாயி நகர்த்தும். **பெரிய எழுத்து இரு
+அட்சரம்** இதை அணைக்கிறது (பகுதிகள் அதே போல் ஒலிக்கும்படி மாற்றி எழுதப்படும்);
+இதற்கு முன் செய்த பாடல்கள் ஒவ்வொரு எழுத்தையும் ஒரு படியாகப் படிக்கும்:
 
 ```
-S , R G M ; P | D. N. S' -          sargam: the raga's own swaras
+S , r G P D Ṡ N D |                 as written by hand: capitals long, small short
+s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
 G~  P/  D\                          shake (kampita), slide up into, slide down into
