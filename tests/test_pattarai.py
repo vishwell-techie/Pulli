@@ -73,7 +73,7 @@ def library(t):
             r["missing"])
     t.check("sargam written back reads the same", r["carnaticAgain"] == r["carnatic"])
     t.check("western notes read in the song's key and octave", r["westernNames"] ==
-            ["D4", "F#4", "A4", "A4", "D5", "A#3"], r["westernNames"])
+            ["D4", "F#4", "A4", "A4", "D5", "Bb3"], r["westernNames"])
     t.check("a held note and a rest in western notation", [(n["at"], n["len"]) for n in r["western"]["notes"]] ==
             [(0, 2), (2, 1), (3, 1), (4, 1), (6, 1), (7, 3)] and r["western"]["notes"][3]["mark"] == "~")
     t.check("western written back reads the same", r["westernAgain"] == r["western"])
@@ -111,6 +111,29 @@ def library(t):
             r["oldSong"] == [[0, 2], [2, 1], [3, 1], [4, 1], [5, 1]], r["oldSong"])
     t.check("switching capitals off rewrites a part to sound the same", r["toggled"] == hand["notes"], r["toggled"])
     t.check("a new Carnatic song's parts fill their cycle", r["starter"] == [16, 16], r["starter"])
+    sf = r["solfa"]
+    t.check("movable do: do is the key note, with the chromatic syllables, ' and . for octaves", sf["movableG"] == [
+        "G4", "A4", "B4", "C5", "D5", "E5", "F#5", "G5", "D4", "G#4", "A#4", "C#5", "D#5", "E#5",
+        "Ab4", "Bb4", "Db5", "Eb5", "F5"], sf["movableG"])
+    t.check("movable do follows the key", sf["movableEb"] == ["Eb4", "F4", "G4", "Ab4", "Bb4", "C5", "D5", "Eb5"],
+            sf["movableEb"])
+    t.check("fixed do: do is C and si is B whatever the key; sol and so, si and ti, accidentals, octave numbers",
+            sf["fixedG"] == ["do4", "re4", "mi4", "fa4", "sol4", "sol4", "la4", "si4", "si4", "do5", "sib3", "fa#4"],
+            sf["fixedG"])
+    t.check("each way of naming notes writes a part back that reads the same",
+            all(ok for _, ok in sf["written"]) and sf["written"][0][0] == "do , re mi fa' so. ti~ me!3 la{0,4,7}"
+            and sf["written"][2][0] == "D4 , E4 F#4 G5 A3 C#5~ F4!3 B4{0,4,7}", sf["written"])
+    t.check("every major scale is spelled with its own letters, sharps or flats (no A# in G, no Gb in D)",
+            sf["spelled"] == ["C4 D4 E4 F4 G4 A4 B4", "G4 A4 B4 C5 D5 E5 F#5", "D4 E4 F#4 G4 A4 B4 C#5",
+                              "A4 B4 C#5 D5 E5 F#5 G#5", "E4 F#4 G#4 A4 B4 C#5 D#5", "B4 C#5 D#5 E5 F#5 G#5 A#5",
+                              "F#4 G#4 A#4 B4 C#5 D#5 E#5", "F4 G4 A4 Bb4 C5 D5 E5", "Bb4 C5 D5 Eb5 F5 G5 A5",
+                              "Eb4 F4 G4 Ab4 Bb4 C5 D5", "Ab4 Bb4 C5 Db5 Eb5 F5 G5", "Db4 Eb4 F4 Gb4 Ab4 Bb4 C5"],
+            sf["spelled"])
+    t.check("a song saved in A# reads as Bb", sf["oldKey"] == ["Bb4", "C5", "D5"], sf["oldKey"])
+    t.check("letters with double sharps and flats, and B#, Cb", sf["letters"] == ["C4", "C4", "B3", "F4", "D4", "G4"],
+            sf["letters"])
+    t.check("mistakes are named: an octave number in movable do, a movable syllable in fixed do, a stray word",
+            all(sf["errors"]) and "' above" in sf["errors"][0] and "fixed do" in sf["errors"][1], sf["errors"])
     d = r["decoded"]
     t.check("a WAV is read back sample for sample, with its loop point", d == {
         "rate": 12345, "loop": 2, "ch": [[0, 16384, -16383, 8192], [32767, -32767, 0, 0]]}, d)

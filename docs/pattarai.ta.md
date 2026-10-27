@@ -222,6 +222,8 @@ S , r G P D Ṡ N D |                 as written by hand: capitals long, small s
 s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
+do re mi fa so , la ti do' -        movable do: do is the key note
+do re me fa so le te do'            ... a minor scale, do-based
 G~  P/  D\                          shake (kampita), slide up into, slide down into
 S{0,4,7}                            an arpeggio: the note, a third, a fifth
 P!3                                 a note at a third of the volume (!1 to !9)
@@ -229,6 +231,16 @@ P!3                                 a note at a third of the volume (!1 to !9)
 
 `,` சுரத்தை இன்னொரு படி நீட்டுகிறது, `;` இரண்டு, `-` ஓய்வு, `|` ஒரு
 அளவுக்கோடு, `'` ஒரு ஸ்தாயி மேலே, `.` கீழே.
+
+மேற்கத்தியப் பகுதிகளை solfège-இலும் எழுதலாம். இயல்பாக **movable do**: ராகத்தில்
+Sa போல, do என்பது பாடலின் key சுரம்; அதனால் எந்த key-இலும் மெட்டு அதே வடிவில்
+இருக்கும். di, ri, fi, si, li ஒரு சுரத்தை ஒரு படி உயர்த்துகின்றன; ra, me, se, le,
+te ஒரு படி தாழ்த்துகின்றன (do-அடிப்படையிலான minor: `do re me fa so le te`).
+**சுரப் பெயர்கள்** என்பதில் தேர்ந்தெடுக்கும் **fixed do** பிரெஞ்சு, இத்தாலிய முறை:
+do எப்போதும் C, si என்பது B; `#`, `b`, ஸ்தாயி எண்ணுடன். எழுத்துப் பெயர்கள்
+ஒவ்வொரு பாடலிலும் வேலை செய்யும். **சுரப் பெயர்கள்** மாற்றினால் பகுதிகள் அதே போல்
+ஒலிக்கும்படி மாற்றி எழுதப்படும்; சுரங்கள் key-இலிருந்து, இசைக்கலைஞர் எழுதுவது
+போலவே பெயரிடப்படுகின்றன: G major-இன் தாழ்ந்த மூன்றாவது B♭, A♯ அல்ல.
 
 பகுதிகளின் கீழுள்ள **சுருள்** கையிலுள்ள பகுதியைக் காட்டுகிறது: ஒரு சுரத்தை
 வைக்கச் சொடுக்குங்கள், நீட்ட வலப்புறம் இழுங்கள், நீக்க ஒரு சுரத்தைச்

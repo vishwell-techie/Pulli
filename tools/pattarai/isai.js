@@ -70,8 +70,11 @@ export function isai(root) {
             return h("option", { value: hz, selected: Math.abs(hz - song.sa) < 0.5 }, `${n}${o} (${hz} Hz)`);
           }))))
       : h("span", {}, field("key", h("select", { onchange: (e) => { song.key = e.target.value; changed(); drawAll(); } },
-          ...M.KEYS.map((k) => h("option", { value: k, selected: k === song.key }, k)))), " ",
-          field("octave", num("octave", 1, 6)));
+          ...M.KEYS.map((k) => h("option", { value: k, selected: k === M.KEYS[M.keyIndex(song.key)] }, k.replace("b", "♭"))))), " ",
+          field("octave", num("octave", 1, 6)), " ",
+          field("note names", h("select", { title: "How notes are written back and labelled. Letters and solfège can both be typed in any song.",
+            onchange: (e) => setNoteNames(e.target.value) },
+            ...Object.entries(M.NOTE_NAMES).map(([v, label]) => h("option", { value: v, selected: v === (song.solfa || "letters") }, label)))));
     head.replaceChildren(
       h("strong", {}, path || "(new song)", dirty ? " •" : ""),
       h("span", { className: "sep" }),
@@ -121,6 +124,17 @@ export function isai(root) {
               : "Every letter is one step; the parts were rewritten to sound the same.");
   }
 
+  // Letters, movable do or fixed do: the parts are read the old way and
+  // written the new way, so they sound the same.
+  function setNoteNames(v) {
+    const { beats } = M.cycleOf(song);
+    const parsed = song.parts.map((p) => { try { return M.parseNotation(p.text, song); } catch (e) { return null; } });
+    song.solfa = v === "letters" ? undefined : v;
+    song.parts.forEach((p, i) => { if (parsed[i]) p.text = M.writeNotation(parsed[i].notes, parsed[i].steps, song, beats * song.steps); });
+    changed(); drawAll();
+    status(`Notes are now written as ${M.NOTE_NAMES[v]}; the parts were rewritten to sound the same.`);
+  }
+
   // The scale, up and down, with a key for each note to hear it.
   function drawScale() {
     const s = M.SCALES[song.scale];
@@ -135,7 +149,11 @@ export function isai(root) {
         song.system === "carnatic"
           ? (song.longCaps ? "Capitals are two aksharas, small letters one: S , r G P D Ṡ N D |. " : "") +
             "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' or a dot above (Ṡ) an octave up, . or a dot below (Ṇ) down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
-          : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
+          : (song.solfa === "fixed"
+              ? "Write fixed do: do re mi fa sol la si, with # or b and an octave (sol4) or without; or letters C D# Bb…; "
+              : "Write letters C D# Bb… with an octave (C4) or without (the song's), or movable do: do re mi fa so la ti, do being the key note; " +
+                "di ri fi si li raise a step, ra me se le te lower one, ' and . for octaves (do' so.); ") +
+            ", holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
   }
 
   // ---- parts --------------------------------------------------------------------

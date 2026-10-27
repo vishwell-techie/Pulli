@@ -201,6 +201,8 @@ S , r G P D Ṡ N D |                 as written by hand: capitals long, small s
 s , r g m ; p | d. n. s' -          sargam: the raga's own swaras
 R1 G3 M2                            a swara from outside the raga
 C4 , E G Bb3 -                      western notes, with or without an octave
+do re mi fa so , la ti do' -        movable do: do is the key note
+do re me fa so le te do'            ... a minor scale, do-based
 G~  P/  D\                          shake (kampita), slide up into, slide down into
 S{0,4,7}                            an arpeggio: the note, a third, a fifth
 P!3                                 a note at a third of the volume (!1 to !9)
@@ -208,6 +210,16 @@ P!3                                 a note at a third of the volume (!1 to !9)
 
 `,` holds a note one step more, `;` two, `-` rests, `|` is a bar line,
 `'` an octave up, `.` down.
+
+Western parts can also be written in solfège. **Movable do** is the
+default: do is the song's key note, as Sa is in a raga, so a tune keeps its
+shape in any key; di, ri, fi, si and li raise a note a step, and ra, me,
+se, le and te lower one (do-based minor: `do re me fa so le te`). **Fixed
+do**, chosen under **note names**, is the French and Italian way: do is
+always C and si is B, with `#`, `b` and an octave number. Letters work in
+every song. Changing **note names** rewrites the parts to sound the same,
+and notes are spelled from the key, as a musician writes them: B♭ in G
+major's minor third, not A♯.
 
 The **roll** under the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play

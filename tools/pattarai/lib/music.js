@@ -94,7 +94,30 @@ export const SCALES = (() => {
 
 const SHARP = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const FLAT = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-export const KEYS = SHARP;
+// The keys as musicians name them; a song saved with C#, D#, G# or A#
+// still reads (keyIndex).
+export const KEYS = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+export const keyIndex = (k) => (KEYS.includes(k) ? KEYS.indexOf(k) : SHARP.indexOf(k) >= 0 ? SHARP.indexOf(k) : FLAT.indexOf(k));
+
+// A note spelled from the key, as a musician would write it: the scale's
+// own notes with the key's sharps or flats, the lowered 2nd, 3rd, 6th and
+// 7th as flats and the raised 4th as a sharp (in G: Bb, not A#).
+const NATURAL = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const DEGREE = [[0, 0], [1, -1], [1, 0], [2, -1], [2, 0], [3, 0], [3, 1], [4, 0], [5, -1], [5, 0], [6, -1], [6, 0]];
+const RAISED = { 1: 0, 3: 1, 6: 3, 8: 4, 10: 5 };          // written raised: di ri fi si li, or with a #
+const LOWERED = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };         // written lowered: ra me se le te, or with a b
+function spell(semi, song, way = "") {
+  const k = keyIndex(song.key), name = KEYS[k];
+  const s = ((semi % 12) + 12) % 12;
+  const deg = way === "up" && s in RAISED ? RAISED[s] : way === "down" && s in LOWERED ? LOWERED[s] : DEGREE[s][0];
+  const letter = "CDEFGAB"["CDEFGAB".indexOf(name[0]) + deg > 6 ? "CDEFGAB".indexOf(name[0]) + deg - 7 : "CDEFGAB".indexOf(name[0]) + deg];
+  const abs = k + semi;                                   // semitones above the C of the song's octave
+  let acc = (((abs - NATURAL[letter]) % 12) + 12) % 12;
+  if (acc > 6) acc -= 12;
+  const octave = song.octave + Math.floor((abs - acc - NATURAL[letter]) / 12);
+  return { letter, acc: acc > 0 ? "#".repeat(acc) : "b".repeat(-acc), octave };
+}
+const SOLF_OF = { C: "do", D: "re", E: "mi", F: "fa", G: "sol", A: "la", B: "si" };
 
 // Which swara each note of a raga is: the lower of two notes from 1-4 is
 // Ri and the higher Ga; a note alone there is Ri at 1-2 and Ga at 3-4. The
@@ -117,17 +140,30 @@ export function swaraNames(notes) {
   return names;
 }
 
-export function noteName(semi, song) {
+// Solfège. Movable do (do-based, as in Kodály and Berklee teaching): do is
+// the song's key note, the chromatic syllables raise (di ri fi si li) or
+// lower (ra me se le te) a step. Fixed do (as in France, Italy, Spain): do
+// is always C, si is B, with # and b and an octave number like the letters.
+const MOVABLE = { do: 0, di: 1, ra: 1, re: 2, ri: 3, me: 3, mi: 4, fa: 5, fi: 6, se: 6, so: 7, sol: 7, si: 8, le: 8,
+                  la: 9, li: 10, te: 10, ti: 11 };
+const FIXED = { do: 0, re: 2, mi: 4, fa: 5, sol: 7, so: 7, la: 9, si: 11, ti: 11 };
+const MOVABLE_OUT = ["do", "ra", "re", "me", "mi", "fa", "fi", "so", "le", "la", "te", "ti"];
+const MOVABLE_UP = { 1: "di", 3: "ri", 6: "fi", 8: "si", 10: "li" };
+const SYLLABLE = /^(sol|do|di|ra|re|ri|me|mi|fa|fi|se|so|si|le|la|li|te|ti)(##|bb|[#b]?)(-?\d?)([.']*)([~/\\]?)$/i;
+export const NOTE_NAMES = { letters: "letters (C D E)", movable: "movable do", fixed: "fixed do" };
+
+export function noteName(semi, song, way = "") {
   const oct = Math.floor(semi / 12), s = ((semi % 12) + 12) % 12;
   if (song.system === "carnatic") {
     const n = swaraNames(SCALES[song.scale].notes)[s] ||
       ["S", "R1", "R2", "G2", "G3", "M1", "M2", "P", "D1", "D2", "N2", "N3"][s];
     return n + (oct > 0 ? "'".repeat(oct) : ".".repeat(-oct));
   }
-  const key = KEYS.indexOf(song.key);
-  const abs = semi + key;
-  const names = /b/.test(song.key) || [5, 10, 3, 8, 1, 6].includes(key) ? FLAT : SHARP;
-  return names[((abs % 12) + 12) % 12] + (song.octave + Math.floor(abs / 12));
+  if (song.solfa === "movable")
+    return (way === "up" && MOVABLE_UP[s] ? MOVABLE_UP[s] : way === "down" && s === 6 ? "se" : MOVABLE_OUT[s]) +
+      (oct > 0 ? "'".repeat(oct) : ".".repeat(-oct));
+  const n = spell(semi, song, way);
+  return (song.solfa === "fixed" ? SOLF_OF[n.letter] : n.letter) + n.acc + n.octave;
 }
 
 // ---- notation -----------------------------------------------------------------
@@ -141,7 +177,11 @@ export function noteName(semi, song) {
 //             small letter one, the way lines are written out by hand:
 //             "S , r G P D Ṡ N D |" 
 //   western:  C D E F G A B with # or b and an octave number (C4, F#3, Bb5);
-//             the octave can be left out, and is then the song's octave
+//             the octave can be left out, and is then the song's octave; or
+//             solfège: do re mi fa so la ti, movable (do is the key note,
+//             di ri fi si li raise a step, ra me se le te lower one, ' and .
+//             for octaves), or fixed when the song's `solfa` is "fixed" (do
+//             is C, si is B, with # b and an octave number: sol4, sib3)
 //   both:     , holds the note before one more step; ; holds it two;
 //             - (or _) is a rest; | is a bar line and is skipped;
 //             a gamaka mark after a note: ~ shakes it (kampita), / slides up
@@ -181,7 +221,7 @@ export function parseNotation(text, song) {
       continue;
     }
     if (tok === "-" || tok === "_") { at += 1; continue; }
-    let semi, m, long = false;
+    let semi, m, long = false, way = "";
     if (song.system === "carnatic") {
       // a dot above or below the letter (Ṡ, ṇ) reads as ' or .
       const t = tok.normalize("NFD").replace(/^(.)\u0307/, "$1'").replace(/^(.)\u0323/, "$1.");
@@ -200,16 +240,34 @@ export function parseNotation(text, song) {
       }
       semi += 12 * ((m[3].match(/'/g) || []).length - (m[3].match(/\./g) || []).length);
       m = [null, null, null, null, m[4]];
+    } else if ((m = tok.match(SYLLABLE))) {
+      // solfège: movable unless the song says fixed; ' and . for octaves
+      const syl = m[1].toLowerCase(), acc = m[2].length ? (m[2][0] === "#" ? 1 : -1) * m[2].length : 0;
+      way = m[2][0] === "#" ? "up" : m[2][0] === "b" ? "down" : song.solfa === "fixed" ? ""
+        : ["di", "ri", "fi", "si", "li"].includes(syl) ? "up" : ["ra", "me", "se", "le", "te"].includes(syl) ? "down" : "";
+      const ticks = (m[4].match(/'/g) || []).length - (m[4].match(/\./g) || []).length;
+      if (song.solfa === "fixed") {
+        if (!(syl in FIXED)) throw new Error(`"${tok}" is movable do; in fixed do write do re mi fa sol la si, with # or b`);
+        const octave = m[3] === "" ? song.octave : +m[3];
+        semi = FIXED[syl] + acc + 12 * (octave - song.octave + ticks) - keyIndex(song.key);
+      } else {
+        if (m[3] !== "") throw new Error(`"${tok}": in movable do an octave is marked ' above or . below (do', so.)`);
+        if (!(syl in MOVABLE)) throw new Error(`cannot read "${tok}"`);
+        semi = MOVABLE[syl] + acc + 12 * ticks;
+      }
+      m = [null, null, null, null, m[5]];
     } else {
-      m = tok.match(/^([A-Ga-g])([#b]?)(-?\d?)([~/\\]?)$/);
+      m = tok.match(/^([A-Ga-g])(##|bb|[#b]?)(-?\d?)([~/\\]?)$/);
       if (!m) throw new Error(`cannot read "${tok}"`);
-      const pitch = SHARP.indexOf(m[1].toUpperCase()) + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0);
+      const pitch = NATURAL[m[1].toUpperCase()] + (m[2].length ? (m[2][0] === "#" ? 1 : -1) * m[2].length : 0);
+      way = m[2][0] === "#" ? "up" : m[2][0] === "b" ? "down" : "";
       const octave = m[3] === "" ? song.octave : +m[3];
-      semi = pitch + 12 * (octave - song.octave) - KEYS.indexOf(song.key);
+      semi = pitch + 12 * (octave - song.octave) - keyIndex(song.key);
     }
     const note = { at, len: long ? 2 : 1, semi, mark: m[4] || "" };
     if (arp) note.arp = arp;
     if (vol) note.vol = vol;
+    if (way) note.way = way;                // written raised or lowered: spelled so when written back
     notes.push(note);
     at += note.len;
   }
@@ -232,7 +290,7 @@ export function writeNotation(notes, steps, song, perBar) {
       if (small) name = name.toLowerCase();
       return name + (oct > 0 ? "'".repeat(oct) : ".".repeat(-oct)) + n.mark + arpText(n);
     }
-    return noteName(n.semi, song) + n.mark + arpText(n);
+    return noteName(n.semi, song, n.way) + n.mark + arpText(n);
   };
   while (at < steps) {
     if (perBar && at && at % perBar === 0) out.push("|");
@@ -328,7 +386,7 @@ function rng(seed) {
 
 export function freqOf(semi, song) {
   if (song.system === "carnatic") return song.sa * 2 ** (semi / 12);
-  const tonic = song.a4 * 2 ** ((KEYS.indexOf(song.key) - 9) / 12 + (song.octave - 4));
+  const tonic = song.a4 * 2 ** ((keyIndex(song.key) - 9) / 12 + (song.octave - 4));
   return tonic * 2 ** (semi / 12);
 }
 

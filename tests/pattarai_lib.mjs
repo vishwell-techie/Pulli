@@ -95,6 +95,25 @@ out.toggled = M.parseNotation(flatText, flat).notes.map((n) => [n.semi, n.len]);
 out.starter = M.newSong("carnatic").parts.map((p) => M.parseNotation(p.text, M.newSong("carnatic")).steps);
 out.dots = M.parseNotation("Ṡ ṡ Ṇ ṇ S' n.", { ...bil }).notes.map((n) => [n.semi, n.len]);
 
+// solfège and spelling
+const inKey = (key, text, solfa) => { const g = { ...M.newSong("western"), key, solfa };
+  return M.parseNotation(text, g).notes.map((n) => M.noteName(n.semi, g, n.way)); };
+out.solfa = {
+  movableG: inKey("G", "do re mi fa so la ti do' so. di ri fi si li ra me se le te"),
+  movableEb: inKey("Eb", "do re mi fa so la ti do'"),
+  fixedG: inKey("G", "do re mi fa sol so la si ti do5 sib3 fa#", "fixed"),
+  written: (() => { const g = { ...M.newSong("western"), key: "D", solfa: "movable" };
+    const p = M.parseNotation("do , re mi fa' so. ti~ me!3 la{0,4,7}", g);
+    return ["movable", "fixed", undefined].map((v) => { const h = { ...g, solfa: v }; const w = M.writeNotation(p.notes, p.steps, h, 0);
+      const plain = (ns) => JSON.stringify(ns.map(({ way, ...n }) => n));
+      return [w, plain(M.parseNotation(w, h).notes) === plain(p.notes)]; }); })(),
+  spelled: ["C", "G", "D", "A", "E", "B", "F#", "F", "Bb", "Eb", "Ab", "Db"].map((k) => inKey(k, "do re mi fa so la ti").join(" ")),
+  oldKey: inKey("A#", "do re mi"),
+  letters: inKey("C", "C4 B#3 Cb4 E#4 Ebb4 F##4"),
+  errors: [["do4", undefined], ["me", "fixed"], ["xo", undefined]].map(([t, v]) => {
+    try { M.parseNotation(t, { ...M.newSong("western"), solfa: v }); return null; } catch (e) { return e.message; } }),
+};
+
 // reading WAV files back, exactly
 const back = decodeWAV(encodeWAV([new Float32Array([0, 0.5, -0.5, 0.25]), new Float32Array([1, -1, 0, 0])], 12345, 2));
 out.decoded = { rate: back.rate, loop: back.loop, ch: back.channels.map((c) => [...c].map((v) => Math.round(v * 32768))) };
