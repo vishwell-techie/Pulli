@@ -25,6 +25,7 @@ export function isai(root) {
       h("button", { onclick: open }, "Open"),
       h("button", { onclick: () => create("carnatic") }, "New Carnatic"),
       h("button", { onclick: () => create("western") }, "New western"),
+      h("button", { title: "Pulse lead, triangle bass, noise drums, small mono WAV", onclick: () => create("carnatic", true) }, "New chiptune"),
       h("button", { onclick: save }, "Save"),
       h("button", { title: "Write music/<name>.wav, the file the game plays", onclick: exportWav }, "Make WAV"),
       h("span", { className: "sep" }), playBtn),
@@ -81,7 +82,20 @@ export function isai(root) {
       field("drums", h("select", { onchange: (e) => { song.drums = e.target.value; changed(); } },
         ...M.KITS.map((k) => h("option", { value: k, selected: k === song.drums }, k)))),
       field("swing", h("input", { type: "range", min: 0, max: 0.6, step: 0.05, value: song.swing,
-        onchange: (e) => { song.swing = +e.target.value; changed(); } })));
+        onchange: (e) => { song.swing = +e.target.value; changed(); } })),
+      field("arpeggio speed", num("arpRate", 4, 60)),
+      h("span", { className: "sep" }),
+      field("WAV", h("select", { title: "Samples a second in the WAV made: fewer is smaller and rougher, as chiptune was",
+        onchange: (e) => { song.rate = +e.target.value; changed(); drawHead(); } },
+        ...M.RATES.map((r) => h("option", { value: r, selected: r === song.rate }, `${r} Hz`)))),
+      field("mono", h("input", { type: "checkbox", checked: song.mono, title: "One channel: half the size",
+        onchange: (e) => { song.mono = e.target.checked; changed(); drawHead(); } })),
+      h("span", { className: "muted", title: "The size of the WAV made, before pack squeezes music to a quarter" }, size()));
+  }
+
+  function size() {
+    const sec = M.songSteps(song) * 60 / song.tempo / song.steps;
+    return `${(sec * song.rate * (song.mono ? 1 : 2) * 2 / 1024).toFixed(0)} KB a loop`;
   }
 
   // The scale, up and down, with a key for each note to hear it.
@@ -96,8 +110,8 @@ export function isai(root) {
       h("p", { className: "muted", style: "margin:8px 0 4px" }, song.system === "carnatic" ? "Avarohanam" : "Down"), keys(s.down),
       h("p", { className: "muted", style: "margin:10px 0 0;max-width:330px;font-size:12px" },
         song.system === "carnatic"
-          ? "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' an octave up, . down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down."
-          : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note."));
+          ? "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' an octave up, . down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio."
+          : "Write C D# Bb… with an octave (C4) or without (the song's); , holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio."));
   }
 
   // ---- parts --------------------------------------------------------------------
@@ -117,7 +131,8 @@ export function isai(root) {
         oninput: (e) => { p.text = e.target.value; changed(); check(); drawRoll(); } });
       check();
       const inst = h("select", { onchange: (e) => { p.instrument = e.target.value; changed(); } },
-        ...[...M.INSTRUMENTS.carnatic, ...M.INSTRUMENTS.western].map((n) => h("option", { value: n, selected: n === p.instrument }, n)));
+        ...Object.entries(M.INSTRUMENTS).map(([group, list]) => h("optgroup", { label: group },
+          ...list.map((n) => h("option", { value: n, selected: n === p.instrument }, n)))));
       const knob = (key, min, max, stepBy) => h("input", { type: "number", min, max, step: stepBy, value: p[key], style: "width:70px",
         onchange: (e) => { p[key] = +e.target.value; changed(); drawRoll(); } });
       return h("div", { className: "part" + (i === partIndex ? " on" : ""), onclick: () => { if (partIndex !== i) { partIndex = i; drawParts(); drawRoll(); } } },
@@ -222,7 +237,7 @@ export function isai(root) {
 
   // ---- sound ----------------------------------------------------------------------
   function ctx() {
-    audio = audio || new AudioContext({ sampleRate: M.RATE });
+    audio = audio || new AudioContext({ sampleRate: M.RATE });   // plays a song at any rate
     return audio;
   }
   function renderAsync(s) {
@@ -240,8 +255,9 @@ export function isai(root) {
       parts: [{ name: "x", instrument: instrument || song.parts[partIndex]?.instrument || "veena", octave: 0, gain: 1,
                 pan: 0, text: M.writeNotation([{ at: 0, len: 1, semi, mark: "" }], 1, song, 0) }] };
     const [L, R] = M.render(one);
-    const n = Math.min(L.length, Math.floor(0.9 * M.RATE));
-    const a = ctx(), b = a.createBuffer(2, n, M.RATE);
+    const rate = song.rate || M.RATE;
+    const n = Math.min(L.length, Math.floor(0.9 * rate));
+    const a = ctx(), b = a.createBuffer(2, n, rate);
     b.copyToChannel(L.subarray(0, n), 0); b.copyToChannel(R.subarray(0, n), 1);
     const src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start();
   }
@@ -250,20 +266,28 @@ export function isai(root) {
     const s = only === null ? song : { ...song, parts: [song.parts[only]], drone: false, drums: "none" };
     try {
       status("Playing… (rendering)");
-      const [L, R] = await renderAsync(JSON.parse(JSON.stringify(s)));
+      const [L, R] = mix(await renderAsync(JSON.parse(JSON.stringify(s))));
       const a = ctx();
       await a.resume();
-      const b = a.createBuffer(2, L.length, M.RATE);
+      const rate = song.rate || M.RATE;
+      const b = a.createBuffer(2, L.length, rate);
       b.copyToChannel(L, 0); b.copyToChannel(R, 1);
       source = a.createBufferSource();
       source.buffer = b; source.loop = true; source.connect(a.destination);
-      playStart = a.currentTime; playLen = L.length / M.RATE;
+      playStart = a.currentTime; playLen = L.length / rate;
       source.start();
       playBtn.textContent = "■ Stop"; playBtn.classList.add("on");
       status(`Playing ${path || "the new song"}: ${playLen.toFixed(1)} s, looping.`);
       const tick = () => { drawRoll(); raf = requestAnimationFrame(tick); };
       tick();
     } catch (e) { status(e.message, true); }
+  }
+  // a mono song is heard as it will be: both sides the same
+  function mix([L, R]) {
+    if (!song.mono) return [L, R];
+    const m = new Float32Array(L.length);
+    for (let i = 0; i < m.length; i++) m[i] = (L[i] + R[i]) / 2;
+    return [m, m];
   }
   function stop() {
     if (source) { source.stop(); source = null; }
@@ -286,9 +310,9 @@ export function isai(root) {
       status(`Opened ${path}.`);
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }
-  function create(system) {
+  function create(system, chip = false) {
     if (dirty && !confirm("The song in hand has changes that are not saved. Start a new one anyway?")) return;
-    song = M.newSong(system); path = ""; dirty = true; partIndex = 0;
+    song = chip ? M.newChipSong(system) : M.newSong(system); path = ""; dirty = true; partIndex = 0;
     stop(); drawAll();
   }
   async function ensurePath() {
@@ -315,10 +339,11 @@ export function isai(root) {
     if (!(await ensurePath())) return;
     try {
       status("Making the WAV…");
-      const ch = await renderAsync(JSON.parse(JSON.stringify(song)));
-      await api.write(wavOf(path), encodeWAV(ch, M.RATE));
+      const ch = mix(await renderAsync(JSON.parse(JSON.stringify(song))));
+      const wav = encodeWAV(song.mono ? [ch[0]] : ch, song.rate || M.RATE);
+      await api.write(wavOf(path), wav);
       await save();
-      status(`Made ${wavOf(path)} (${(ch[0].length / M.RATE).toFixed(1)} s) and saved ${path}.`);
+      status(`Made ${wavOf(path)} (${(ch[0].length / (song.rate || M.RATE)).toFixed(1)} s, ${Math.round(wav.length / 1024)} KB) and saved ${path}.`);
     } catch (e) { status("No WAV made: " + e.message, true); }
   }
 

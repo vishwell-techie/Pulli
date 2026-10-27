@@ -49,12 +49,37 @@ out.render = { len: r1[0].length, same: r1[0].every((v, i) => v === r2[0][i]) &&
   steps: M.songSteps(song), tempo: song.tempo, perStep: song.steps };
 for (const sys of ["carnatic", "western"]) {
   const s = M.newSong(sys);
-  for (const inst of [...M.INSTRUMENTS.carnatic, ...M.INSTRUMENTS.western])
+  for (const inst of Object.values(M.INSTRUMENTS).flat())
     for (const kit of M.KITS) {
       const [L] = M.render({ ...s, cycles: 1, parts: [{ ...s.parts[0], instrument: inst }], drums: kit });
       if (!L.every(Number.isFinite)) out.badRender = `${sys} ${inst} ${kit}`;
     }
 }
+
+// chiptune: a song at 8,000 samples a second, arpeggios read and written
+const chip = { ...M.newChipSong("western"), rate: 8000 };
+const cr = M.render(chip);
+out.chip = { len: cr[0].length, want: Math.round(M.songSteps(chip) * 60 / chip.tempo / chip.steps * 8000),
+  finite: cr.every((c) => c.every(Number.isFinite)), parts: M.newChipSong("carnatic").parts.map((p) =>
+    M.parseNotation(p.text, M.newChipSong("carnatic")).steps) };
+const arp = M.parseNotation("C{0,4,7} , E~{0,12} G{0,-12}", chip);
+out.arp = arp.notes.map((n) => [n.semi, n.len, n.mark, n.arp || null]);
+out.arpAgain = M.parseNotation(M.writeNotation(arp.notes, arp.steps, chip, 0), chip).notes.map((n) => [n.semi, n.len, n.mark, n.arp || null]);
+try { M.parseNotation("C{0 4", chip); out.arpBad = false; } catch (e) { out.arpBad = true; }
+// the pitch an arpeggio is heard at: zero crossings of a plain square, a fifth of a second each
+const probe = (arpNotes) => {
+  const s = { ...M.newChipSong("western"), rate: 44100, mono: false, drums: "none", tempo: 60, steps: 1, cycles: 1, arpRate: 5,
+    tala: "4/4", parts: [{ name: "x", instrument: "square", octave: 0, gain: 1, pan: 0, text: arpNotes }] };
+  const [L] = M.render(s), seg = [];
+  for (let k = 0; k < 3; k++) {
+    let n = 0;
+    for (let i = k * 8820 + 2000; i < (k + 1) * 8820 - 2000; i++) if (L[i - 1] < 0 && L[i] >= 0) n++;
+    seg.push(n);
+  }
+  return seg;
+};
+out.arpHeard = probe("C4{0,12} ; ; ,");
+out.chipWav = b64(encodeWAV([cr[0]], 8000));
 
 // files
 const px = new Uint8Array(24 * 16 * 4);

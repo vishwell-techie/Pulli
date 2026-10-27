@@ -1094,8 +1094,9 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    (jump, coin, hit, tabla...) and a few settings, kept as
    `sfx/<name>.json` beside the `sfx/<name>.wav` it makes, and **Isai** writes music in western scales
    or Carnatic ragas (the 72 melakartas and common janyas, sargam or note
-   names, a tala, a synthesised band) and makes it into
-   `music/<name>.wav`, keeping the song as `music/<name>.json`. They write
+   names, a tala, a synthesised band, or chiptune: pulse, triangle and
+   noise voices, noise drums, arpeggios) and makes it into
+   `music/<name>.wav`, stereo or mono, at 8,000 to 44,100 Hz, keeping the song as `music/<name>.json`. They write
    the files `pack` already reads, so no format changes; a map saved by
    Ooru keeps everything else Tiled put in it. The server answers only on
    127.0.0.1, only to requests addressed to it there, only with a key made

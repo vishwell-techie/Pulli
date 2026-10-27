@@ -8,8 +8,8 @@ Run: python3 tests/test_pattarai.py
     pulli.py exactly, a map that is opened and saved is unchanged, and
     only the cells painted change;
   - Isai's scales: the 72 melakartas, the swaras of each raga, the
-    notation read and written both ways, and a song plays the same every
-    time;
+    notation read and written both ways (arpeggios too), a song plays the
+    same every time, and a chiptune renders small at its own rate;
   - Oli's sound effects are the same every time, every kind and wave
     makes a sound within full scale, and pack takes them into sfx.oli
     with the Oli files beside them left out;
@@ -88,6 +88,19 @@ def library(t):
     t.check("a song is mixed below full scale", 0.5 < rd["peak"] <= 0.8 + 1e-6, rd["peak"])
     t.check("every instrument with every drum kit makes a sound with no gaps in it", "badRender" not in r,
             r.get("badRender"))
+    c = r["chip"]
+    t.check("a chiptune renders at its own rate, as long as its cycles", c["len"] == c["want"] and c["finite"], c)
+    t.check("the chiptune to start from fills its cycles", all(n % 16 == 0 and n for n in c["parts"]), c["parts"])
+    t.check("an arpeggio is read after a note and its mark", r["arp"] == [
+        [0, 2, "", [0, 4, 7]], [4, 1, "~", [0, 12]], [7, 1, "", [0, -12]]], r["arp"])
+    t.check("an arpeggio written back reads the same", r["arpAgain"] == r["arp"])
+    t.check("a broken arpeggio is refused", r["arpBad"])
+    lo, hi, back = r["arpHeard"]
+    t.check("an arpeggio is heard: the note, the octave above, the note again", hi > 1.8 * lo and abs(back - lo) <= 2,
+            r["arpHeard"])
+    rate, channels, samples, _ = pulli.read_wav(base64.b64decode(r["chipWav"]))
+    t.check("a chiptune's WAV is mono at 8,000 and pack reads it", (rate, channels) == (8000, 1) and
+            len(samples) == c["len"])
 
     # ---- what the editors write, read by pulli.py ----
     w, h, px = pulli.read_png(base64.b64decode(r["png"]))
