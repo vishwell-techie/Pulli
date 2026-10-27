@@ -6,6 +6,7 @@ import { css } from "./lib/palette.js";
 
 export function kolam(root) {
   let colour = 8, tool = "pen", cell = 0, size = 16, zoom = 20, sheetZoom = 3;
+  let mirror = "", onion = false, frames = 4, fps = 8, animTimer = 0;   // symmetry, and the animation
   const undo = [], redo = [];
   let clip = null;
 
@@ -16,8 +17,14 @@ export function kolam(root) {
   const swatches = h("div", { className: "swatches" });
   const tools = {};
   for (const [k, label, key] of [["pen", "✎ Pen", "p"], ["fill", "◧ Fill", "f"], ["line", "╱ Line", "l"],
-                                 ["rect", "▭ Box", "r"], ["pick", "⊙ Pick", "k"], ["erase", "⌫ Erase", "e"]])
+                                 ["rect", "▭ Box", "r"], ["pick", "⊙ Pick", "k"], ["erase", "⌫ Erase", "e"],
+                                 ["move", "✥ Move", "m"]])
     tools[k] = h("button", { title: `${label.slice(2)} (${key.toUpperCase()})`, onclick: () => setTool(k) }, label);
+  const mirrorSel = h("select", { title: "Draw mirrored: what is drawn on one side is drawn on the other",
+    onchange: () => { mirror = mirrorSel.value; draw(); } },
+    ...[["", "no mirror"], ["x", "mirror ⇋"], ["y", "mirror ⇵"], ["xy", "mirror both"]].map(([v, t]) => h("option", { value: v }, t)));
+  const anim = h("canvas", { width: 128, height: 128 });
+  const animInfo = h("span", { className: "muted" });
   const sizes = h("select", { onchange: () => { size = +sizes.value; zoom = Math.max(6, Math.floor(384 / size)); draw(); } },
     ...[8, 16, 32, 64].map((n) => h("option", { value: n, selected: n === size }, `${n}×${n}`)));
 
@@ -37,13 +44,23 @@ export function kolam(root) {
       h("button", { title: "Turn a quarter clockwise", onclick: () => region((get) => (x, y) => get(y, size - 1 - x)) }, "↻"),
       h("button", { title: "Copy (Ctrl+C)", onclick: copy }, "Copy"),
       h("button", { title: "Paste (Ctrl+V)", onclick: paste }, "Paste"),
-      h("button", { title: "Clear to see-through", onclick: () => region(() => () => 0) }, "Clear")),
+      h("button", { title: "Clear to see-through", onclick: () => region(() => () => 0) }, "Clear"),
+      h("span", { className: "sep" }), mirrorSel,
+      h("label", { title: "Show the sprite before this one faintly behind it" },
+        h("input", { type: "checkbox", onchange: (e) => { onion = e.target.checked; draw(); } }), "onion skin")),
     h("div", { className: "cols" },
       h("div", { className: "box" }, h("h3", {}, "Colours"), swatches,
         h("p", { className: "muted", style: "max-width:190px" }, "Right-click picks a colour. 0 is see-through.")),
-      h("div", { className: "box" }, h("h3", {}, "Sprite ", info, " ", sizes), big),
+      h("div", { className: "box" }, h("h3", {}, "Sprite ", info, " ", sizes), big,
+        h("h3", { style: "margin-top:12px" }, "Animation"),
+        h("div", { className: "bar" },
+          h("label", { title: "This sprite and the ones after it, each the size above" }, "frames",
+            h("input", { type: "number", min: 1, max: 32, value: frames, onchange: (e) => { frames = Math.max(1, +e.target.value); animate(); } })),
+          h("label", {}, "a second", h("input", { type: "number", min: 1, max: 60, value: fps, onchange: (e) => { fps = Math.max(1, +e.target.value); animate(); } }))),
+        h("div", { className: "bar" }, anim, animInfo)),
       h("div", { className: "box wide" }, h("h3", {}, "Sheet"), h("div", { className: "scroll" }, whole))));
 
+  let animKey = "";
   function setTool(k) {
     tool = k;
     for (const [n, b] of Object.entries(tools)) b.classList.toggle("on", n === k);
@@ -61,6 +78,35 @@ export function kolam(root) {
   const cols = () => S().width / 8;
   const origin = () => [(cell % cols()) * 8, Math.floor(cell / cols()) * 8];
   const at = (x, y) => S().pixels[y * S().width + x];
+  const pixelAt = (x, y) => (x >= 0 && y >= 0 && x < S().width && y < S().height ? at(x, y) : 0);
+  // the top left of frame `k` of the animation: the sprite in hand and
+  // the ones after it, each `size` across, running on to the next row
+  function frameOrigin(k) {
+    const per = size / 8, c = cell + k * per, n = cols() * (S().height / 8);
+    if (c < 0 || c >= n) return null;
+    return [(c % cols()) * 8, Math.floor(c / cols()) * 8];
+  }
+  function animate() {
+    clearInterval(animTimer);
+    if (!S()) return;
+    let k = 0;
+    const z = Math.max(1, Math.floor(128 / size));
+    anim.width = anim.height = size * z;
+    const tick = () => {
+      const o = frameOrigin(k % frames);
+      const g = anim.getContext("2d");
+      g.fillStyle = "#23252e"; g.fillRect(0, 0, anim.width, anim.height);
+      if (o) for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const p = pixelAt(o[0] + x, o[1] + y);
+        if (p) { g.fillStyle = css(shared.palette[p]); g.fillRect(x * z, y * z, z, z); }
+      }
+      const per = size / 8;
+      animInfo.textContent = `frame ${k % frames + 1} of ${frames}: spr(${cell + (k % frames) * per})`;
+      k++;
+    };
+    tick();
+    animTimer = setInterval(tick, 1000 / fps);
+  }
 
   function draw() {
     const s = S();
@@ -70,10 +116,21 @@ export function kolam(root) {
     big.width = size * zoom; big.height = size * zoom;
     const g = big.getContext("2d");
     g.clearRect(0, 0, big.width, big.height);
+    const prev = onion ? frameOrigin(-1) : null;
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
       const p = x < w && y < hh ? at(ox + x, oy + y) : 0;
       g.fillStyle = p ? css(shared.palette[p]) : (x + y) % 2 ? "#3a3c48" : "#2c2e38";
       g.fillRect(x * zoom, y * zoom, zoom, zoom);
+      if (!p && prev) {                          // the frame before, faint, where this one is empty
+        const q = pixelAt(prev[0] + x, prev[1] + y);
+        if (q) { g.globalAlpha = 0.3; g.fillStyle = css(shared.palette[q]); g.fillRect(x * zoom, y * zoom, zoom, zoom); g.globalAlpha = 1; }
+      }
+    }
+    if (mirror) {                                 // the mirror's axes
+      g.strokeStyle = "#4fb3a9"; g.lineWidth = 2; g.beginPath();
+      if (mirror.includes("x")) { g.moveTo(size * zoom / 2, 0); g.lineTo(size * zoom / 2, size * zoom); }
+      if (mirror.includes("y")) { g.moveTo(0, size * zoom / 2); g.lineTo(size * zoom, size * zoom / 2); }
+      g.stroke(); g.lineWidth = 1;
     }
     g.strokeStyle = "#0005";
     for (let i = 0; i <= size; i++) {
@@ -83,6 +140,8 @@ export function kolam(root) {
     }
     info.textContent = `spr(${cell})  at ${ox},${oy}`;
     drawWhole();
+    const key = `${cell}/${size}/${frames}/${fps}`;
+    if (key !== animKey) { animKey = key; animate(); }
   }
 
   function drawWhole() {
@@ -140,6 +199,12 @@ export function kolam(root) {
     if (x < 0 || y < 0 || x >= size || y >= size || ox + x >= S().width || oy + y >= S().height) return;
     S().pixels[(oy + y) * S().width + ox + x] = p;
   }
+  function putM(x, y, p) {                     // put, and its mirror images
+    put(x, y, p);
+    if (mirror.includes("x")) put(size - 1 - x, y, p);
+    if (mirror.includes("y")) put(x, size - 1 - y, p);
+    if (mirror === "xy") put(size - 1 - x, size - 1 - y, p);
+  }
   function lineCells(x0, y0, x1, y1, f) {
     const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     let err = dx + dy;
@@ -181,7 +246,8 @@ export function kolam(root) {
     down = [x, y, p];
     before = S().pixels.slice();
     if (tool === "fill") { fill(x, y, p); down = null; touched(); return; }
-    put(x, y, p);
+    if (tool === "move") return;
+    putM(x, y, p);
     touched();
   });
   big.addEventListener("mousemove", (e) => {
@@ -189,15 +255,15 @@ export function kolam(root) {
     const [x, y] = where(e);
     const [x0, y0, p] = down;
     if (tool === "pen" || tool === "erase") {
-      lineCells(x0, y0, x, y, (a, b) => put(a, b, p));
+      lineCells(x0, y0, x, y, (a, b) => putM(a, b, p));
       down = [x, y, p];
     } else {
       S().pixels.set(before);
-      if (tool === "line") lineCells(x0, y0, x, y, (a, b) => put(a, b, p));
+      if (tool === "line") lineCells(x0, y0, x, y, (a, b) => putM(a, b, p));
       else if (tool === "rect") {
-        for (let a = Math.min(x0, x); a <= Math.max(x0, x); a++) { put(a, y0, p); put(a, y, p); }
-        for (let b = Math.min(y0, y); b <= Math.max(y0, y); b++) { put(x0, b, p); put(x, b, p); }
-      }
+        for (let a = Math.min(x0, x); a <= Math.max(x0, x); a++) { putM(a, y0, p); putM(a, y, p); }
+        for (let b = Math.min(y0, y); b <= Math.max(y0, y); b++) { putM(x0, b, p); putM(x, b, p); }
+      } else if (tool === "move") shift(x - x0, y - y0);
     }
     touched();
   });
@@ -213,6 +279,17 @@ export function kolam(root) {
     const f = make((x, y) => (x < n && y < n ? copyOf[y * n + x] : 0));
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) put(x, y, f(x, y));
     touched();
+  }
+  // the sprite's pixels moved by dx, dy; what moves out is lost, what is
+  // left behind is see-through (from `before`, the sprite as the drag began)
+  function shift(dx, dy) {
+    const [ox, oy] = origin();
+    const n = Math.min(size, S().width - ox, S().height - oy);
+    const was = (x, y) => before[(oy + y) * S().width + ox + x];
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const sx = x - dx, sy = y - dy;
+      put(x, y, sx >= 0 && sy >= 0 && sx < n && sy < n ? was(sx, sy) : 0);
+    }
   }
   function copy() {
     if (!S()) return;
@@ -237,8 +314,8 @@ export function kolam(root) {
     else if (e.ctrlKey && k === "c") copy();
     else if (e.ctrlKey && k === "v") paste();
     else if (e.ctrlKey && k === "s") { e.preventDefault(); save(); }
-    else if (!e.ctrlKey && { p: "pen", f: "fill", l: "line", r: "rect", k: "pick", e: "erase" }[k])
-      setTool({ p: "pen", f: "fill", l: "line", r: "rect", k: "pick", e: "erase" }[k]);
+    else if (!e.ctrlKey && { p: 1, f: 1, l: 1, r: 1, k: 1, e: 1, m: 1 }[k])
+      setTool({ p: "pen", f: "fill", l: "line", r: "rect", k: "pick", e: "erase", m: "move" }[k]);
     else if (S() && ["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(k)) {
       e.preventDefault();
       const n = cols() * (S().height / 8), stepBy = size / 8;
