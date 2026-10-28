@@ -19,5 +19,6 @@ afternoon, and the game you end up with is in `examples/catch`.
 
 The console in numbers: a 320 × 240 screen, 64 colours, sprites made of
 8 × 8 cells, 60 frames a second, 12 buttons, 8 channels of sound plus music,
-and up to 256 KB of memory for your Lua code and data. `docs/SPEC.md` is the
+up to 256 KB of memory for your Lua code and data, and up to 6 MB of the
+package held at once. `docs/SPEC.md` is the
 full platform contract, for anyone porting Pulli or building tools for it.
