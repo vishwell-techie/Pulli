@@ -1,0 +1,52 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Atana",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 138,
+ "steps": 2,
+ "cycles": 10,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "thavil",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "nadaswaram",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.9,
+   "pan": 0.1,
+   "text": "- - - - - - - - - - - - S , , , | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | S , , , R2 M1 P , N3 , S' , , , , , | S' N3 D2 P M1 , G3 R2 S , R2 M1 P , , , | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | P , M1 G3 R2 , S , N3. , S , R2 , M1 , | P , , , N3 , S' , R2' , S' , N3 , D2 , | P M1 G3 R2 S , , , - - - - - - - - | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | P , , , M1 G3 R2 S N3. , , , - - - -"
+  },
+  {
+   "name": "nadaswaram 2",
+   "instrument": "nadaswaram",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": -0.3,
+   "text": "- - - - - - - - - - - - - - - - | S , , , , , , , P , , , , , , , | S , , , , , , , , , , , , , , , | P , , , , , , , S , , , , , , , | S , , , , , , , P , , , , , , , | M1 , , , , , , , S , , , , , , , | P , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , | S , , , , , , , P , , , , , , , | P , , , , , , , S , , , , , , ,"
+  },
+  {
+   "name": "thavil",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.9,
+   "pan": 0.05,
+   "text": "thom ki ki ki tha ki ki ki thom ki tha ki tha tha tha tha | thom - ki ki tha - ki - thom - ki ki tha ki tha ki | thom - ki ki tha - ki - thom - ki ki tha ki tha ki | thom - ki ki tha - ki - thom ki tha ki thom thom tha dhi | thom - ki ki tha - ki - thom - ki ki tha ki tha ki | thom - ki ki tha - ki - thom - ki ki tha ki tha ki | thom - ki ki tha - ki - thom ki tha ki thom thom tha dhi | thom ki ki ki tha ki ki ki thom ki tha ki tha tha tha tha | thom - ki ki tha - ki - thom - ki ki tha ki tha ki | thom ki ki ki tha ki ki ki thom ki tha ki tha tha tha tha"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.3,
+ "title": "Nizhalattam: Warrior (prototype, with Atana's R2 and D2)",
+ "about": "Atana, Adi. Nadaswaram and thavil. with Atana's R2 and D2. Sketch: S R3 M1 P | N3 S' N3 D3 | P M1 G3 R3 | S N3 D3 P"
+}

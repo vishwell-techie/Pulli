@@ -1,0 +1,52 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Kalyani",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 66,
+ "steps": 2,
+ "cycles": 6,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "violin",
+   "instrument": "violin",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.15,
+   "text": "S R G M G M P D N S' N D P M G R | S , , , - - G M P , D , N , S' , | S'~ , , , N D P , M , G , R , S , | P , , , , , , , D , , , N , , , | S R G M~ G M P D~ N S' N D P~ M G R | S , , , - - - - G M P D N , , ,"
+  },
+  {
+   "name": "veena",
+   "instrument": "veena",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": -0.35,
+   "text": "S. , , , P. , , , S , , , P. , , , | S R G M G M P D N S' N D P M G R | S. , , , P. , , , S , , , G , , , | S R G M G M P D N S' N D P M G R | S. , P. , S , P. , S. , P. , S , G , | S , , , , , , , P. , , , , , , ,"
+  },
+  {
+   "name": "veena low",
+   "instrument": "veena",
+   "octave": -1,
+   "gain": 0.45,
+   "pan": 0,
+   "text": "S , , , , , , , P. , , , , , , , | S , , , , , , , P. , , , , , , , | S , , , , , , , P. , , , , , , , | S , , , , , , , P. , , , , , , , | S , , , , , , , P. , , , , , , , | S , , , , , , , P. , , , , , , ,"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.4,
+ "title": "Nizhalattam: Title (prototype)",
+ "about": "Kalyani, Adi. Veena and violin. Sketch: S R G M | G M P D | N S' N D | P M G R | S -"
+}

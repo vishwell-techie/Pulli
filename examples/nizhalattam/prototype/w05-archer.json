@@ -1,0 +1,60 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "E",
+ "octave": 4,
+ "a4": 440,
+ "tala": "2/4",
+ "tempo": 152,
+ "steps": 4,
+ "cycles": 40,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": -0.15,
+   "text": "B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 G#5 , F#5 , D#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | G#5 G#5 G#5 , F#5 , E5 , | F#5 , B4 , E5 , , , | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | C#5 C#5 C#5 , C#5 C#5 C#5 , | C#5 C#5 F#5 , G#5 , A5 , | B5 B5 B5 , A5 , G#5 , | F#5 , , , B4 , , , | C#5 C#5 C#5 , C#5 C#5 C#5 , | C#5 C#5 F#5 , G#5 , A5 , | B5 , A5 , G#5 , F#5 , | B5 , , , - - - - | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 G#5 , F#5 , D#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | G#5 G#5 G#5 , F#5 , E5 , | F#5 , B4 , E5 , , , | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - -"
+  },
+  {
+   "name": "brass",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.65,
+   "pan": 0.15,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 G#5 , F#5 , D#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | G#5 G#5 G#5 , F#5 , E5 , | F#5 , B4 , E5 , , , | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 G#5 , F#5 , D#5 , | B4 B4 B4 , B4 B4 B4 , | B4 B4 E5 , F#5 , G#5 , | G#5 G#5 G#5 , F#5 , E5 , | F#5 , B4 , E5 , , , | E5 , , , B4 , , , | G#4 , , , B4 , , , | E5 , , , G#5 , , , | B5 , , , , , , , | A5 , G#5 , F#5 , E5 , | D#5 , , , F#5 , , , | E5 , , , B4 , , , | E5 , , , - - - -"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": 0,
+   "text": "E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | A2 , - - A2 , - - | A2 , - - A2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | A2 , - - A2 , - - | A2 , - - A2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - - | A2 , - - A2 , - - | B2 , - - B2 , - - | E2 , - - E2 , - - | E2 , - - E2 , - -"
+  },
+  {
+   "name": "timpani",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": 0,
+   "text": "tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom - hat - tom - hat - | tom tom tom tom oh - - -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.35,
+ "title": "Nizhalattam: Archer, Western (prototype)",
+ "about": "After Rossini, William Tell, the finale: E major, 2/4 gallop. Strings, brass and timpani; an original arrangement."
+}

@@ -47,7 +47,7 @@ python3 tools/pulli.py run build/nizhalattam.pulli
 | Y | S | roll: a quick dodge that passes through blows |
 | L / R | Q / W | change role: the role coming in strikes as it comes |
 | START | Enter | pause |
-| SELECT | Right Shift | in the pause, change the language; while playing, show the numbers of the Jester's movement |
+| SELECT | Right Shift | in the pause, the settings; while playing, show the numbers of the Jester's movement |
 
 In the pause, B goes back to the title; the run stays kept at its last door.
 
@@ -63,8 +63,15 @@ played through, the oil kept, a bead for each puppet saved, a star when the
 King has come home (and a second, blue, when his shadow is torn), and a
 flame when a run is waiting at a door.
 
-Left and right choose a slot, A plays it, X twice erases it, SELECT changes
-the language (one language for all three slots).
+Left and right choose a slot, A plays it, X twice erases it, SELECT opens
+the settings.
+
+**Settings** (SELECT, on the title or in the pause): the language (Tamil or
+English), the music's style (Carnatic or Western), the music on or off, and
+the sound effects on or off. Up and down choose, left, right or A change, B
+or SELECT close. The style is the player's own, whatever the language: until
+one is chosen it is Carnatic in Tamil and Western in English. The settings
+are the same for all three slots and are kept.
 
 ## The story
 
@@ -374,6 +381,13 @@ Twenty-six sound effects (`sfx/`, named in `sound.lua`) mark jumps,
 landings, blows, tearing paper, rolls, the shops, pickups, and a bell before
 each boss move.
 
+The music has sixteen scenes, a track for each in each style: the title,
+the Courtyard, each story and its boss, the King, the endings (`rooms.lua`,
+`CLIP`). Until a scene has a Western track of its own, Western plays the
+Carnatic one; while the new tracks are being made, the bosses share one track
+and the Queen's and the Western ones are not in yet. Prototypes of four
+scenes in both styles are in `prototype/` (not packed).
+
 The songs are kept as text (`music/*.json`, made and edited in Pattarai's
 Isai); their WAVs are made from them, never committed:
 `node tools/pattarai/make-wavs.mjs examples/nizhalattam`. Without the WAVs
@@ -381,7 +395,8 @@ the game plays silent (`music()` then does nothing).
 
 ### Saves
 
-Three slots (`slot1` to `slot3`), and the language for all of them (`lang`).
+Three slots (`slot1` to `slot3`), and for all of them the language (`lang`) and
+the settings (`settings`: the music's style, music and sound effects on or off).
 A slot holds the oil, the runs played through and fallen, the repairs, the
 puppets saved and the roles chosen to carry, whether the King is home and his
 shadow torn, the pages found, and the run kept at its last door (its seed,

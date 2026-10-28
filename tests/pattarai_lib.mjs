@@ -23,6 +23,11 @@ out.melaCount = melas.length;
 out.melaDistinct = new Set(melas.map((s) => s.notes.join())).size;
 out.names = Object.fromEntries(["Mayamalavagowla", "Hindolam", "Mohanam", "Shivaranjani", "Revati", "Kalyani"]
   .map((n) => [n, M.swaraNames(M.SCALES[n].notes)]));
+out.ragas = Object.fromEntries(["Atana", "Malayamarutam", "Kadanakutuhalam", "Amritavarshini", "Nattai", "Arabhi",
+  "Jaganmohini", "Saveri", "Pantuvarali", "Hamsanadam"].map((n) => {
+  const s = M.SCALES[n], name = M.swaraNames(s.notes), say = (x) => (x >= 12 ? name[x - 12] + "'" : name[x]);
+  return [n, s.up.map(say).join(" ") + " / " + s.down.map(say).join(" ")];
+}));
 out.melaOf = Object.fromEntries(["Hanumatodi", "Mayamalavagowla", "Natabhairavi", "Kharaharapriya",
   "Dheerasankarabharanam", "Shanmukhapriya", "Mechakalyani"].map((n) => [n, M.SCALES[n].mela]));
 out.janyaInParent = Object.entries(M.SCALES).filter(([, s]) => s.parent)

@@ -81,6 +81,16 @@ const JANYA = {
   "Todi": [[0, 1, 3, 5, 7, 8, 10, 12], [12, 10, 8, 7, 5, 3, 1, 0], 8],
   "Sankarabharanam": [[0, 2, 4, 5, 7, 9, 11, 12], [12, 11, 9, 7, 5, 4, 2, 0], 29],
   "Chintamani": [[0, 3, 2, 3, 6, 7, 8, 7, 12], [12, 10, 8, 7, 6, 3, 2, 0], 56],
+  "Atana": [[0, 2, 5, 7, 11, 12], [12, 11, 9, 7, 5, 7, 4, 2, 0], 29],
+  "Malayamarutam": [[0, 1, 4, 7, 9, 10, 12], [12, 10, 9, 7, 4, 1, 0], 16],
+  "Kadanakutuhalam": [[0, 2, 5, 9, 11, 4, 7, 12], [12, 11, 9, 7, 5, 4, 2, 0], 29],
+  "Amritavarshini": [[0, 4, 6, 7, 11, 12], [12, 11, 7, 6, 4, 0], 66],
+  "Nattai": [[0, 3, 4, 5, 7, 11, 12], [12, 11, 7, 5, 3, 0], 36],
+  "Arabhi": [[0, 2, 5, 7, 9, 12], [12, 11, 9, 7, 5, 4, 2, 0], 29],
+  "Jaganmohini": [[0, 4, 5, 7, 11, 12], [12, 11, 7, 5, 4, 1, 0], 15],
+  "Saveri": [[0, 1, 5, 7, 8, 12], [12, 11, 8, 7, 5, 4, 1, 0], 15],
+  "Pantuvarali": [[0, 1, 4, 6, 7, 8, 11, 12], [12, 11, 8, 7, 6, 4, 1, 0], 51],
+  "Hamsanadam": [[0, 2, 6, 7, 11, 12], [12, 11, 7, 6, 2, 0], 60],
 };
 
 // Every scale by name, as {system, notes, up, down, parent}.
@@ -389,11 +399,11 @@ export function newChipSong(system = "carnatic") {
 
 export const INSTRUMENTS = {
   carnatic: ["nadaswaram", "venu", "veena", "harmonium", "violin"],
-  western: ["piano", "strings", "flute", "bass", "pluck"],
+  western: ["piano", "strings", "flute", "bass", "pluck", "brass", "organ"],
   chip: ["square", "pulse25", "pulse12", "triangle", "saw", "noise"],
   drums: ["drums"],
 };
-export const KITS = ["mridangam", "thavil", "kanjira", "kit", "chip", "none"];
+export const KITS = ["mridangam", "thavil", "kanjira", "kit", "orchestra", "chip", "none"];
 const CHIP = new Set(INSTRUMENTS.chip);
 
 function rng(seed) {
@@ -438,7 +448,7 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
     if (mark === "~" && t > 0.08) cents += 100 * (0.5 - 0.5 * X.cos(2 * Math.PI * 5.5 * (t - 0.08)));
     if (mark === "/") cents -= 200 * X.exp(-t * 14);
     if (mark === "\\") cents += 200 * X.exp(-t * 14);
-    const vib = pluck || chip ? 0 : 6 * X.sin(2 * Math.PI * 5.2 * t) * Math.min(1, t * 3);
+    const vib = pluck || chip || inst === "organ" ? 0 : 6 * X.sin(2 * Math.PI * 5.2 * t) * Math.min(1, t * 3);
     if (arp && arp.length) cents += 100 * arp[Math.floor(t * arpRate) % arp.length];
     const fr = f * X.pow(2, (cents + vib) / 1200);
     ph += 2 * Math.PI * fr / SR;
@@ -447,7 +457,7 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
       (k > held ? X.exp(-(k - held) / SR * 12) : 1);
     else if (chip) env = (k > held ? Math.max(0, 1 - (k - held) / (tail * SR)) : 1) * Math.min(1, t * 2000);
     else {
-      const a = inst === "harmonium" || inst === "strings" ? 0.06 : 0.025;
+      const a = inst === "harmonium" || inst === "strings" ? 0.06 : inst === "brass" ? 0.045 : inst === "organ" ? 0.012 : 0.025;
       env = Math.min(1, t / a) * (k > held ? Math.max(0, 1 - (k - held) / (tail * SR)) : 1) * 0.92;
     }
     let s = 0;
@@ -477,6 +487,20 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
         for (let h = 1; h <= 14 && fr * h < SR * 0.45; h++) s += S[h] / h * (inst === "strings" ? 0.8 : 1);
         if (inst === "strings") { harmonics(S2, ph * 1.004, 8); for (let h = 1; h <= 8; h++) s += S2[h] / h * 0.6; }
         s *= 0.18;
+        break;
+      }
+      case "brass": {                               // a horn section: brighter as the breath builds
+        const open = Math.min(1, 0.35 + t * 5);
+        harmonics(S, ph, 14);
+        for (let h = 1; h <= 14 && fr * h < SR * 0.45; h++) s += S[h] * X.pow(h, -0.7 - 1.6 * (1 - open));
+        harmonics(S2, ph * 0.997, 6);
+        for (let h = 1; h <= 6; h++) s += S2[h] / (h * 2);
+        s *= 0.16;
+        break;
+      }
+      case "organ": {                               // pipes at 8', 4', 2 2/3' and 2': no vibrato, steady
+        harmonics(S, ph, 8);
+        s = (S[1] + 0.7 * S[2] + 0.45 * S[3] + 0.4 * S[4] + 0.15 * S[6] + 0.12 * S[8]) * 0.22;
         break;
       }
       case "veena": {                               // a stretched pluck
@@ -521,7 +545,7 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
   }
 }
 
-const RINGS = { bell: 2.5, conch: 1.7, jalra: 1.2 };          // seconds a stroke sounds, if not 0.6
+const RINGS = { bell: 2.5, conch: 1.7, jalra: 1.2, timp: 1.6, cymbal: 2.2, tri: 1.2 };          // seconds a stroke sounds, if not 0.6
 
 function hit(out, start, kind, vel, f0, pan, seed) {
   const [L, R] = out;
@@ -547,6 +571,14 @@ function hit(out, start, kind, vel, f0, pan, seed) {
       case "csnare": if (k % 3 === 0) lp = noise(); s = lp * X.exp(-t * 16) * 0.7; break;   // noise, coarse
       case "chat": s = (noise() > 0 ? 1 : -1) * X.exp(-t * 70) * 0.25; break;              // noise, short
       case "jingle": s = noise() * X.exp(-t * 20) * (0.6 + 0.4 * X.sin(t * 2 * Math.PI * 7000)) * 0.4; break;
+      case "timp": ph += 2 * Math.PI * f0 * 0.5 * (1 + 0.04 * X.exp(-t * 20)) / SR;       // a kettledrum on the tonic
+        s = (X.sin(ph) + 0.35 * X.sin(ph * 1.5) * X.exp(-t * 3) + noise() * X.exp(-t * 60) * 0.25) * X.exp(-t * 2.6) * 0.9; break;
+      case "field": ph += 2 * Math.PI * 160 / SR;                                         // a field drum: rattling, fuller than a snare
+        lp += 0.4 * (noise() - lp); s = (X.sin(ph) * 0.5 + lp * 0.9) * X.exp(-t * 11); break;
+      case "tri": ph += 2 * Math.PI * 4200 / SR;                                          // a triangle: one bright ring
+        s = (X.sin(ph) + 0.4 * X.sin(ph * 2.3)) * X.exp(-t * 3.5) * 0.12 * (t < 0.001 ? t / 0.001 : 1); break;
+      case "cymbal": { const x = noise(); hp = x - lp; lp += 0.15 * (x - lp);             // a clash, washing out
+        s = hp * X.exp(-t * 2.2) * 0.35; break; }
       case "bell": {                                 // a temple bell: partials that are not harmonics
         ph += 2 * Math.PI * f0 * 4 / SR;
         s = (X.sin(ph) + 0.6 * X.sin(ph * 2.01) * X.exp(-t * 1.5) + 0.4 * X.sin(ph * 2.76) * X.exp(-t * 3)
@@ -577,6 +609,7 @@ const KIT_STROKES = {
   thavil: { strong: "kick", beat: "snare", off: "ki", ring: "snare" },
   kanjira: { strong: "din", beat: "jingle", off: "jingle", ring: "nam" },
   kit: { strong: "kick", beat: "snare", off: "hat", ring: "hat" },
+  orchestra: { strong: "timp", beat: "field", off: "tri", ring: "cymbal" },
   chip: { strong: "ckick", beat: "csnare", off: "chat", ring: "chat" },
 };
 

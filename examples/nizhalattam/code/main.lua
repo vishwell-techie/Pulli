@@ -41,8 +41,8 @@
 -- A frame starts from the place's still background (backdrop), then is
 -- drawn in passes, a sprite sheet each: the room's tiles from its sheet,
 -- then Komali, the shadows and the things in the room from theirs
--- (sheet.load). START pauses; in the pause SELECT changes the
--- language. SELECT while playing shows the numbers.
+-- (sheet.load). START pauses; in the pause SELECT opens the settings
+-- (settings.lua). SELECT while playing shows the numbers.
 
 local body    = require("body")
 local fight   = require("fight")
@@ -54,6 +54,7 @@ local lines   = require("lines")
 local text    = require("text")
 local C       = require("colours")
 local sound   = require("sound")
+local settings = require("settings")
 
 local cam = { x = 0, y = 0 }
 local show = false
@@ -80,6 +81,8 @@ function init()
   -- keeps little garbage, and the room it leaves is the 256 KB heap's
   collectgarbage("incremental", 120, 200)
   preload(rooms.ACTORS)
+  settings.load()                      -- the language, the music's style, music and sound on or off
+  sound.on = settings.sfx
   to_title()
 end
 
@@ -242,8 +245,9 @@ function update(dt)
     return
   end
   if mode == "pause" then
+    if settings.shown then settings.update(i, select_p) return end
     if i.pause then mode = "play" music_pause(false) end
-    if select_p then run.set_language(lines.lang == "ta" and "en" or "ta") end
+    if select_p then settings.open() return end
     if i.attack then                    -- back to the title (the run stays kept at its last door)
       music_pause(false)
       run.keep()
@@ -466,6 +470,7 @@ local function overlay()
     end
     text.center(lines.t("resume", buttons.start, buttons.select), 182, C.tan)
     text.center(lines.t("to_title", buttons.b), 196, C.tan)
+    if settings.shown then settings.draw() end
   end
   if mode == "ask" then asking.draw(say_at) end
   if mode == "card" then

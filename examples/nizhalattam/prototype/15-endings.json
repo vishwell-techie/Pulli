@@ -1,0 +1,44 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Madhyamavati",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 60,
+ "steps": 2,
+ "cycles": 5,
+ "longCaps": false,
+ "rate": 44100,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": true,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "venu",
+   "instrument": "venu",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.1,
+   "text": "S , R , M , P , N , , , S' , , , | N , P , , , M , R , S , , , R , | M , P , M , R , S , , , , , , , | P , N , S'~ , , , R' , S' , N , P , | M , R , S , , , , , , , - - - -"
+  },
+  {
+   "name": "venu low",
+   "instrument": "venu",
+   "octave": 0,
+   "gain": 0.35,
+   "pan": -0.3,
+   "text": "- - - - - - - - S , , , , , , , | N. , , , P. , , , S , , , , , , , | S , , , , , , , , , , , , , , , | - - - - - - - - P , , , , , , , | S , , , , , , , , , , , - - - -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.55,
+ "title": "Nizhalattam: Endings (prototype)",
+ "about": "Madhyamavati, Adi. Venu and tanpura. Sketch: S R M P | N S' N P | M R S R | M P M R S"
+}

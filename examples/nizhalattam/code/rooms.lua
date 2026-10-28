@@ -25,8 +25,9 @@
 --                             a room (not when a room is entered otherwise):
 --                             main.lua keeps the run there; rooms.from is
 --                             the room he came from
---   rooms.music(n), music_stop(ms)   a track, coming in over the one playing
---                             (rooms.playing: which)
+--   rooms.music(scene), music_stop(ms)   a scene's track, in the style
+--                             chosen, coming in over the one playing
+--                             (rooms.playing: which track; rooms.scene)
 --                             (if it is another); none
 --   rooms.chest_x             a challenge room's chest (challenge.lua is the
 --                             room's shop); a secret door leads there
@@ -57,6 +58,7 @@ local move    = require("move")
 local C       = require("colours")
 local PLACES  = require("places")
 local sound   = require("sound")
+local settings = require("settings")
 
 local rooms = { name = nil, w = 0, h = 0, ended = false, stall_x = nil, box_x = nil, floor_y = 0 }
 
@@ -129,23 +131,45 @@ rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own she
 local MORE = { soldier = true, ink = true, scrap = true, vine = true, moth = true, wisp = true,
                crab = true, wave = true, gull = true, archer = true, thief = true,
                lampguard = true, mirror = true, cinder = true }
--- The music (music/, in order of name): the title's, the Courtyard's, each
--- story's, the bosses', the King's, the endings'. A room plays its place's
--- track, or the boss's; a new track comes in over the old one.
-local TRACK = { court = 1, screen = 2, forest = 3, sea = 4, flags = 5, masks = 6, palace = 7 }
-rooms.TITLE, rooms.ENDING = 0, 10
-local playing                                   -- the track playing, if any
-local function track_of(def)
-  if def.boss == "king" then return 9 elseif def.boss then return 8 end
-  if def.story == "tear" then return 1 end
-  return TRACK[def.place] or 1
+-- The music: sixteen scenes, the title's, the Courtyard's, each story's
+-- and its boss's, the King's and the endings', each with a track in each
+-- style (settings.style). CLIP is where each scene's track is in music/ (in
+-- order of name); a style with no track of its own for a scene plays the
+-- Carnatic one. A room plays its place's scene, or its boss's; a new track
+-- comes in over the old one.
+local SCENE = { title = 0, court = 1, screen = 2, veeran = 3, forest = 4, vil = 5, sea = 6, aattakkaari = 7,
+                flags = 8, yaanai = 9, masks = 10, mandhiri = 11, palace = 12, rani = 13, king = 14, ending = 15 }
+rooms.SCENE = SCENE
+local CLIP = {
+  carnatic = { [0] = 0, 1, 2, 8, 3, 8, 4, 8, 5, 8, 6, 8, 7, 8, 9, 10 },
+  western = {},
+}
+rooms.CLIP = CLIP
+rooms.TITLE, rooms.ENDING = SCENE.title, SCENE.ending
+local playing, wanted                           -- the track playing, if any; the scene asked for
+function rooms.clip(scene, style)
+  return CLIP[style or settings.style()][scene] or CLIP.carnatic[scene]
 end
-function rooms.music(n)
-  if n ~= playing then music(n, 600) playing, rooms.playing = n, n end
+local function track_of(def)
+  if def.boss then return SCENE[def.boss] or SCENE.veeran end
+  if def.story == "tear" then return SCENE.court end
+  return SCENE[def.place] or SCENE.court
+end
+function rooms.music(scene)
+  wanted, rooms.scene = scene, scene
+  local n = settings.music and rooms.clip(scene) or nil
+  if n == playing then return end
+  if n then music(n, 600) else music_stop(600) end
+  playing, rooms.playing = n, n
 end
 function rooms.music_stop(ms)
   music_stop(ms)
-  playing, rooms.playing = nil, nil
+  playing, rooms.playing, wanted, rooms.scene = nil, nil, nil, nil
+end
+-- a setting changed: the music on or off, or in the other style, at once
+settings.changed = function(row)
+  sound.on = settings.sfx
+  if wanted and (row == "music_on" or row == "music_style" or row == "language") then rooms.music(wanted) end
 end
 
 -- the sheets of the puppets' shadows the King's shadow summons (king.lua)
@@ -330,7 +354,8 @@ function rooms.enter(name, from, body)
       for _, sh in ipairs(SUMMONED) do preload(sh) end
     end
     if d.arrows or (d.boss == "king" and run.hard()) then preload("shots.lua") end
-    if track_of(d) ~= playing then preload("music " .. track_of(d)) end    -- its music, if it is another
+    local n = rooms.clip(track_of(d))
+    if settings.music and n ~= playing then preload("music " .. n) end    -- its music, if it is another
   end
   -- the room tables of the stories it is in and leads to are kept; the
   -- story's own words come with its rooms
