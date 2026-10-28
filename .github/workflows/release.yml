@@ -36,6 +36,12 @@ jobs:
         run: |
           cmake -S firmware -B firmware/build -G Ninja
           ninja -C firmware/build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Songs are kept as .json; their WAVs are made, never committed.
+      - name: Make the songs' WAVs
+        run: for game in examples/*/; do [ -d "$game/music" ] && node tools/pattarai/make-wavs.mjs "$game"; done; true
       - name: Gather the files
         run: |
           mkdir -p dist

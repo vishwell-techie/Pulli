@@ -688,7 +688,14 @@ def hot(t):
             r = c.getresponse()
             return r.status, r.read().decode()
 
-        def heard(after, wait=10):
+        def until(ok, wait=60):              # CI machines are slow: poll, never guess
+            for _ in range(wait * 10):
+                if ok():
+                    return True
+                time.sleep(0.1)
+            return False
+
+        def heard(after, wait=60):
             for _ in range(wait * 10):
                 live = json.loads(ask("GET", "/api/live")[1])
                 if live["heard"] > after:
@@ -704,8 +711,8 @@ def hot(t):
             proc = srv.live_proc()
             ask("PUT", "/api/file?path=manifest.lua",
                 open(os.path.join(game, "manifest.lua")).read().replace('"Catch"', '"Catch again"').encode())
-            time.sleep(2)
-            restarted = srv.live_proc() is not proc and json.loads(ask("GET", "/api/live")[1])["running"]
+            restarted = until(lambda: srv.live_proc() not in (None, proc)
+                              and json.loads(ask("GET", "/api/live")[1])["running"])
             time.sleep(1)
             ask("PUT", "/api/file?path=main.lua", (src + "\nlocal = broken\n").encode())
             second = heard(first["heard"])

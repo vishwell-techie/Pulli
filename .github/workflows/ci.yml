@@ -24,6 +24,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsdl2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Songs are kept as .json; their WAVs are made, never committed.
+      - name: Make the songs' WAVs
+        run: for game in examples/*/; do [ -d "$game/music" ] && node tools/pattarai/make-wavs.mjs "$game"; done; true
       - name: Build
         run: |
           cmake -S . -B build -G Ninja
