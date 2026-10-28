@@ -345,7 +345,9 @@ def project(t):
 def tamil(t):
     text = open(os.path.join(HERE, "lib", "i18n.js")).read()
     pairs = re.findall(r'"((?:[^"\\]|\\.)+)":\s*"((?:[^"\\]|\\.)+)"', text.split("export const TA")[1].split("};")[0])
-    ui = "".join(open(os.path.join(HERE, f)).read() for f in os.listdir(HERE) if f.endswith((".js", ".html")))
+    ui = "".join(open(os.path.join(d, f)).read() for d in (HERE, os.path.join(HERE, "lib"))
+                 for f in os.listdir(d) if f.endswith((".js", ".html")) and f != "i18n.js")
+    ui += " ".join(name for name, _ in pulli.TARGETS.values())          # the budget's targets, from the server
     missing = [en for en, _ in pairs if en.strip() not in ui]
     t.check("every English word Pattarai puts in Tamil is one the editors show", pairs and not missing, missing)
     t.check("each is given in Tamil", all(re.search("[\u0b80-\u0bff]", ta) for _, ta in pairs),

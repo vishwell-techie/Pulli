@@ -33,7 +33,7 @@ export const TA = {
   "■ Filled box": "■ நிரம்பிய பெட்டி", "▤ Gradient": "▤ வண்ணச்சரிவு", "dither": "புள்ளிக் கலப்பு",
   "Map over it": "மேலே வரைபடம்", "capitals long": "பெரிய எழுத்து இரு அட்சரம்", "note names": "சுரப் பெயர்கள்", "drum pattern": "தாள அமைப்பு", "+ Drum part": "+ தாளப் பகுதி", "Open example": "எடுத்துக்காட்டைத் திற", "Make all WAVs": "எல்லா WAV-களையும் உருவாக்கு", "Example songs…": "எடுத்துக்காட்டுப் பாடல்கள்…",
   "Budget": "நினைவக வரம்பு", "made for": "எதற்காக", "strict": "கண்டிப்பாக",
-  "Save setting": "அமைப்பைச் சேமி",
+  "Save setting": "அமைப்பைச் சேமி", "(new song)": "(புதிய பாடல்)", "automatic": "தானியங்கி", "my own": "என் சொந்தம்", "Janya ragas": "ஜன்ய ராகங்கள்", "Melakartas": "மேளகர்த்தாக்கள்", "no mirror": "கண்ணாடி இல்லை", "SD card": "SD அட்டை", "Pico 2 board": "Pico 2 பலகை", "Cartridge 8 MB": "கார்ட்ரிட்ஜ் 8 MB", "Cartridge 16 MB": "கார்ட்ரிட்ஜ் 16 MB", "Cartridge 32 MB": "கார்ட்ரிட்ஜ் 32 MB", "Cartridge 64 MB": "கார்ட்ரிட்ஜ் 64 MB", "letters (C D E)": "எழுத்துகள் (C D E)", "movable do": "நகரும் do", "fixed do": "நிலையான do",
 };
 
 let lang = "en";
@@ -46,8 +46,10 @@ function walk(node) {
     else if (TA[raw]) node.nodeValue = TA[raw];
     return;
   }
-  if (node.nodeType !== 1 || node.tagName === "TEXTAREA" || node.tagName === "SELECT" ||
+  if (node.nodeType !== 1 || node.tagName === "TEXTAREA" ||
       node.closest?.(".code-out, .hint, .complete, .problems, .keys")) return;     // code and notes stay as written
+  // in a list, only the words Pattarai gives: file, raga and instrument names have none, so they stay
+  if (node.tagName === "OPTGROUP" && TA[node.label]) node.label = TA[node.label];
   for (const c of node.childNodes) walk(c);
 }
 
