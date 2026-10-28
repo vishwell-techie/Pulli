@@ -1187,4 +1187,6 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    Tiled map's object layers (spawn points, doors, enemies, triggers...)
    in its `.ooru`, after the tile flags, when byte 9 of the header is 1;
    a map without objects is the same bytes as before. `map.objects(layer)`
-   returns them to the game as tables, with their own properties.
+   returns them to the game as tables, with their own properties. Ooru
+   places, moves and removes objects and sets their names, classes and
+   properties, keeping any it does not change as Tiled wrote them.

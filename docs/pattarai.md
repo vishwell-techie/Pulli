@@ -137,6 +137,12 @@ tile 0 is empty. A map saved here keeps everything else Tiled put in it.
 - **Flags:** the tile in hand's eight flags, bit 0 being solid. They are
   kept in the tileset (`sprites.tsx`) and read by the game with
   `map.flags(tile)`. **Show flags** tints solid tiles red on the map.
+- **Objects** places things the game reads with `map.objects()`: a
+  player's start, enemies, doors, triggers. Click to place a point, drag
+  for a box, drag an object to move it, Delete to remove it; with **snap**
+  they sit on whole tiles. Give each a name, a class and properties (text,
+  whole numbers, numbers, true or false). Objects are kept on object
+  layers, named as the game asks for them (`map.objects("spawns")`).
 - The frame on the map is one screen, 40 × 30 tiles.
 
 The tiles are the picture open in Kolam. A map holds at most 32,768 tiles
@@ -303,7 +309,4 @@ and swaras stay as they are written.
 ## Not yet
 
 - Hot reload that keeps the game's state.
-- Placing objects on a map in Ooru: `pack` takes Tiled's object layers
-  (`map.objects`), and Ooru keeps them when it saves, but draws and edits
-  only tiles.
 - The status line and help text in Tamil.

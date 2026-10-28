@@ -232,6 +232,19 @@ def library(t):
         fresh = ooru(r["fresh"], "new.tmx")
         t.check("a new map and its tileset are what pack reads", fresh[:2] == (10, 6) and len(fresh[2]) == 2 and
                 fresh[2][1][3] == 2 and sum(map(sum, fresh[2])) == 2, fresh[:2])
+        t.check("a map's object layers are read as Tiled wrote them, and written back unchanged when untouched",
+                r["objectsSame"] and r["objectsRead"] == [["spawns", [[3, "way", "", 10, 20, False, []],
+                [4, "start", "player", 16, 24, True, [{"name": "note", "type": "string", "value": 'a "quote" & more'}]]]]],
+                r["objectsRead"])
+        with open(os.path.join(tmp, "objects.tmx"), "w") as f:
+            f.write(r["objectsWritten"])
+        objs = pulli.read_objects(pulli.ooru_from_tmx(os.path.join(tmp, "objects.tmx")))
+        t.check("objects placed, moved and given properties in Ooru are what pack reads: kinds, Tamil, a new layer",
+                [(o["layer"], o["name"], o["type"], o["x"], o["y"], o["w"], o["h"]) for o in objs] == [
+                    ("spawns", "way", "", 11, 16, 12, 13), ("spawns", "start", "player", 16, 24, 0, 0),
+                    ("spawns", "guard <1>", "enemy", 40, 8, 16, 8), ("doors", "door", "", 0, 8, 0, 0)]
+                and objs[2]["hp"] == 3 and objs[2]["boss"] is True and objs[2]["speed"] == 1.5 and objs[2]["says"] == "வணக்கம்"
+                and objs[1]["note"] == 'a "quote" & more' and r["objectsAgain"] == [["spawns", 3], ["doors", 1]], objs)
         flags_of = lambda: dict(enumerate(pulli.read_ooru(pulli.ooru_from_tmx(os.path.join(tmp, "map.tmx")))[3]))
         shutil.copy(os.path.join(os.path.dirname(VILLAGE), "sprites.tsx"), tmp)
         ooru(r["mapSame"])

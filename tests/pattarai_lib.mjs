@@ -2,7 +2,7 @@
 // prints what they make, as JSON, for the Python side to check against
 // pulli.py (the reader of everything the editors write).
 import * as M from "../tools/pattarai/lib/music.js";
-import { parseTMX, writeTMX, newTMX, newTSX, parseTSX, setTileFlags } from "../tools/pattarai/lib/tmx.js";
+import { parseTMX, writeTMX, newTMX, newTSX, parseTSX, setTileFlags, parseObjects, writeObjects } from "../tools/pattarai/lib/tmx.js";
 import { encodePNG } from "../tools/pattarai/lib/png.js";
 import { encodeWAV, decodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
@@ -242,6 +242,30 @@ const fresh = newTMX(10, 6, 2);
 fresh.layers[1].cells[3] = 2;
 out.fresh = writeTMX(fresh);
 out.freshTSX = newTSX(64, 32);
+// objects: kept as Tiled wrote them until changed; placed, moved, named and given properties
+{
+  const tiled = writeTMX(newTMX(8, 4, 1)).replace('nextlayerid="2"', 'nextlayerid="6"').replace('nextobjectid="1"', 'nextobjectid="5"').replace("</map>", ` <objectgroup id="5" name="spawns" color="#ff0000">
+  <object id="3" name="way" x="10" y="20"><polygon points="0,0 12,-4 6,9"/></object>
+  <object id="4" name="start" type="player" x="16" y="24">
+   <properties>
+    <property name="note" value="a &quot;quote&quot; &amp; more"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
+</map>`);
+  const g = parseObjects(tiled);
+  out.objectsSame = writeObjects(tiled, g) === tiled;
+  out.objectsRead = g.map((x) => [x.name, x.objects.map((o) => [o.id, o.name, o.type, o.x, o.y, o.point, o.props])]);
+  g[0].objects[0].x = 11; g[0].objects[0].changed = true;                    // moved: its polygon kept
+  g[0].objects.push({ id: 9, name: "guard <1>", type: "enemy", x: 40, y: 8, w: 16, h: 8, gid: null, point: false,
+    props: [{ name: "hp", type: "int", value: "3" }, { name: "boss", type: "bool", value: "true" },
+            { name: "speed", type: "float", value: "1.5" }, { name: "says", type: "string", value: "வணக்கம்" }], changed: true });
+  g.push({ name: "doors", open: "", objects: [{ id: 10, name: "door", type: "", x: 0, y: 8, w: 0, h: 0, gid: null,
+    point: true, props: [], changed: true }] });
+  out.objectsWritten = writeObjects(tiled, g);
+  out.objectsAgain = parseObjects(out.objectsWritten).map((x) => [x.name, x.objects.length]);
+}
 const tsxText = readFileSync(village.replace(/[^/]*$/, "sprites.tsx"), "utf8");
 out.tsxFlags = Object.fromEntries(parseTSX(tsxText).flags);
 let flagged = setTileFlags(tsxText, 43, 5);            // has flags: changed
