@@ -162,4 +162,17 @@ function pick.draw()
   font()
 end
 
+-- the halfway tear, where pick is the room's shop: a rip in the cloth with
+-- the lamp blazing through (drawn with the room: rooms.draw_things)
+function pick.draw_thing(x, y)
+  local f = stat("frame")
+  for n = 0, 11 do
+    local y0, y1 = y - 64 + n * 5, y - 59 + n * 5
+    local x0 = x + ((n * 5) % 7 - 3) * 2
+    local x1 = x + (((n + 1) * 5) % 7 - 3) * 2
+    local w = 6 - math.abs(n - 6) // 2 + (f // 8 + n) % 2
+    for d = -w, w do line(x0 + d, y0, x1 + d, y1, math.abs(d) < w - 2 and C.glow or math.abs(d) < w and C.lamp or C.ink) end
+  end
+end
+
 return pick

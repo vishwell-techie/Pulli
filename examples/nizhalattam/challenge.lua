@@ -2,11 +2,14 @@
 -- high ledge in its stall room (only the double jump reaches it). The room
 -- is built when Komali steps in, from the run's seed and the skills he has,
 -- in the walls-only map challenge.tmx: rooms.lua calls challenge.build
--- before it reads the room's markers, and keeps this as the room's "shop":
--- the chest at the far end.
+-- for the room's things (as another room has them as its map's objects),
+-- and keeps this as the room's "shop": the chest at the far end.
 --
 --   challenge.build(def, k)     lay the room out: k is Komali (body.k): his
---                               double jump, wall jump, second dodge
+--                               double jump, wall jump, second dodge.
+--                               Returns its things, as map.objects does:
+--                               { type, x, y } (the doors, shadows, chest)
+--   challenge.draw_thing(x, floor, def)   the chest, with the room
 --   challenge.open()            up at the chest: its reward, once a run
 --                               (returns how main.lua shows it)
 --   challenge.update(input, body), draw(body), is_open()   as a shop's
@@ -27,16 +30,15 @@ local challenge = {}
 
 local W, H = 150, 30
 local SOLID = 2                                -- (a solid tile; dress picks each one's look)
-local DOOR, CHEST = 1002, 1029
--- the story's shadows, by marker (rooms.lua's KIND), those that fly marked
+-- the story's shadows, and those that fly
 local CAST = {
-  screen = { 1001, 1004, 1005 }, forest = { 1009, 1010, 1011 }, sea = { 1013, 1014, 1015 },
-  flags = { 1001, 1019, 1020 }, masks = { 1021, 1022, 1001 }, palace = { 1024, 1025, 1026 },
+  screen = { "soldier", "ink", "scrap" }, forest = { "vine", "moth", "wisp" }, sea = { "crab", "wave", "gull" },
+  flags = { "soldier", "flag", "drum" }, masks = { "thief", "juggler", "soldier" }, palace = { "lampguard", "mirror", "cinder" },
 }
-local FLY = { [1005] = true, [1010] = true, [1011] = true, [1015] = true, [1026] = true }
+local FLY = { scrap = true, moth = true, wisp = true, gull = true, cinder = true }
 
 -- the room is laid out in the map itself (no table of cells: the heap is
--- small): tiles in layer 0, markers in layer 1
+-- small), its things in a short list
 local state = 1
 local function rand(n)                         -- the room's own numbers, from its seed
   state = state ~ (state << 13)
@@ -49,7 +51,8 @@ local function set(x, y, v) if x >= 0 and x < W and y >= 0 and y < H then map.se
 local function floor(x0, x1, fy)               -- solid from row fy + 1 down
   for x = x0, x1 do for y = fy + 1, H - 1 do set(x, y, SOLID) end end
 end
-local function mark(x, y, m) map.set(1, x, y, m) end
+local things
+local function mark(x, y, kind) things[#things + 1] = { type = kind, x = x * 8 + 4, y = y * 8 + 8 } end
 
 local function enemy(x, fy, story)
   local list = CAST[story] or CAST.screen
@@ -127,6 +130,7 @@ end
 
 function challenge.build(def, k)
   challenge.health = k.health                  -- (fallen here, he is put back out with this)
+  things = {}
   for y = 0, H - 1 do for x = 0, W - 1 do map.set(0, x, y, 0) map.set(1, x, y, 0) end end
   for y = 0, H - 1 do set(0, y, SOLID) set(1, y, SOLID) set(W - 2, y, SOLID) set(W - 1, y, SOLID) end
   local seed = (run.seed or 0) * 31
@@ -148,7 +152,7 @@ function challenge.build(def, k)
   end
   local x, fy = 2, 25
   floor(2, 9, fy)
-  mark(5, fy, DOOR)                            -- in (and back) at the start
+  mark(5, fy, "door")                          -- in (and back) at the start
   x = 10
   for _, piece in ipairs(list) do
     if WIDE[piece] then
@@ -159,9 +163,12 @@ function challenge.build(def, k)
     end
   end
   floor(x, W - 3, fy)                          -- the end: the chest, and a door back
-  mark(x + 4, fy, CHEST)
-  mark(W - 6, fy, DOOR)
+  mark(x + 4, fy, "chest")
+  mark(W - 6, fy, "door")
   dress()
+  local t = things
+  things = nil
+  return t
 end
 
 -- ---- the chest ------------------------------------------------------------
@@ -205,6 +212,15 @@ function challenge.open()
   return "say", lines.t("mai") .. " +" .. n
 end
 
-function challenge.draw(body) end            -- (the chest is drawn with the room: rooms.draw_things)
+function challenge.draw(body) end
+
+-- the chest, drawn with the room (rooms.draw_things): aglow until opened
+function challenge.draw_thing(x, floor, def)
+  local shut = not run.claimed[def.story]
+  if shut then circ(x, floor - 8, 14 + stat("frame") // 10 % 2, C.lamp)
+  else pal(C.marigold, C.wood) pal(C.lamp, C.tan) end
+  spr(771, x - 12, floor - 16, 3, 2)
+  pal()
+end
 
 return challenge
