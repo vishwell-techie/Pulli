@@ -31,6 +31,7 @@
 #define PULLI_ATLAS_MAX       (128 * 1024)  /* resident sprite atlas, SPEC §1 */
 #define PULLI_MAP_LAYERS      2
 #define PULLI_MAP_CELLS_MAX   32768         /* tiles in the loaded map, all layers: 64 KB (SPEC §1) */
+#define PULLI_MAP_OBJECTS_MAX 1024          /* objects in a map, over all its object layers */
 #define PULLI_TILE_MASK       0x3FFF        /* a map cell: the tile number... */
 #define PULLI_TILE_FLIP_Y     0x4000        /* ...and how it is turned over */
 #define PULLI_TILE_FLIP_X     0x8000
@@ -89,6 +90,8 @@ typedef struct {
     int      w, h, layers;                  /* in tiles; layers is 0 when nothing is loaded */
     const uint8_t *flags;                   /* one byte per tile number, read in place */
     int      flag_count;
+    const uint8_t *objects;                 /* its objects, read in place; NULL if it has none */
+    uint32_t objects_len;
 } pulli_map;
 
 /* ---- what the Lua API reads and writes ----------------------------- */

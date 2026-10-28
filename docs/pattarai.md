@@ -303,6 +303,7 @@ and swaras stay as they are written.
 ## Not yet
 
 - Hot reload that keeps the game's state.
-- Spawn points and other objects on a map: `pack` takes only Tiled's tile
-  layers.
+- Placing objects on a map in Ooru: `pack` takes Tiled's object layers
+  (`map.objects`), and Ooru keeps them when it saves, but draws and edits
+  only tiles.
 - The status line and help text in Tamil.

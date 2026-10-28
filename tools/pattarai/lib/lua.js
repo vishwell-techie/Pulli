@@ -33,6 +33,7 @@ export const SIGS = {
   "map.flags": ["tile", "8 collision/meta bits per tile"],
   "map.get": ["layer, cx, cy", "tile, flip_x, flip_y"],
   "map.load": ["name", "load another map from the package (default \"map.ooru\")"],
+  "map.objects": ["layer", "the map's objects; layer optional"],
   "map.set": ["layer, cx, cy, tile, flip_x, flip_y", ""],
   "map.size": ["", "width, height in tiles; 0, 0 with no map"],
   "music": ["n, fade_ms, loop", "play track n; fade_ms optional (0), loop optional (true)"],

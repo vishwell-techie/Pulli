@@ -324,6 +324,71 @@ static int l_map_flags(lua_State *L) {
     lua_pushinteger(L, tile >= 0 && tile < m->flag_count ? m->flags[tile] : 0);
     return 1;
 }
+/* map.objects(layer): a new table of the loaded map's objects, those of
+ * one object layer if named, in the order they were placed. Each is
+ * {layer, name, type, x, y, w, h, tile?, and its own properties}. */
+static void push_short(lua_State *L, const uint8_t **p) {
+    lua_pushlstring(L, (const char *)*p + 1, **p);
+    *p += 1u + **p;
+}
+static int l_map_objects(lua_State *L) {
+    const pulli_map *m = &E->ctx.map;
+    const char *only = luaL_optstring(L, 1, NULL);
+    lua_newtable(L);
+    if (!m->layers || !m->objects) return 1;
+    const uint8_t *p = m->objects;
+    int groups = p[0] | p[1] << 8, found = 0;
+    p += 2;
+    for (int g = 0; g < groups; g++) {
+        const uint8_t *layer = p;
+        bool want = !only || (strlen(only) == *layer && memcmp(only, layer + 1, *layer) == 0);
+        p += 1u + *p;
+        int n = p[0] | p[1] << 8;
+        p += 2;
+        for (int i = 0; i < n; i++) {
+            int16_t x = (int16_t)(p[0] | p[1] << 8), y = (int16_t)(p[2] | p[3] << 8);
+            int w = p[4] | p[5] << 8, h = p[6] | p[7] << 8, tile = p[8] | p[9] << 8;
+            p += 10;
+            if (want) {
+                lua_createtable(L, 0, 8);
+                lua_pushlstring(L, (const char *)layer + 1, *layer); lua_setfield(L, -2, "layer");
+            }
+            const uint8_t *name = p;
+            p += 1u + *p;
+            const uint8_t *type = p;
+            p += 1u + *p;
+            if (want) {
+                push_short(L, &name); lua_setfield(L, -2, "name");
+                push_short(L, &type); lua_setfield(L, -2, "type");
+                lua_pushinteger(L, x); lua_setfield(L, -2, "x");
+                lua_pushinteger(L, y); lua_setfield(L, -2, "y");
+                lua_pushinteger(L, w); lua_setfield(L, -2, "w");
+                lua_pushinteger(L, h); lua_setfield(L, -2, "h");
+                if (tile) { lua_pushinteger(L, tile); lua_setfield(L, -2, "tile"); }
+            }
+            int props = *p++;
+            for (int k = 0; k < props; k++) {
+                if (want) push_short(L, &p); else p += 1u + *p;
+                uint8_t kind = *p++;
+                if (kind == 0 || kind == 1) {
+                    uint32_t v = p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+                    p += 4;
+                    if (!want) continue;
+                    if (kind == 0) lua_pushinteger(L, (lua_Integer)(int32_t)v);
+                    else { float f; memcpy(&f, &v, 4); lua_pushnumber(L, (lua_Number)f); }
+                } else if (kind == 2) {
+                    if (want) lua_pushboolean(L, *p);
+                    p += 1;
+                } else {
+                    if (want) push_short(L, &p); else p += 1u + *p;
+                }
+                if (want) lua_settable(L, -3);
+            }
+            if (want) lua_rawseti(L, -2, ++found);
+        }
+    }
+    return 1;
+}
 static int l_map_size(lua_State *L) {
     lua_pushinteger(L, E->ctx.map.layers ? E->ctx.map.w : 0);
     lua_pushinteger(L, E->ctx.map.layers ? E->ctx.map.h : 0);
@@ -387,7 +452,7 @@ static const luaL_Reg SHEET[] = {
 
 static const luaL_Reg MAP[] = {
     {"load",l_map_load},{"draw",l_map_draw},{"get",l_map_get},{"set",l_map_set},
-    {"flags",l_map_flags},{"size",l_map_size},{NULL,NULL}
+    {"flags",l_map_flags},{"size",l_map_size},{"objects",l_map_objects},{NULL,NULL}
 };
 
 static const luaL_Reg SYS[] = {

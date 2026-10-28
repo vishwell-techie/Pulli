@@ -272,9 +272,50 @@ def main():
         t.check("a tileset kept in its own file is followed",
                 imported(tmx(4, 2, [gids], tileset='<tileset firstgid="1" source="tiles.tsx"/>'))[3]
                 == bytes([0, 0, 0, 1, 0, 131]))
+        def objects(extra, notes=None):
+            open(os.path.join(tmp, "map.tmx"), "w").write(tmx(4, 2, [second], extra=extra))
+            return pulli.read_objects(pulli.ooru_from_tmx(os.path.join(tmp, "map.tmx"), 8, notes))
+
         notes = []
-        imported(tmx(4, 2, [second], extra='<objectgroup id="9" name="things"/>'), notes=notes)
-        t.check("object layers are left out, and the developer is told", len(notes) == 1 and "object" in notes[0])
+        open(os.path.join(tmp, "map.tmx"), "w").write(tmx(4, 2, [second]))
+        t.check("a map with no object layers is the same bytes as before (byte 9 is 0)",
+                pulli.ooru_from_tmx(os.path.join(tmp, "map.tmx")) == pulli.ooru(4, 2, [[6] * 8]))
+        things = ('<objectgroup id="9" name="spawns">'
+                  '<object id="1" name="start" type="player" x="16.4" y="24.6"><point/></object>'
+                  '<object id="2" name="guard" class="enemy" x="40" y="8" width="16" height="8">'
+                  '<properties><property name="hp" type="int" value="-3"/><property name="speed" type="float" value="1.5"/>'
+                  '<property name="boss" type="bool" value="true"/><property name="says" value="வணக்கம்"/>'
+                  '<property name="next" type="object" value="7"/></properties></object>'
+                  '<object id="3" gid="2147483651" x="8" y="32" width="8" height="8"/>'
+                  '</objectgroup><objectgroup id="10" name="doors">'
+                  '<object id="4" name="way" x="10" y="20"><polygon points="0,0 12,-4 6,9"/></object>'
+                  '<object id="5" name="sign" x="0" y="0" width="30" height="10"><text>hello</text></object>'
+                  '</objectgroup>')
+        got = objects(things, notes)
+        t.check("object layers are kept: points, boxes, tiles (top at the tile's top, flips kept), polygons as their box",
+                [(o["layer"], o["name"], o["type"], o["x"], o["y"], o["w"], o["h"], o.get("tile")) for o in got] == [
+                    ("spawns", "start", "player", 16, 25, 0, 0, None), ("spawns", "guard", "enemy", 40, 8, 16, 8, None),
+                    ("spawns", "", "", 8, 24, 8, 8, 2 | pulli.FLIP_X), ("doors", "way", "", 10, 16, 12, 13, None)], got)
+        t.check("an object's properties keep their kinds: integers, numbers, true or false, text (in Tamil too)",
+                got[1]["hp"] == -3 and got[1]["speed"] == 1.5 and got[1]["boss"] is True and got[1]["says"] == "வணக்கம்"
+                and got[1]["next"] == 7, got[1])
+        t.check("a text object is left out, and the developer is told", len(notes) == 1 and "text" in notes[0], notes)
+        refuses("an object from a template is refused with advice",
+                lambda: objects('<objectgroup name="a"><object id="1" template="t.tx" x="0" y="0"/></objectgroup>'),
+                "template", "Detach")
+        refuses("a property called x (or any of the object's own fields) is refused",
+                lambda: objects('<objectgroup name="a"><object id="1" x="0" y="0"><properties>'
+                                '<property name="x" type="int" value="1"/></properties></object></objectgroup>'), "'x'")
+        refuses("a property of a class is refused",
+                lambda: objects('<objectgroup name="a"><object id="1" x="0" y="0"><properties>'
+                                '<property name="c" type="class"/></properties></object></objectgroup>'), "class")
+        refuses("more than 1,024 objects are refused",
+                lambda: objects('<objectgroup name="a">' + '<object x="0" y="0"/>' * 1025 + '</objectgroup>'), "1024")
+        refuses("an object far outside the map's range is refused",
+                lambda: objects('<objectgroup name="a"><object x="40000" y="0"/></objectgroup>'), "-32768")
+        notes = []
+        imported(tmx(4, 2, [second], extra='<imagelayer id="9" name="sky"/>'), notes=notes)
+        t.check("image layers are left out, and the developer is told", len(notes) == 1 and "image" in notes[0])
 
         refuses("a rotated tile is refused", lambda: imported(tmx(4, 2, [[1 | D] * 8])), "map.tmx", "rotated")
         refuses("a map with tiles that are not 8x8 is refused", lambda: imported(tmx(4, 2, [second], tile=16)), "8x8")
@@ -498,6 +539,24 @@ def main():
     bad("a bad map under any name stops the game when it is loaded", small[:-1], "does not match", entry="cave.ooru")
     r = t.run_game("", extra={"cave.ooru": small[:-1]})
     t.check("a bad map the game never loads is never read, so it does not stop the game", r.code == 0, r.err)
+    placed = pulli.ooru(3, 2, [[1] * 6], bytes([0, 1]), [
+        ("spawns", [{"x": -5, "y": 300, "w": 0, "h": 0, "name": "start", "type": "player", "props": {}},
+                    {"x": 40, "y": 8, "w": 16, "h": 8, "tile": 3 | pulli.FLIP_Y, "name": "guard", "type": "enemy",
+                     "props": {"hp": -3, "speed": 1.5, "boss": True, "says": "வணக்கம்"}}]),
+        ("doors", [{"x": 1, "y": 2, "w": 3, "h": 4, "name": "way", "type": "", "props": {"to": "cave.ooru"}}])])
+    with_objects = {"map.ooru": placed, "cave.ooru": pulli.ooru(5, 4, [[7] * 20])}
+    expect("map.objects gives every object, in order, with its box, tile and own properties",
+           "local all = map.objects() dbg(#all) for _, o in ipairs(all) do dbg(o.layer, o.name, o.type, o.x, o.y, o.w, o.h, o.tile) end"
+           " local g = all[2] dbg(g.hp, g.speed, g.boss, g.says, math.type(g.hp))",
+           ["3", "spawns\tstart\tplayer\t-5\t300\t0\t0\tnil", "spawns\tguard\tenemy\t40\t8\t16\t8\t" + str(3 | pulli.FLIP_Y),
+            "doors\tway\t\t1\t2\t3\t4\tnil", "-3\t1.5\ttrue\tவணக்கம்\tinteger"], with_objects)
+    expect("map.objects(layer) gives that layer's objects; an unknown layer, or a map without objects, an empty list",
+           "dbg(#map.objects('doors'), map.objects('doors')[1].to, #map.objects('nothing'))"
+           " local t = map.objects() t[1].x = 99 dbg(map.objects()[1].x) map.load('cave.ooru') dbg(#map.objects())",
+           ["1\tcave.ooru\t0", "-5", "0"], with_objects)
+    bad("a map whose objects run past its end is refused", placed[:-1], "objects are damaged")
+    bad("a map with a byte after its objects is refused", placed + b"\0", "does not match")
+    bad("a map whose byte 9 is not 0 or 1 is refused", small[:9] + b"\2" + small[10:], "does not match")
     limit = pulli.ooru(128, 128, [[1] * 16384, [2] * 16384], bytes(16384))
     r = t.run_game("dbg(map.size()) dbg((map.get(1, 127, 127)))", extra={"map.ooru": limit})
     t.check("the largest map the format allows loads", r.code == 0 and r.lines == ["128\t128", "2"], r.err)

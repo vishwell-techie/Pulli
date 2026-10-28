@@ -289,11 +289,21 @@ offset  size     field
 4       2        width in tiles (u16 LE)
 6       2        height in tiles
 8       1        layers: 1 or 2
-9       1        reserved, 0
+9       1        1 if the map's objects follow its flags, else 0
 10      2        count F of tile flags, at most 16384
 12      2*w*h*L  cells (u16 LE): layer 0 row by row, then layer 1
 ...     F        flags: one byte for each tile number from 0 to F-1
+...              objects, if byte 9 is 1:
+          2      count G of object layers
+                 each layer: its name, a count N (u16), then N objects:
+          10       x, y (i16), w, h (u16), in pixels; tile (u16 cell, 0 none)
+                   name, type, a count P (u8) of properties, then P of:
+                     name, a kind byte and its value: 0 a 32-bit integer
+                     (i32), 1 a number (f32), 2 true or false (u8), 3 text
 ```
+
+A name or text is a byte giving its length, 0 to 255, then that many bytes
+of UTF-8. A map holds at most 1,024 objects.
 
 A cell holds a tile number in its low 14 bits; bit 15 turns the tile over
 left to right and bit 14 top to bottom. Tile `n` is drawn as sprite `n`
@@ -309,8 +319,13 @@ loaded at the start.
 first two tile layers become layers 0 and 1. Tiles flipped in Tiled stay
 flipped; rotated tiles are refused. A tile's flags come from two custom
 properties on the tileset's tiles: `flags`, a number from 0 to 255, and
-`solid`, a tick box that sets bit 0. Object and image layers are not
-imported.
+`solid`, a tick box that sets bit 0. Every object layer is kept with the
+map (`map.objects`, §3): an object's box is rounded to whole pixels, a
+point is a box of no size, a polygon or polyline the box around its points,
+and a tile object keeps its tile, with the box's top at the tile's top.
+Rotation and text objects are not imported; an object from a template is
+refused until it is detached, and so is a property of a class. Image
+layers are not imported.
 
 ### palette.pal (draft)
 
@@ -510,6 +525,7 @@ map.draw(layer, sx, sy)            -- layer 0 = behind, 1 = in front; sx, sy opt
 map.get(layer, cx, cy)             -- tile, flip_x, flip_y
 map.set(layer, cx, cy, tile, flip_x, flip_y)
 map.flags(tile)                    -- 8 collision/meta bits per tile
+map.objects(layer)                 -- the map's objects; layer optional
 ```
 
 - A game with a `map.ooru` starts with it loaded. `map.load` replaces the
@@ -526,6 +542,11 @@ map.flags(tile)                    -- 8 collision/meta bits per tile
 - Outside the map, `map.get` gives 0 and `map.set` does nothing. With no
   map loaded every function is harmless.
 - `map.flags` gives 0 for a tile that has no flags.
+- `map.objects` gives a new table, a list of the loaded map's objects (only
+  those of the object layer named `layer`, if given) in the order they
+  were placed, or an empty list. Each is a table: `layer`, `name`, `type`,
+  `x`, `y`, `w`, `h` in pixels, `tile` for a tile object, and each of its
+  own properties by name. Changing it changes nothing in the map.
 
 ### Loading
 
@@ -1162,3 +1183,8 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    these four sizes. The console's cartridge reader does not exist yet;
    the emulator reads a cartridge image as the one range, which is what a
    game sees.
+36. **A map's objects** (§2, §3), awaiting approval. `pulli pack` keeps a
+   Tiled map's object layers (spawn points, doors, enemies, triggers...)
+   in its `.ooru`, after the tile flags, when byte 9 of the header is 1;
+   a map without objects is the same bytes as before. `map.objects(layer)`
+   returns them to the game as tables, with their own properties.

@@ -95,10 +95,11 @@ and add a custom property:
 - Tiles may be flipped in Tiled; rotated tiles are refused.
 - A map holds at most 32,768 tiles over both layers, for example two
   layers of 128 × 128.
-- Object layers are not imported. To place things such as a player's start
-  or enemies, draw their tiles on a layer and look for them with `map.get`
-  when the map is loaded, as `examples/manickam` does at the start of each
-  chapter.
+- Object layers come with the map. Place a player's start, enemies or
+  doors as objects (points, boxes or tiles) on an object layer, give them
+  a class and custom properties, and read them with `map.objects()` when
+  the map is loaded. Rotation and text objects are not imported; detach
+  objects made from a template.
 
 ## Text in Tamil
 

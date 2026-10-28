@@ -297,7 +297,7 @@ def vidhi(t, r):
             {k: v for k, v in sigs.items() if k != "stat"} == {k: v for k, v in found.items() if k != "stat"}
             and "stat" in found and "stat" in sigs, sorted(set(sigs.items()) ^ set(found.items())))
     t.check("names are offered as they are typed: the API, the callbacks, the file's own", r["complete"] == [
-        ["map.draw", "map.flags", "map.get", "map.load", "map.set", "map.size", "make_enemy"],
+        ["map.draw", "map.flags", "map.get", "map.load", "map.objects", "map.set", "map.size", "make_enemy"],
         ["spr", "speed"], [], ["map.draw"]], r["complete"])
     t.check("the name being typed is found, dots and all", r["word"] == [{"word": "map.lo", "start": 4}, None], r["word"])
     t.check("the hint names the call the cursor is in and which argument",
