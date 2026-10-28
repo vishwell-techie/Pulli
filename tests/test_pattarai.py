@@ -75,6 +75,9 @@ def library(t):
         "Pantuvarali": "S R1 G3 M2 P D1 N3 S' / S' N3 D1 P M2 G3 R1 S",
         "Hamsanadam": "S R2 M2 P N3 S' / S' N3 P M2 R2 S"}, r["ragas"])
 
+    t.check("a flute's or venu's breath is faint: what is above 4 kHz of a held note is 60 dB or more below it",
+            r["fluteHiss"] and all(v <= -60 for v in r["fluteHiss"].values()), r["fluteHiss"])
+
     # ---- notation ----
     notes = [(n["at"], n["len"], n["semi"], n["mark"]) for n in r["carnatic"]["notes"]]
     t.check("sargam reads: the raga's swaras, octaves, holds, rests, others named, gamakas", notes == [

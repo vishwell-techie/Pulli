@@ -8,7 +8,7 @@ import * as X from "./exact.js";
 // same song makes the same WAV, to the bit, with the same version. Raised
 // whenever a change alters a song's sound (tests/isai.sha256 holds each
 // example song's fingerprint for it).
-export const ENGINE = 1;
+export const ENGINE = 2;
 
 export const RATE = 44100;
 // The rate the song in hand is rendered at (its `rate`, or RATE): chiptune
@@ -439,7 +439,8 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
   const tail = pluck ? (inst === "bass" ? 0.6 : 1.4) : chip ? 0.02 : 0.08;
   const n = Math.floor((dur + tail) * SR), i0 = Math.floor(start * SR);
   const noise = rng(seed);
-  let ph = 0, lp = 0;
+  let ph = 0, lp = 0, hp = 0;
+  const BREATH = 1 - X.exp(-2 * Math.PI * 1500 / SR);
   const gl = gain * X.cos((pan + 1) * Math.PI / 4), gr = gain * X.sin((pan + 1) * Math.PI / 4);
   const held = Math.floor(dur * SR);
   for (let k = 0; k < n && i0 + k < L.length; k++) {
@@ -470,12 +471,14 @@ function voice(out, inst, start, dur, f, mark, gain, pan, seed, arp = null, arpR
         s = s * 0.2 + lp * 0.15;
         break;
       }
-      case "venu": case "flute":
-        lp += 0.1 * (noise() - lp);
+      case "venu": case "flute": {                  // breath: a puff as the note starts, then a little air,
+        lp += BREATH * (noise() - lp);               // kept below about 1.5 kHz whatever the rate
+        hp += BREATH * (lp - hp);
         harmonics(S, ph, 3);
-        s = S[1] + 0.28 * S[2] + 0.12 * S[3] + lp * 0.5 * (0.4 + env);
+        s = S[1] + 0.28 * S[2] + 0.12 * S[3] + hp * (0.3 * X.exp(-t * 30) + 0.03);
         s *= 0.5;
         break;
+      }
       case "harmonium": {                           // two reeds a little apart
         harmonics(S, ph, 12); harmonics(S2, ph * 1.0025, 12);
         for (let h = 1; h <= 12 && fr * h < SR * 0.45; h++) s += REEDS[h] * (S[h] + 0.8 * S2[h]);

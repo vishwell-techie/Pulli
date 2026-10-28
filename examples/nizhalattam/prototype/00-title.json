@@ -12,7 +12,7 @@
  "steps": 2,
  "cycles": 6,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
  "loopCycle": 0,
@@ -26,7 +26,7 @@
    "octave": 1,
    "gain": 0.85,
    "pan": 0.15,
-   "text": "S R G M G M P D N S' N D P M G R | S , , , - - G M P , D , N , S' , | S'~ , , , N D P , M , G , R , S , | P , , , , , , , D , , , N , , , | S R G M~ G M P D~ N S' N D P~ M G R | S , , , - - - - G M P D N , , ,"
+   "text": "S R G M G M P D N S' N D P M G R | S , , , - - G M P , D , N , S' , | S'~ , , , N D P , M , G , R , S , | P , , , , , , , D , , , N , , , | S R G M~ G M P D~ N S' N D P~ M G R | S , , , N. , S , G M P D N , N. ,"
   },
   {
    "name": "veena",
@@ -34,7 +34,7 @@
    "octave": 0,
    "gain": 0.7,
    "pan": -0.35,
-   "text": "S. , , , P. , , , S , , , P. , , , | S R G M G M P D N S' N D P M G R | S. , , , P. , , , S , , , G , , , | S R G M G M P D N S' N D P M G R | S. , P. , S , P. , S. , P. , S , G , | S , , , , , , , P. , , , , , , ,"
+   "text": "S. , , , P. , , , S , , , P. , , , | S R G M G M P D N S' N D P M G R | S. , , , P. , , , S , , , G , , , | S R G M G M P D N S' N D P M G R | S. , P. , S , P. , S. , P. , S , G , | S , , , P. , , , N. , , , P. , N. ,"
   },
   {
    "name": "veena low",

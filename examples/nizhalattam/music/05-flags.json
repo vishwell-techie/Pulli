@@ -12,7 +12,7 @@
  "steps": 4,
  "cycles": 10,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
  "loopCycle": 0,
@@ -90,9 +90,9 @@
  "title": "Nizhalattam: The flags",
  "about": "Mayamalavagowla, Adi (8). The theme follows the opening of Tulasi Dala, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
-  "engine": 1,
-  "wav": "0f7475b1205be3bc642e788d919c606bb5bc15cf5bc5664be4e4c8c9629c11e2",
-  "song": "88e96f00b38c03464df63ab92d5be6c2f34446af9ae845b000792b716b11023b",
+  "engine": 2,
+  "wav": "63f31ad4bbf2cd9c7bdee7c56d671746c20ae1040f7f15944a29727cd50d2769",
+  "song": "22d7e04695ed30de012942996b019013ff67d54d13ab5c2faa7334772079fc12",
   "current": true
  }
 }

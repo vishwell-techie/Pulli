@@ -12,10 +12,10 @@
  "steps": 2,
  "cycles": 10,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
- "loopCycle": 0,
+ "loopCycle": 1,
  "drone": false,
  "drums": "thavil",
  "swing": 0,
@@ -26,7 +26,7 @@
    "octave": 1,
    "gain": 0.9,
    "pan": 0.1,
-   "text": "- - - - - - - - - - - - S , , , | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | S , , , R2 M1 P , N3 , S' , , , , , | S' N3 D2 P M1 , G3 R2 S , R2 M1 P , , , | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | P , M1 G3 R2 , S , N3. , S , R2 , M1 , | P , , , N3 , S' , R2' , S' , N3 , D2 , | P M1 G3 R2 S , , , - - - - - - - - | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | P , , , M1 G3 R2 S N3. , , , - - - -"
+   "text": "- - - - - - - - - - - - S , , , | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | S , , , R2 M1 P , N3 , S' , , , , , | S' N3 D2 P M1 , G3 R2 S , R2 M1 P , , , | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | P , M1 G3 R2 , S , N3. , S , R2 , M1 , | P , , , N3 , S' , R2' , S' , N3 , D2 , | P M1 G3 R2 S , , , - - - - - - - - | S R2 M1 P N3 S' N3 D2 P M1 G3 R2 S N3. D2. P. | P , , , M1 G3 R2 S N3. , , , , , , ,"
   },
   {
    "name": "nadaswaram 2",

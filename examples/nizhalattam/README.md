@@ -372,7 +372,7 @@ The music is a Carnatic theatre band: tanpura drone, harmonium, nadaswaram or
 flute lead with gamakas, a veena answering, mridangam, thavil or kanjira on a
 tala, cymbals, temple bells and a conch. Each place has its own track, in its
 own raga; the bosses have one, the King his, the title and the endings
-theirs. Every track is a seamless loop of 30 to 40 seconds at 44.1 kHz
+theirs. Every track is a seamless loop of 30 to 40 seconds at 22.05 kHz
 stereo; a new one comes in over the old, and the next story's is read ahead
 behind its door. Three tracks at a time (one fading out, one playing, one
 read ahead) fit in the 6 MB a game may hold.

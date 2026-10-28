@@ -12,7 +12,7 @@
  "steps": 4,
  "cycles": 12,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
  "loopCycle": 0,
@@ -90,9 +90,9 @@
  "title": "Nizhalattam: A boss",
  "about": "Chintamani, Adi (8). The theme follows the opening of Devi Brova Samayamide, Syama Sastri (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
-  "engine": 1,
-  "wav": "94235ee4e44da8eceb067ce5f840f46f6ddbb52119286df144a63885e616c741",
-  "song": "5cd92c346c6535ca95a8fdb320b2187519ade52895fc6cbb89bc41f1bee0b8b3",
+  "engine": 2,
+  "wav": "d48cd4afb9126e61950bc1bba3e4c3516fb85abfb59bb9468a9f8f29228c5218",
+  "song": "0120d2b1db7f31db1b31622ca69f2963f6d0921f3007011d4fa6dac8ccee2317",
   "current": true
  }
 }

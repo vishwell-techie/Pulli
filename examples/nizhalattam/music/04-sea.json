@@ -12,7 +12,7 @@
  "steps": 4,
  "cycles": 12,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
  "loopCycle": 0,
@@ -82,9 +82,9 @@
  "title": "Nizhalattam: The sea",
  "about": "Natabhairavi, Khanda Chapu (5). The theme follows the opening of Sri Nilotpala Nayike, Dikshitar (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
-  "engine": 1,
-  "wav": "c6c0fe83e82e468494b5ffa97f636066b4db4bce5d14d518b4bd29065d2dbf33",
-  "song": "d5c15ad3dd5eb400e1048507f409de3e9e085637fd1eacf32fe9f1663b02d2b5",
+  "engine": 2,
+  "wav": "c6c88019995f3f4bf01814d1453a0099fbf833a84e1781b4bfcacb762eab89d2",
+  "song": "1c18bf2d5adbdfdf7ceaed785aa7c8767eb6273e56c883408e6e45a2f7ade18c",
   "current": true
  }
 }

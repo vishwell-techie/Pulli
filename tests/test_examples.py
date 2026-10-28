@@ -2168,7 +2168,7 @@ def main():
                 {"jump", "land", "slap", "hit", "torn", "dodge", "warn"} <= heard_, f"{got} {r.err[-300:]}")
 
         # the whole game, its music packed (once: a minute's work): eleven
-        # tracks of 44.1 kHz stereo, squeezed; a story's track and a boss's
+        # tracks of 22.05 kHz stereo, squeezed; a story's track and a boss's
         # coming in over it stay inside the 6 MB a game may hold
         # (the songs are in git, their WAVs are not: until they are made,
         # with Isai or tools/pattarai/make-wavs.mjs, skipped)
@@ -2191,9 +2191,9 @@ def main():
                 clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
                 r = t.run_package(data, frames=205)
             active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999", "-1"])
-            t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB, reading nothing again",
-                    len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
-                    and r.code == 0 and float(active[0]) < 6144 and active[1] == "0", f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
+            t.check("nizhalattam: its music is eleven squeezed 22.05 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB, reading nothing again",
+                    len(clips) == 11 and all(c[0] == 22050 and c[1] == 2 and c[4] == 1 and 30 * 22050 <= c[2] <= 41 * 22050 for c in clips)
+                    and r.code == 0 and float(active[0]) < 6144 and active[1] == "0", f"{[(c[0], c[1], c[2] // 22050, c[4]) for c in clips]} {active} {r.err[-300:]}")
 
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",

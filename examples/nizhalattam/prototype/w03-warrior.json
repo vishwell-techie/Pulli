@@ -15,7 +15,7 @@
  "rate": 22050,
  "mono": false,
  "arpRate": 16,
- "loopCycle": 0,
+ "loopCycle": 4,
  "drone": false,
  "drums": "orchestra",
  "swing": 0,
