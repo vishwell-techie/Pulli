@@ -404,6 +404,19 @@ bool pulli_update  (pulli_engine *e, uint32_t buttons);   /* one fixed 1/60 s st
 bool pulli_draw    (pulli_engine *e);
 void pulli_present (pulli_engine *e);                     /* scanout to backend->present */
 void pulli_shutdown(pulli_engine *e);                     /* commits save data */
+/* Hot reload, for an emulator while the game is edited: the package file
+ * has been written again (`len` its new size, read through the same
+ * backend->pkg_read), and `changed` names the entries that changed (NULL:
+ * all of them). The game goes on: what it has in memory from entries that
+ * did not change is kept; a changed sprite sheet, backdrop, map (its cells
+ * as the file has them) or sound bank (every sound stops) is read again;
+ * each changed Lua file runs again, its functions new and their state kept
+ * (pulli_api_reload); then the game's reload(), if it has one. NULL, or
+ * what went wrong (the game carries on, with the old code where the new
+ * would not run); a package that will not open ends the game. Needs the
+ * package read in parts, and debug information kept (the names of the
+ * values a function keeps). */
+const char *pulli_reload(pulli_engine *e, size_t len, const char *const *changed, int count);
 /* The Lua heap in use and at its peak, in bytes, as the console counts
  * them: a desktop with 8-byte pointers counts the same objects about 1.47
  * times bigger, and scales its count to match (SPEC §10). stat("mem") and

@@ -9,7 +9,7 @@ import { vidhi } from "./vidhi.js";
 import { oli } from "./oli.js";
 import { backdrop } from "./backdrop.js";
 import { project } from "./project.js";
-import { useTamil } from "./lib/i18n.js";
+import { useTamil, say } from "./lib/i18n.js";
 
 const token = location.hash.slice(1);
 
@@ -25,8 +25,9 @@ export const api = {
   readText: async (path) => (await call("GET", "/api/file?path=" + encodeURIComponent(path))).text(),
   write: async (path, data) => call("PUT", "/api/file?path=" + encodeURIComponent(path), data),
   budget: async () => (await call("GET", "/api/budget")).json(),
-  run: async (liveRun) => (await call("POST", "/api/run" + (liveRun ? "?live=1" : ""))).text(),
+  run: async (mode) => (await call("POST", "/api/run" + (mode ? "?live=" + mode : ""))).text(),
   stop: async () => (await call("POST", "/api/stop")).text(),
+  live: async () => (await call("GET", "/api/live")).json(),
   sounds: async () => (await call("GET", "/api/sounds")).json(),
 };
 
@@ -34,8 +35,30 @@ export const api = {
 // not left showing in another.
 const said = {};
 const tabNow = () => document.querySelector(".tab.on")?.dataset.tab || "";
+// While a game runs hot-reloaded, what the emulator says of each reload
+// shows in the status line: "Hot-reloaded.", or why not (the game goes on
+// with the code it had).
+let liveTimer = 0, liveHeard = -1;
+function watchLive() {
+  clearInterval(liveTimer);
+  liveHeard = -1;
+  liveTimer = setInterval(async () => {
+    try {
+      const l = await api.live();
+      if (!l.running) { clearInterval(liveTimer); return; }
+      if (liveHeard < 0) liveHeard = l.heard;                 // (what was said before this run)
+      if (l.heard > liveHeard) {
+        liveHeard = l.heard;
+        if (l.said === "reloaded") status("Hot-reloaded: the game goes on with what was saved.");
+        else status("Not hot-reloaded: " + l.said.replace(/^reload: /, "") + " (the game goes on with the code it had)", true);
+      }
+    } catch (e) { clearInterval(liveTimer); }
+  }, 1500);
+}
+
 export function status(text, bad = false) {
   const s = document.getElementById("status");
+  text = say(text);
   s.textContent = text;
   s.className = bad ? "bad" : "";
   said[tabNow()] = [text, bad];
@@ -175,7 +198,7 @@ async function start() {
   };
   const liveBox = document.getElementById("live");
   document.getElementById("run").onclick = async () => {
-    try { status(await api.run(liveBox.checked)); } catch (e) { status("Could not run the game: " + e.message, true); }
+    try { status(await api.run(liveBox.value)); watchLive(); } catch (e) { status("Could not run the game: " + e.message, true); }
   };
   document.getElementById("meter").onclick = () => document.querySelector('[data-tab=project]').click();
   document.getElementById("stop").onclick = async () => { try { status(await api.stop()); } catch (e) { status(e.message, true); } };

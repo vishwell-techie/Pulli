@@ -24,7 +24,7 @@ CATCH = os.path.join(ROOT, "examples", "catch")
 LUA = {"assert", "collectgarbage", "error", "getmetatable", "ipairs", "next", "pairs", "pcall", "rawequal",
        "rawget", "rawlen", "rawset", "select", "setmetatable", "tonumber", "tostring", "type", "xpcall", "warn",
        "_G", "_VERSION", "string", "table", "math", "utf8", "coroutine"}
-CALLBACKS = {"init", "update", "draw"}
+CALLBACKS = {"init", "update", "draw", "reload"}
 
 
 def page(name):

@@ -603,6 +603,42 @@ def main():
     expect_error("an error in init() stops the boot", t.run_game("function init() error('no cartridge') end"),
                  "no cartridge")
 
+    # ---- hot reload (the emulator, while a game is edited) ----------------
+    sheet = lambda c: b"KLM1" + bytes([8, 0, 8, 0]) + bytes([c]) * 64
+    old_main = (
+        'local count, kept = 0, { n = 0 }\n'
+        'local m = require("mod")\n'
+        'local function word() return "old" end\n'
+        'function update() count = count + 1 kept.n = kept.n + 1\n'
+        '  if count % 10 == 0 then dbg("tick", count, kept.n, m.value(), m.calls(), word(), pget(0, 0)) end end\n'
+        'function draw() cls(0) spr(0, 0, 0) end\n')
+    old_mod = ('local M = { kept = 5 }\nlocal calls = 0\n'
+               'function M.value() calls = calls + 1 return 1 end\nfunction M.calls() return calls end\nreturn M\n')
+    new_main = old_main.replace('"old"', '"new"') + 'function reload() dbg("reloaded", count) end\n'
+    new_mod = old_mod.replace("return 1 end", "return 2 end").replace("kept = 5", "kept = 9, added = 1")
+    first = t.package(old_main, extra={"mod.lua": old_mod, "sprites.kolam": sheet(7)})
+    second = t.package(new_main, extra={"mod.lua": new_mod, "sprites.kolam": sheet(9)})
+    if True:                                     # (the host is built: checked above)
+        r = t.run_package(first, frames=30, debug=True, reload=[(15, second, ["main.lua", "mod.lua", "sprites.kolam"])])
+        ticks = [l.split("\t")[1:] for l in r.lines if l.startswith("tick")]
+        t.check("hot reload: the new code runs, the game's state goes on (main.lua's locals and a module's), "
+                "a changed sprite sheet is read again, and reload() is called",
+                r.code == 0 and ticks == [["10", "10", "1", "1", "old", "7"], ["20", "20", "2", "2", "new", "9"],
+                                          ["30", "30", "2", "3", "new", "9"]]
+                and "reloaded\t14" in r.lines, (r.lines, r.err))
+        r = t.run_package(first, frames=20, debug=True,
+                          reload=[(15, t.package(old_main.replace("count + 1", "count +"), extra={"mod.lua": old_mod, "sprites.kolam": sheet(7)}),
+                                   ["main.lua"])])
+        t.check("hot reload: a file that does not run is said, and the game goes on with the code it had",
+                r.code == 0 and "reload: main.lua:4:" in r.err and r.lines[-1].split("\t")[:6] == ["tick", "20", "20", "1", "2", "old"],
+                (r.lines, r.err))
+        r = t.run_package(first, frames=20, debug=True, reload=[(15, second, ["sprites.kolam"])])
+        t.check("hot reload: only what changed is read again (the code stays as it was)",
+                r.code == 0 and [l.split("\t")[1:] for l in r.lines if l.startswith("tick")][-1] == ["20", "20", "1", "2", "old", "9"],
+                (r.lines, r.err))
+        r = t.run_package(first, frames=20, mapped=True, reload=[(15, second, None)])
+        t.check("hot reload needs the package read in parts", "read in parts" in r.err, r.err)
+
     # ---- manifest -----------------------------------------------------
     for name, text, needle in [
         ("without an id", manifest(id=None), "'id' is required"),
