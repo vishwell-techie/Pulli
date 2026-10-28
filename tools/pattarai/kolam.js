@@ -10,7 +10,7 @@ export function kolam(root) {
   const undo = [], redo = [];
   let clip = null;
 
-  const files = h("select", { title: "Pictures in the game folder" });
+  const files = h("select", { title: "Pictures in the game folder", "data-empty": "no pictures yet: New…" });
   const big = h("canvas");
   const whole = h("canvas");
   const info = h("span", { className: "muted" });

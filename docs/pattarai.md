@@ -200,6 +200,12 @@ Carnatic raga, played by a synthesised band.
   part, and a tour of every instrument) and a Bilahari line. Opening one
   starts an unsaved copy; Save puts it in the game's music folder.
 
+The song's settings are in four groups: the raga or scale and the tala or
+time, the rhythm, the sound and the WAV made. Choosing another raga keeps
+the parts' letters, which then name its notes; a note the new raga does not
+have (M in Mohanam) moves to its nearest note, and the status line says
+which parts changed.
+
 A part is written one note a step. In a new Carnatic song, as lines are
 written by hand, a capital is two aksharas and a small letter one, and a
 dot above or below a swara moves it an octave; **capitals long** switches
@@ -232,7 +238,7 @@ every song. Changing **note names** rewrites the parts to sound the same,
 and notes are spelled from the key, as a musician writes them: B♭ in G
 major's minor third, not A♯.
 
-The **roll** under the parts shows the part in hand: click to place a note,
+The **roll** above the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play
 each note.
 
@@ -296,7 +302,7 @@ Pico 2 board's 4 MB of flash. Bars show what takes the most room.
 
 ## Running the game
 
-**▶ Run game** packs the game and plays it in the emulator's window; ■
+**▶ Run game** packs the game and plays it in the emulator's window; **■ Stop game**
 closes it. With **restart on save** ticked it starts again a moment after
 each save, so a change shows at once. The game starts from the beginning
 each time: this is not hot reload.

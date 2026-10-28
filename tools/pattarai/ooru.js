@@ -14,7 +14,7 @@ export function ooru(root) {
   // objects, on object layers: what map.objects() gives the game
   let groups = [], group = 0, chosen = null, showObjects = true, snap = true;
 
-  const files = h("select", { title: "Maps in the game folder" });
+  const files = h("select", { title: "Maps in the game folder", "data-empty": "no maps yet: New…" });
   const canvas = h("canvas");
   const picker = h("canvas");
   const info = h("span", { className: "muted" });

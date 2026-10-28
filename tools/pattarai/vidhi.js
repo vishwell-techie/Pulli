@@ -4,7 +4,7 @@
 // and the call under the cursor shows what it names: the sprite drawn, the
 // sound's file with a button to hear it. Check runs the game for two
 // seconds with no window and lists its errors by line.
-import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE } from "./app.js";
+import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE, help } from "./app.js";
 import { css } from "./lib/palette.js";
 import { highlight, callAt, numbered, wordBefore, complete, callHint, SIGS } from "./lib/lua.js";
 const SIGS_OF = (n) => SIGS[n];
@@ -14,7 +14,7 @@ export function vidhi(root) {
   const sounds = new Map();
   let audio = null;
 
-  const files = h("select", { title: "Lua files in the game folder" });
+  const files = h("select", { title: "Lua files in the game folder", "data-empty": "no Lua files yet: New…" });
   const area = h("textarea", { spellcheck: false, wrap: "off", className: "code-in",
     oninput: () => { paint(); link(); suggest(); }, onscroll: () => { sync(); hidePop(); },
     onkeyup: (e) => { link(); if (!["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(e.key)) showHint(); },
@@ -279,7 +279,7 @@ export function vidhi(root) {
       const list = numbered(shared.files, tab);
       const rows = shared.sounds?.[tab] || [];
       const max = shared.sounds?.max || 256;
-      assets.replaceChildren(h("p", { className: "muted", style: "margin:0 0 8px;font-size:12px" }, CHANNEL_NOTE),
+      assets.replaceChildren(h("div", { style: "margin:0 0 8px" }, help(CHANNEL_NOTE)),
         list.length > max ? h("p", { className: "err" }, `${list.length} sounds: pack takes at most ${max} in ${tab}/.`) : "",
         list.length
         ? h("div", {}, ...list.map((f, i) => h("div", { style: "margin:0 0 6px" },

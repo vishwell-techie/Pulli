@@ -14,7 +14,7 @@ export function backdrop(root) {
   let overlay = null, overlayLayer = -1;
   const undo = [], redo = [];
 
-  const files = h("select", { title: "Pictures in the game folder" });
+  const files = h("select", { title: "Pictures in the game folder", "data-empty": "no pictures yet: New…" });
   const canvas = h("canvas", { style: "cursor:crosshair" });
   const info = h("span", { className: "muted" });
   const swatches = h("div", { className: "swatches" });

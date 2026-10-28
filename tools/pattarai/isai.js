@@ -3,7 +3,7 @@
 // a synthesised band. It is kept as music/<name>.json and made into
 // music/<name>.wav, which `pulli pack` puts in music.isai; music(n) plays
 // the WAV files in order of name.
-import { api, h, shared, status, refreshFiles, CHANNEL_NOTE } from "./app.js";
+import { api, h, shared, status, refreshFiles, CHANNEL_NOTE, help } from "./app.js";
 import * as M from "./lib/music.js";
 import { wavOf as wavBytes, madeNote, refreshNote, needsWav } from "./lib/make.js";
 
@@ -13,15 +13,17 @@ export function isai(root) {
   let song = M.newSong("carnatic"), path = "", dirty = false, partIndex = 0;
   let audio = null, source = null, playStart = 0, playLen = 0, raf = 0;
 
-  const files = h("select", { title: "Songs in the game's music folder" });
+  const files = h("select", { title: "Songs in the game's music folder", "data-empty": "no songs yet: New… or an example" });
   const examples = h("select", { title: "Example songs that come with Pattarai" }, h("option", { value: "" }, "Example songs…"));
   fetch(new URL("./songs/index.json", import.meta.url)).then((r) => r.json()).then((list) => {
     examples.append(...list.map((x) => h("option", { value: x.file, title: x.about }, x.title)));
   }).catch(() => {});
-  const head = h("div", { className: "bar" });
+  const head = h("div");
   const scaleBox = h("div", { className: "box" });
   const partsBox = h("div");
   const roll = h("canvas", { style: "cursor:crosshair" });
+  const rollName = h("span", { style: "text-transform:none;color:var(--accent)" });
+  const rollTitle = h("h3", { style: "margin:0;display:flex;gap:8px" }, h("span", {}, "Roll"), rollName);
   const playBtn = h("button", { className: "", onclick: togglePlay }, "▶ Play");
 
   root.append(
@@ -38,16 +40,15 @@ export function isai(root) {
         onclick: makeAll }, "Make all WAVs"),
       h("span", { className: "sep" }), playBtn),
     head,
+    h("div", { className: "box", style: "max-width:100%;margin-bottom:10px" },
+      h("div", { className: "bar", style: "margin-bottom:6px" }, rollTitle,
+        help("Click to place a note (drag right to hold it), click a note to remove it. On a drum part, click a lane to add or remove a stroke.")),
+      h("div", { className: "scroll", style: "max-height:300px" }, roll)),
     h("div", { className: "cols" },
       h("div", { className: "wide" }, partsBox,
         h("div", { className: "bar" }, h("button", { onclick: addPart }, "+ Part"),
-          h("button", { title: "A drum part of your own, starting from the automatic pattern written out", onclick: addDrumPart }, "+ Drum part")),
-        h("p", { className: "muted", style: "font-size:12px;max-width:720px" },
-          "The parts are mixed into one track, which the game plays with music(n). " + CHANNEL_NOTE)),
-      h("div", { className: "box", style: "max-width:100%" }, h("h3", {}, "Roll: the part in hand"),
-        h("p", { className: "muted", style: "margin:0 0 6px" },
-          "Click to place a note (drag right to hold it), click a note to remove it."),
-        h("div", { className: "scroll", style: "max-height:420px" }, roll)),
+          h("button", { title: "A drum part of your own, starting from the automatic pattern written out", onclick: addDrumPart }, "+ Drum part"),
+          help("The parts are mixed into one track, which the game plays with music(n). " + CHANNEL_NOTE))),
       scaleBox));
 
   // ---- the song's settings ----------------------------------------------------
@@ -62,7 +63,7 @@ export function isai(root) {
   function drawHead() {
     const c = song.system === "carnatic";
     const scales = Object.entries(M.SCALES).filter(([, s]) => s.system === song.system);
-    const scaleSel = h("select", { onchange: (e) => { song.scale = e.target.value; changed(); drawAll(); } },
+    const scaleSel = h("select", { onchange: (e) => setScale(e.target.value) },
       ...(c ? [h("optgroup", { label: "Janya ragas" }, ...scales.filter(([, s]) => !s.mela).map(([n]) => h("option", { value: n }, n))),
                h("optgroup", { label: "Melakartas" }, ...scales.filter(([, s]) => s.mela).map(([n, s]) => h("option", { value: n }, `${s.mela}. ${n}`)))]
             : scales.map(([n]) => h("option", { value: n }, n))));
@@ -84,45 +85,88 @@ export function isai(root) {
           field("note names", h("select", { title: "How notes are written back and labelled. Letters and solfège can both be typed in any song.",
             onchange: (e) => setNoteNames(e.target.value) },
             ...Object.entries(M.NOTE_NAMES).map(([v, label]) => h("option", { value: v, selected: v === (song.solfa || "letters") }, label)))));
+    // a slider with its value beside it
+    const slider = (key, max, title) => {
+      const val = h("span", { className: "rangeval" }, (song[key] || 0).toFixed(2));
+      return h("span", { style: "display:inline-flex;gap:6px;align-items:center" },
+        h("input", { type: "range", min: 0, max, step: 0.05, value: song[key] || 0, title,
+          oninput: (e) => { val.textContent = (+e.target.value).toFixed(2); },
+          onchange: (e) => { song[key] = +e.target.value; changed(); } }), val);
+    };
+    // the arpeggio's speed matters only to a song that has one
+    const arps = hasArps();
+    const group = (title, ...kids) => h("div", { className: "group" }, h("b", {}, title), ...kids.filter((k) => k !== ""));
     head.replaceChildren(
-      h("strong", {}, path || "(new song)", dirty ? " •" : ""),
-      path ? h("span", { className: song.made && song.made.current && song.made.engine === M.ENGINE ? "muted" : "warn",
-        title: "The WAV the game plays" },
-        !song.made ? "no WAV made here yet" : song.made.engine !== M.ENGINE ? `WAV from engine ${song.made.engine}`
-          : song.made.current && !dirty ? "WAV up to date" : "WAV out of date: Make WAV") : "",
-      h("span", { className: "sep" }),
-      field(c ? "raga" : "scale", scaleSel), tonic,
-      field(c ? "tala" : "time", talaSel),
-      field("tempo", num("tempo", 30, 300)),
-      field("steps a beat", num("steps", 1, 8)),
-      field("cycles", num("cycles", 1, 64)),
-      c ? field("capitals long", h("input", { type: "checkbox", checked: !!song.longCaps,
-        title: "As lines are written by hand: a capital is two aksharas, a small letter one. The parts are rewritten so they sound the same.",
-        onchange: (e) => setLongCaps(e.target.checked) })) : "",
-      field("drone", h("input", { type: "checkbox", checked: song.drone, onchange: (e) => { song.drone = e.target.checked; changed(); } })),
-      field("drums", h("select", { onchange: (e) => { song.drums = e.target.value; changed(); } },
-        ...M.KITS.map((k) => h("option", { value: k, selected: k === song.drums }, k)))),
-      field("drum pattern", h("select", { title: "Automatic: the kit plays the tala's (or time's) pattern. My own: only the drum parts you write play.",
-        onchange: (e) => { song.drumPattern = e.target.value; changed(); } },
-        h("option", { value: "auto", selected: song.drumPattern !== "own" }, "automatic"),
-        h("option", { value: "own", selected: song.drumPattern === "own" }, "my own"))),
-      field("swing", h("input", { type: "range", min: 0, max: 0.6, step: 0.05, value: song.swing,
-        onchange: (e) => { song.swing = +e.target.value; changed(); } })),
-      field("reverb", h("input", { type: "range", min: 0, max: 1, step: 0.05, value: song.reverb || 0,
-        title: "A hall around the band: 0 is none",
-        onchange: (e) => { song.reverb = +e.target.value; changed(); } })),
-      field("arpeggio speed", num("arpRate", 4, 60)),
-      field("loops from cycle", h("input", { type: "number", min: 0, max: 63, value: song.loopCycle || 0, style: "width:60px",
-        title: "0: the whole song loops. 2: cycles 0 and 1 are an intro, played once, then it loops from cycle 2",
-        onchange: (e) => { song.loopCycle = Math.max(0, +e.target.value | 0); changed(); drawRoll(); } })),
-      h("span", { className: "sep" }),
-      field("WAV", h("select", { title: "Samples a second in the WAV made: fewer is smaller and rougher, as chiptune was",
-        onchange: (e) => { song.rate = +e.target.value; changed(); drawHead(); } },
-        ...M.RATES.map((r) => h("option", { value: r, selected: r === song.rate }, `${r} Hz`)))),
-      field("mono", h("input", { type: "checkbox", checked: song.mono, title: "One channel: half the size",
-        onchange: (e) => { song.mono = e.target.checked; changed(); drawHead(); } })),
-      h("span", { className: "muted", title: "The size of the WAV made, before pack squeezes music to a quarter" }, size()));
+      h("div", { className: "songhead" },
+        h("strong", {}, path || "(new song)", dirty ? " •" : ""),
+        path ? h("span", { className: song.made && song.made.current && song.made.engine === M.ENGINE ? "muted" : "warn",
+          title: "The WAV the game plays" },
+          !song.made ? "no WAV made here yet" : song.made.engine !== M.ENGINE ? `WAV from engine ${song.made.engine}`
+            : song.made.current && !dirty ? "WAV up to date" : "WAV out of date: Make WAV") : ""),
+      h("div", { className: "groups" },
+        group(c ? "Raga and tala" : "Scale and time",
+          field(c ? "raga" : "scale", scaleSel), tonic,
+          field(c ? "tala" : "time", talaSel),
+          field("tempo", num("tempo", 30, 300))),
+        group("Rhythm",
+          field("steps a beat", num("steps", 1, 8)),
+          field("cycles", num("cycles", 1, 64)),
+          c ? field("capitals long", h("input", { type: "checkbox", checked: !!song.longCaps,
+            title: "As lines are written by hand: a capital is two aksharas, a small letter one. The parts are rewritten so they sound the same.",
+            onchange: (e) => setLongCaps(e.target.checked) })) : "",
+          field("drums", h("select", { onchange: (e) => { song.drums = e.target.value; changed(); } },
+            ...M.KITS.map((k) => h("option", { value: k, selected: k === song.drums }, k)))),
+          field("drum pattern", h("select", { title: "Automatic: the kit plays the tala's (or time's) pattern. My own: only the drum parts you write play.",
+            onchange: (e) => { song.drumPattern = e.target.value; changed(); } },
+            h("option", { value: "auto", selected: song.drumPattern !== "own" }, "automatic"),
+            h("option", { value: "own", selected: song.drumPattern === "own" }, "my own"))),
+          field("swing", slider("swing", 0.6, "Every other step a little late"))),
+        group("Sound",
+          field("drone", h("input", { type: "checkbox", checked: song.drone, title: "A tanpura under the band",
+            onchange: (e) => { song.drone = e.target.checked; changed(); } })),
+          field("reverb", slider("reverb", 1, "A hall around the band: 0 is none")),
+          arps ? field("arpeggio speed", num("arpRate", 4, 60)) : ""),
+        group("The WAV made",
+          field("WAV", h("select", { title: "Samples a second in the WAV made: fewer is smaller and rougher, as chiptune was",
+            onchange: (e) => { song.rate = +e.target.value; changed(); drawHead(); } },
+            ...M.RATES.map((r) => h("option", { value: r, selected: r === song.rate }, `${r} Hz`)))),
+          field("mono", h("input", { type: "checkbox", checked: song.mono, title: "One channel: half the size",
+            onchange: (e) => { song.mono = e.target.checked; changed(); drawHead(); } })),
+          field("loops from cycle", h("input", { type: "number", min: 0, max: 63, value: song.loopCycle || 0, style: "width:60px",
+            title: "0: the whole song loops. 2: cycles 0 and 1 are an intro, played once, then it loops from cycle 2",
+            onchange: (e) => { song.loopCycle = Math.max(0, +e.target.value | 0); changed(); drawRoll(); } })),
+          h("span", { className: "muted", style: "font-size:12px", title: "The size of the WAV made, before pack squeezes music to a quarter" }, size()))));
   }
+
+  // A new raga or scale: the parts keep their letters, which now name the
+  // new scale's notes. A part with a letter the new scale has not (M in
+  // Mohanam) would not play, so its notes are moved to the nearest note of
+  // the new scale, and the status says which parts.
+  function setScale(name) {
+    const before = song.parts.map((p) => { try { return p.instrument === "drums" ? null : M.parseNotation(p.text, song); } catch (e) { return null; } });
+    song.scale = name;
+    const { beats } = M.cycleOf(song);
+    const notes = M.SCALES[name].notes, moved = [];
+    song.parts.forEach((p, i) => {
+      if (!before[i]) return;
+      try { M.parseNotation(p.text, song); return; } catch (e) { /* a letter the new scale lacks */ }
+      let count = 0;
+      const near = (semi) => {
+        const pc = ((semi % 12) + 12) % 12;
+        if (notes.includes(pc)) return semi;
+        count++;
+        const best = [...notes, 12].reduce((a, b) => (Math.abs(b - pc) < Math.abs(a - pc) ? b : a));
+        return semi - pc + best;
+      };
+      const ns = before[i].notes.map((n) => ({ ...n, semi: near(n.semi), way: undefined }));
+      p.text = M.writeNotation(ns, before[i].steps, song, beats * song.steps);
+      moved.push(`${p.name} (${count} note${count === 1 ? "" : "s"})`);
+    });
+    changed(); drawAll();
+    status(moved.length ? `${name}: notes not in it were moved to its nearest notes in ${moved.join(", ")}.` : `${name}.`);
+  }
+
+  const hasArps = () => song.parts.some((p) => p.instrument !== "drums" && /\{/.test(p.text));
 
   // pack squeezes music to 4 bits a sample (SPEC §2)
   function size() {
@@ -165,7 +209,7 @@ export function isai(root) {
       h("h3", {}, song.scale, s.mela ? ` · melakarta ${s.mela}` : s.parent ? ` · from ${Object.keys(M.SCALES).find((n) => M.SCALES[n].mela === s.parent)}` : ""),
       h("p", { className: "muted", style: "margin:0 0 4px" }, song.system === "carnatic" ? "Arohanam" : "Up"), keys(s.up),
       h("p", { className: "muted", style: "margin:8px 0 4px" }, song.system === "carnatic" ? "Avarohanam" : "Down"), keys(s.down),
-      h("p", { className: "muted", style: "margin:10px 0 0;max-width:330px;font-size:12px" },
+      h("div", { style: "margin-top:10px" }, h("span", { className: "muted", style: "font-size:12px;margin-right:6px" }, "How to write notes"), help(
         song.system === "carnatic"
           ? (song.longCaps ? "Capitals are two aksharas, small letters one: S , r G P D Ṡ N D |. " : "") +
             "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' or a dot above (Ṡ) an octave up, . or a dot below (Ṇ) down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
@@ -173,7 +217,7 @@ export function isai(root) {
               ? "Write fixed do: do re mi fa sol la si, with # or b and an octave (sol4) or without; or letters C D# Bb…; "
               : "Write letters C D# Bb… with an octave (C4) or without (the song's), or movable do: do re mi fa so la ti, do being the key note; " +
                 "di ri fi si li raise a step, ra me se le te lower one, ' and . for octaves (do' so.); ") +
-            ", holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."));
+            ", holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume.")));
   }
 
   // ---- parts --------------------------------------------------------------------
@@ -193,7 +237,11 @@ export function isai(root) {
       };
       const text = h("textarea", { rows: 3, value: p.text, spellcheck: false,
         onfocus: () => { if (partIndex !== i) { partIndex = i; drawParts(); drawRoll(); } },
-        oninput: (e) => { p.text = e.target.value; changed(); check(); drawRoll(); } });
+        oninput: (e) => {
+          const had = hasArps();
+          p.text = e.target.value; changed(); check(); drawRoll();
+          if (had !== hasArps()) drawHead();               // the arpeggio's speed shown only when there is one
+        } });
       check();
       const inst = h("select", { onchange: (e) => { p.instrument = e.target.value; changed(); drawParts(); drawRoll(); } },
         ...Object.entries(M.INSTRUMENTS).map(([group, list]) => h("optgroup", { label: group },
@@ -244,6 +292,7 @@ export function isai(root) {
   function drawRoll() {
     const p = song.parts[partIndex];
     if (!p) return;
+    rollName.textContent = p.name || "part " + (partIndex + 1);
     if (p.instrument === "drums") return drawDrumRoll(p);
     const scale = M.SCALES[song.scale].notes;
     rows = [];
@@ -323,7 +372,7 @@ export function isai(root) {
     for (const x of parsed.hits) {
       const r = rows.indexOf(x.kind);
       g.globalAlpha = x.vol ? 0.3 + 0.7 * x.vol / 9 : 1;
-      g.fillStyle = ["#e5604f", "#f0a330", "#4fb3a9", "#e0789a"][r];
+      g.fillStyle = ["#e5604f", "#f0a330", "#4fb3a9", "#e0789a", "#ffd166", "#9ccc65", "#8fa8ff"][r];
       g.beginPath(); g.arc(LABEL + x.at * CW + CW / 2, r * rh + rh / 2, CW * 0.36, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
     }
@@ -411,7 +460,8 @@ export function isai(root) {
     stop();
     const s = only === null ? song : { ...song, parts: [song.parts[only]], drone: false, drums: "none" };
     try {
-      status("Playing… (rendering)");
+      status("Rendering the song to play it…");
+      playBtn.textContent = "… rendering"; playBtn.disabled = true;
       const [L, R] = mix(await renderAsync(JSON.parse(JSON.stringify(s))));
       const a = ctx();
       await a.resume();
@@ -421,13 +471,14 @@ export function isai(root) {
       source = a.createBufferSource();
       source.buffer = b; source.loop = true; source.connect(a.destination);
       if (only === null) source.loopStart = M.loopFrame(song) / rate;     // as the game will loop it
+      playBtn.disabled = false;
       playStart = a.currentTime; playLen = L.length / rate;
       source.start();
       playBtn.textContent = "■ Stop"; playBtn.classList.add("on");
       status(`Playing ${path || "the new song"}: ${playLen.toFixed(1)} s, looping.`);
       const tick = () => { drawRoll(); raf = requestAnimationFrame(tick); };
       tick();
-    } catch (e) { status(e.message, true); }
+    } catch (e) { playBtn.disabled = false; playBtn.textContent = "▶ Play"; status(e.message, true); }
   }
   // a mono song is heard as it will be: both sides the same
   function mix([L, R]) {
@@ -441,7 +492,7 @@ export function isai(root) {
     cancelAnimationFrame(raf);
     playBtn.textContent = "▶ Play"; playBtn.classList.remove("on");
   }
-  function togglePlay() { source ? stop() : play(); }
+  function togglePlay() { if (!playBtn.disabled) source ? stop() : play(); }
 
   // ---- files -------------------------------------------------------------------
   const wavOf = (p) => p.replace(/\.json$/, ".wav");

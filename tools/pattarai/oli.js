@@ -2,7 +2,7 @@
 // hit...), try variations, move the settings, hear it; Save keeps it as
 // sfx/<name>.json and makes sfx/<name>.wav, which `pulli pack` puts in
 // sfx.oli. sfx(n) plays the WAV files of sfx/ in order of name.
-import { api, h, shared, status, refreshFiles, CHANNEL_NOTE } from "./app.js";
+import { api, h, shared, status, refreshFiles, CHANNEL_NOTE, help } from "./app.js";
 import * as S from "./lib/sfx.js";
 import { encodeWAV, decodeWAV } from "./lib/wav.js";
 import { numbered } from "./lib/lua.js";
@@ -11,7 +11,7 @@ export function oli(root) {
   let sfx = S.preset("jump", 1), path = "", dirty = false, auto = true, seed = 1;
   let audio = null;
 
-  const files = h("select", { title: "Sound effects made in Oli (sfx/*.json)" });
+  const files = h("select", { title: "Sound effects made in Oli (sfx/*.json)", "data-empty": "no sounds yet: start from a kind" });
   const wave = h("canvas", { width: 640, height: 140 });
   const knobs = h("div", { className: "knobs" });
   const waveSel = h("select", { onchange: (e) => { sfx.wave = e.target.value; touched(); } },
@@ -36,7 +36,7 @@ export function oli(root) {
     h("div", { className: "cols" },
       h("div", { className: "box" }, h("h3", {}, title, " ", number), wave,
         h("p", { className: "muted", style: "margin:6px 0 0" }, "Saved mono (1 channel) at 22,050 samples a second; the console brings it to 44,100."),
-        h("p", { className: "muted", style: "margin:6px 0 0;max-width:640px;font-size:12px" }, CHANNEL_NOTE)),
+        h("div", { style: "margin-top:6px" }, help(CHANNEL_NOTE))),
       h("div", { className: "box wide" }, h("h3", {}, "Settings"), h("div", { className: "bar" }, h("label", {}, "wave", waveSel)), knobs)),
     wavBox);
 
@@ -135,7 +135,7 @@ export function oli(root) {
 
   // ---- any WAV in sfx/ or music/: trim, fade, level, reverse, mono ---------
   let clip = null, clipPath = "", clipUndo = [], sel = null;
-  const wavFiles = h("select", { title: "WAV files in sfx/ and music/" });
+  const wavFiles = h("select", { title: "WAV files in sfx/ and music/", "data-empty": "no WAV files yet" });
   const clipWave = h("canvas", { width: 900, height: 120, style: "cursor:crosshair;max-width:100%" });
   const clipInfo = h("span", { className: "muted" });
   function clipEdit(f) {

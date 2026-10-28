@@ -30,11 +30,20 @@ export const api = {
   sounds: async () => (await call("GET", "/api/sounds")).json(),
 };
 
+// The status line: each tab keeps its own, so a message from one editor is
+// not left showing in another.
+const said = {};
+const tabNow = () => document.querySelector(".tab.on")?.dataset.tab || "";
 export function status(text, bad = false) {
   const s = document.getElementById("status");
   s.textContent = text;
   s.className = bad ? "bad" : "";
+  said[tabNow()] = [text, bad];
 }
+
+// Help that is there when wanted: a "?" that opens to the text.
+export const help = (...text) => h("details", { className: "help" }, h("summary", { title: "Help" }, "?"),
+  h("div", {}, ...text));
 
 export const h = (tag, props = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -53,8 +62,23 @@ export const h = (tag, props = {}, ...kids) => {
 // builds its tiles from.
 export const shared = {
   files: [], palette: BUILTIN, sheet: null, listeners: [], dirtyChecks: [],
-  changed(what) { for (const f of this.listeners) f(what); },
+  changed(what) {
+    for (const f of this.listeners) f(what);
+    if (what === "files") emptyLists();
+  },
 };
+
+// A list of files with none in it says so, instead of showing a blank box.
+function emptyLists() {
+  for (const sel of document.querySelectorAll("select[data-empty]")) {
+    const real = [...sel.options].filter((o) => !o.dataset.placeholder);
+    sel.querySelectorAll("option[data-placeholder]").forEach((o) => o.remove());
+    if (!real.length) {
+      sel.append(h("option", { value: "", disabled: true, selected: true, "data-placeholder": "1" }, sel.dataset.empty));
+      sel.classList.add("empty");
+    } else sel.classList.remove("empty");
+  }
+}
 
 // A picture in the game's colours: palette indices, 0 where it is less
 // than half opaque, the rest the nearest colour (as pack does). `moved`
@@ -133,6 +157,9 @@ async function start() {
       for (const x of document.querySelectorAll(".tab, .panel")) x.classList.remove("on");
       b.classList.add("on");
       document.getElementById(b.dataset.tab).classList.add("on");
+      const [text, bad] = said[b.dataset.tab] || ["", false];
+      const s = document.getElementById("status");
+      s.textContent = text; s.className = bad ? "bad" : "";
     };
   }
   // the language: kept in this browser, as a convenience
