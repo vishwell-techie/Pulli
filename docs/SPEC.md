@@ -5,7 +5,7 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
-item 32 on 27 October 2026 and items 33 to 37 on 28 October
+item 32 on 27 October 2026 and items 33 to 38 on 28 October
 2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
