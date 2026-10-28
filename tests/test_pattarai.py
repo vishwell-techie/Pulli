@@ -28,7 +28,7 @@ from harness import Suite, ROOT, pulli
 import refgfx   # noqa: E402
 
 HERE = os.path.join(ROOT, "tools", "pattarai")
-VILLAGE = os.path.join(ROOT, "examples", "manickam", "village.tmx")
+VILLAGE = os.path.join(ROOT, "examples", "manickam", "maps", "village.tmx")
 
 
 def library(t):
@@ -441,8 +441,8 @@ def budget(t):
             t.check("strict: a save that takes the game past its board is refused, saying why",
                     status == 409 and b"Pico 2 board" in body and b"strict" in body and not os.path.exists(os.path.join(game, "sfx", "9-big.wav"))
                     and not [f for f in os.listdir(os.path.join(game, "sfx")) if f.endswith(".part")], body)
-            t.check("strict: code is saved even so", ask("PUT", "/api/file?path=main.lua",
-                    open(os.path.join(game, "main.lua"), "rb").read())[0] == 200)
+            t.check("strict: code is saved even so", ask("PUT", "/api/file?path=code/main.lua",
+                    open(os.path.join(game, "code", "main.lua"), "rb").read())[0] == 200)
             ask("PUT", "/api/file?path=.pattarai.json", json.dumps({"target": "board", "strict": False}).encode())
             status, _ = ask("PUT", "/api/file?path=sfx/9-big.wav", big)
             over = json.loads(ask("GET", "/api/budget")[1])
@@ -452,7 +452,7 @@ def budget(t):
             t.check("strict, already over: a save that makes the game smaller is let through",
                     ask("PUT", "/api/file?path=sfx/9-big.wav", small)[0] == 200)
             ask("PUT", "/api/file?path=.pattarai.json", json.dumps({"target": "sd"}).encode())
-            bad_png = open(os.path.join(game, "sprites.png"), "rb").read()
+            bad_png = open(os.path.join(game, "sprites", "sprites.png"), "rb").read()
             bad_png = bad_png[:16] + struct.pack(">II", 1024, 1024) + bad_png[24:]
             three = bytearray(wav(os.path.join(tmp, "three.wav"), 0.1))
             three[22:24] = struct.pack("<H", 3)
@@ -731,8 +731,8 @@ def hot(t):
         try:
             status, said = ask("POST", "/api/run?live=hot")
             time.sleep(1)
-            src = open(os.path.join(game, "main.lua")).read()
-            ask("PUT", "/api/file?path=main.lua", (src + "\nlocal again = true\n").encode())
+            src = open(os.path.join(game, "code", "main.lua")).read()
+            ask("PUT", "/api/file?path=code/main.lua", (src + "\nlocal again = true\n").encode())
             first = heard(0)
             until(lambda: json.loads(ask("GET", "/api/live")[1])["memory"])
             memory = json.loads(ask("GET", "/api/live")[1])["memory"]
@@ -742,7 +742,7 @@ def hot(t):
             restarted = until(lambda: srv.live_proc() not in (None, proc)
                               and json.loads(ask("GET", "/api/live")[1])["running"])
             time.sleep(1)
-            ask("PUT", "/api/file?path=main.lua", (src + "\nlocal = broken\n").encode())
+            ask("PUT", "/api/file?path=code/main.lua", (src + "\nlocal = broken\n").encode())
             second = heard(first["heard"])
             t.check("Run with hot reload: a saved Lua file goes into the running game, which says it is reloaded",
                     status == 200 and "hot-reloaded" in said and first["said"] == "reloaded", (said, first))

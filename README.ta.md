@@ -162,7 +162,7 @@ cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=/usr/local
 கீழே உள்ளது சுருக்கம்.
 
 ```bash
-python3 tools/pulli.py new mygame          # scaffold manifest.lua and main.lua
+python3 tools/pulli.py new mygame          # scaffold manifest.lua and code/main.lua
 python3 tools/pulli.py run mygame          # play it in a window
 python3 tools/pulli.py check mygame        # run 600 frames with no window
 python3 tools/pulli.py pack mygame         # write mygame.pulli
@@ -170,7 +170,7 @@ python3 tools/pulli.py pack mygame         # write mygame.pulli
 python3 tools/pulli.py run examples/pong 2 # 2 = window scale; 3 when left out
 ```
 
-`new` manifest.lua, main.lua-வை உருவாக்குகிறது; `run` சாளரத்தில் விளையாட வைக்கிறது;
+`new` manifest.lua, code/main.lua-வை உருவாக்குகிறது; `run` சாளரத்தில் விளையாட வைக்கிறது;
 `check` சாளரமின்றி 600 ஃப்ரேம்கள் ஓட்டுகிறது; `pack` mygame.pulli எழுதுகிறது.
 கடைசி வரியில் 2 என்பது சாளரப் பெரிதாக்கல். அது இல்லாவிட்டால் `run` சாளரத்தைக்
 கன்சோலின் 320×240-ஐ விட மூன்று மடங்காக, 960×720-இல் திறக்கும்; விளையாட்டுக்குப்
@@ -192,10 +192,10 @@ python3 tools/pulli.py edit mygame          # Pattarai, in the browser
 அதே கோப்புகளை உருவாக்கும்.
 
 படங்களுக்கு, எந்த ஓவிய நிரலிலும் 8x8 ஸ்பிரைட் கட்டம் வரைந்து, விளையாட்டின்
-கோப்புறையில் `sprites.png` என்று சேமியுங்கள்: `spr(n)` n-ஆவதை வரையும்.
+கோப்புறையில் `sprites/sprites.png` என்று சேமியுங்கள்: `spr(n)` n-ஆவதை வரையும்.
 `python3 tools/pulli.py palette pulli.gpl` ஓவிய நிரல் ஏற்றுவதற்காக 64 நிறங்களை
 எழுதுகிறது. வரைபடத்துக்கு, [Tiled](https://www.mapeditor.org)-இல் 8x8 டைல்களுடனும்
-`sprites.png`-ஐ tileset ஆகவும் கொண்டு ஒன்றை உருவாக்கி, அதன் அருகில் `map.tmx`
+`sprites.png`-ஐ tileset ஆகவும் கொண்டு ஒன்றை உருவாக்கி, `maps/map.tmx`
 என்று சேமியுங்கள். `examples/manickam` இரண்டையும் செய்கிறது; அதுவே மிக முழுமையான எடுத்துக்காட்டு:
 தமிழிலும் ஆங்கிலத்திலும் ஒரு முழு சாகசம்: தொடக்கக் காட்சி, Tiled-இல் வரைந்த ஆறு
 பகுதிகள் (மிகப் பெரியது 128x128 டைல்கள்), விளக்குகள் ஒளிரும் இரவு, கண்ணாடிப் புதிர்கள்,
@@ -244,7 +244,9 @@ python3 tools/pulli.py add mygame dialog     # copies dialog.lua in, to change i
 `docs/SPEC.md` §3 அனைத்தையும் பட்டியலிடுகிறது; ஒவ்வொரு எடுத்துக்காட்டும்
 அவற்றில் சிலவற்றைப் பயன்படுத்துகிறது.
 
-ஒரு விளையாட்டு என்பது `manifest.lua`-உம் `main.lua`-உம் உள்ள ஒரு கோப்புறை:
+ஒரு விளையாட்டு என்பது `manifest.lua`-உம் `code/main.lua`-உம் உள்ள ஒரு கோப்புறை; அதன்
+மற்ற நிரல், ஸ்பிரைட்டுகள், வரைபடங்கள், பின்னணிகள், ஒலி விளைவுகள், இசை ஒவ்வொன்றுக்கும்
+சொந்தக் கோப்புறை (`code/`, `sprites/`, `maps/`, `backdrops/`, `sfx/`, `music/`):
 
 ```lua
 function init()      end   -- once

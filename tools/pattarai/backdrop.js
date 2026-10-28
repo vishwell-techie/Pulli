@@ -3,6 +3,7 @@
 // colours, fill a sky with a dithered gradient, or bring in a picture made
 // elsewhere, fitted to the screen and put in the 64 colours. A map can be
 // shown over it, as the game would draw it, to see the two together.
+import { FOLDERS, base, place, inFolder, backdrops } from "./lib/layout.js";
 import { api, h, shared, status, refreshFiles, decodePicture, encodePicture, quantise } from "./app.js";
 import { css } from "./lib/palette.js";
 import { parseTMX } from "./lib/tmx.js";
@@ -240,10 +241,11 @@ export function backdrop(root) {
   function askName(suggest) {
     const name = prompt("File name for the backdrop (the game loads it as backdrop(\"<name>.kolam\"))", suggest);
     if (!name) return null;
-    if (!/^[\w-]+\.png$/.test(name)) { status("A backdrop's name ends in .png and sits in the game folder.", true); return null; }
+    if (!/^[\w-]+\.png$/.test(name)) { status("A backdrop's name ends in .png; it is kept in backdrops/.", true); return null; }
     if (name === "sprites.png") { status("sprites.png is the sprite sheet; give the backdrop another name.", true); return null; }
-    if (shared.files.includes(name) && !confirm(`${name} exists. Replace it?`)) return null;
-    return name;
+    const path = place(FOLDERS.backdrops, name);
+    if (shared.files.includes(path) && !confirm(`${path} exists. Replace it?`)) return null;
+    return path;
   }
   // a picture from this computer: scaled to cover the screen, centred, cropped
   async function importFile(file) {
@@ -275,18 +277,18 @@ export function backdrop(root) {
       await refreshFiles();
       files.value = path;
       draw();
-      status(`Saved ${path}: the game sets it with backdrop("${path.replace(/\.png$/, ".kolam")}").`);
+      status(`Saved ${path}: the game sets it with backdrop("${base(path).replace(/\.png$/, ".kolam")}").`);
     } catch (e) { status("Not saved: " + e.message, true); }
   }
 
   shared.listeners.push((what) => {
     if (what === "files") {
       const was = files.value, m = mapSel.value;
-      files.replaceChildren(...shared.files.filter((f) => f.endsWith(".png") && !f.includes("/") && f !== "sprites.png")
+      files.replaceChildren(...backdrops(shared.files)
         .map((f) => h("option", { value: f }, f)));
       if (was) files.value = was;
       mapSel.replaceChildren(h("option", { value: "" }, "no map"),
-        ...shared.files.filter((f) => f.endsWith(".tmx")).map((f) => h("option", { value: f }, f)));
+        ...inFolder(shared.files, FOLDERS.maps, ".tmx").map((f) => h("option", { value: f }, f)));
       mapSel.value = m;
     }
     if ((what === "sheet" || what === "pixels") && overlay) draw();

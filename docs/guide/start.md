@@ -57,8 +57,9 @@ controller: on a PlayStation pad, A is ✕ and B is ○.
 
 A game is a folder. Two files are required:
 
-- **`manifest.lua`** says what the game is called and what it needs.
-- **`main.lua`** is the game.
+- **`manifest.lua`**, at the top of the folder, says what the game is
+  called and what it needs.
+- **`code/main.lua`** is the game.
 
 ```lua
 -- manifest.lua
@@ -71,16 +72,21 @@ return {
 }
 ```
 
-Anything else in the folder is optional:
+Everything else is optional, and each kind has a folder of its own:
 
 | File or folder | Becomes |
 |---|---|
-| `sprites.png` | the sprite sheet: see [Art and sound](art-and-sound.md) |
-| `map.tmx`, or any other `.tmx` | a map made in Tiled |
+| `code/*.lua` | `main.lua`, and modules loaded with `require("name")` |
+| `sprites/sprites.png` | the sprite sheet: see [Art and sound](art-and-sound.md); other sheets beside it |
+| `maps/map.tmx`, or any other `.tmx` | a map made in Tiled, with its tileset (`.tsx`) |
+| `backdrops/*.png` | whole-screen pictures for `backdrop()` |
 | `sfx/*.wav` | sound effects: `sfx(0)` plays the first file by name |
 | `music/*.wav` | music: `music(0)` plays the first |
-| `palette.hex` or `palette.gpl` | 64 colours of your own instead of Pulli's: see [Art and sound](art-and-sound.md) |
-| any other `.lua` file | a module, loaded with `require("name")` |
+| `palette.hex` or `palette.gpl`, at the top | 64 colours of your own instead of Pulli's: see [Art and sound](art-and-sound.md) |
+
+A game's code and assets are named by their file alone: `code/enemy.lua` is
+`require("enemy")` and `maps/hall.tmx` is `map.load("hall.ooru")`. Two files
+of one name in different folders are an error when the game is packed.
 
 ## How a game runs
 

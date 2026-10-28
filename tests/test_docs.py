@@ -38,7 +38,7 @@ def main():
     tutorial = page("tutorial.md")
     steps = re.findall(r"```lua\n(-- step (\d+):.*?)```", tutorial, re.S)
     t.check("the tutorial has its eight steps, in order", [int(n) for _, n in steps] == list(range(1, 9)))
-    final = open(os.path.join(CATCH, "main.lua")).read()
+    final = open(os.path.join(CATCH, "code", "main.lua")).read()
     t.check("the tutorial's last step is examples/catch/main.lua, word for word",
             steps and steps[-1][0] == final)
     if t.need_runtime("running the tutorial's steps"):

@@ -75,6 +75,31 @@ def main():
         os.remove(os.path.join(tmp, "main.lua"))
         t.check("packer refuses a game with no main.lua", rejects(pulli.build, tmp))
 
+    # A game's folders (SPEC §6): code/, sprites/, maps/ and backdrops/ hold
+    # its files, and each is an entry by its name alone.
+    with tempfile.TemporaryDirectory() as tmp:
+        for rel, blob in (("manifest.lua", MANIFEST.encode()), ("code/main.lua", MAIN.encode()),
+                          ("code/enemy.lua", b"return {}"), ("backdrops/note.bin", b"x"), ("maps/README.md", b"#")):
+            os.makedirs(os.path.dirname(os.path.join(tmp, rel)), exist_ok=True)
+            open(os.path.join(tmp, rel), "wb").write(blob)
+        names = sorted(dict(pulli.parse(pulli.build(tmp))))
+        t.check("files in the game's folders are packed by their names alone",
+                names == ["enemy.lua", "main.lua", "manifest.lua", "note.bin"], names)
+        open(os.path.join(tmp, "enemy.lua"), "wb").write(b"return 1")
+        why = rejects(pulli.build, tmp)
+        t.check("two files of one name in different folders are refused, naming both",
+                why and "code/enemy.lua" in why and "keep one" in why, why)
+        os.remove(os.path.join(tmp, "enemy.lua"))
+        os.makedirs(os.path.join(tmp, "other"))
+        open(os.path.join(tmp, "other", "x.lua"), "wb").write(b"")
+        t.check("a folder that is not one of a game's is left out", "x.lua" not in dict(pulli.parse(pulli.build(tmp))))
+    with tempfile.TemporaryDirectory() as tmp:
+        game = os.path.join(tmp, "g")
+        pulli.cmd_new(game)
+        t.check("pulli new makes manifest.lua and code/main.lua",
+                os.path.isfile(os.path.join(game, "manifest.lua")) and os.path.isfile(os.path.join(game, "code", "main.lua"))
+                and not os.path.exists(os.path.join(game, "main.lua")))
+
     version, flags, count, total, crc, start = struct.unpack("<BBHIII", data[4:20])
     body, tail = pulli.split(data)
     t.check("header: magic, version, count, size, where the payload starts",

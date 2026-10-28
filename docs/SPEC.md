@@ -916,7 +916,16 @@ pulli check            static checks: API misuse, budget overruns, GC churn
 pulli flash            push to device over USB
 ```
 
-`pack` takes every file in the game's folder except hidden ones (a name
+A game's folder keeps `manifest.lua` (and a palette, and a README) at its
+top, and the rest in folders of their own: `code/` (every `.lua` file,
+`main.lua` among them), `sprites/` (sheets), `maps/` (Tiled maps and
+their tilesets), `backdrops/`, `sfx/` and `music/`. An entry is named by
+its file alone, so `code/main.lua` is the entry `main.lua`; two files of
+one name in different folders are refused. Files kept at the top, as
+older games have them, are taken too.
+
+`pack` takes every file in the game's folder and in `code/`, `sprites/`,
+`maps/` and `backdrops/` except hidden ones (a name
 starting with `.`), Tiled tilesets (`.tsx`, read through the maps that use
 them), Markdown (`.md`), which is left for people to read, such as a
 game's README, and files the operating system makes: any name with a `:`
@@ -1214,3 +1223,10 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    port reports both with the Lua heap; the emulators and the Pico 2 board
    print them, and `pulli-host --memory` writes them once a second for
    Pattarai.
+39. **A game's folders** (§6), awaiting approval. A game's folder keeps
+   `manifest.lua` at its top and the rest in `code/`, `sprites/`, `maps/`,
+   `backdrops/`, `sfx/` and `music/`. `pack` names each entry by its file
+   alone, so packages, `require` and every name a game loads are as they
+   were; two files of one name in different folders are refused, and files
+   at the top are still taken. `pulli new` and `pulli add` write into
+   `code/`, and Pattarai saves each kind of file in its folder.

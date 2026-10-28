@@ -387,6 +387,11 @@ order, room, health, mai, charms, roles, the chests opened).
 
 ## The files
 
+Each kind of file has a folder of its own: the Lua in `code/`, the sheets in
+`sprites/`, the backdrops (`bg_*`) in `backdrops/`, the rooms and their
+tileset in `maps/`, the sounds in `sfx/` and `music/`; `manifest.lua` and
+`palette.hex` are at the top. The game names each by its file alone.
+
 ### Code
 
 | File | What it is |

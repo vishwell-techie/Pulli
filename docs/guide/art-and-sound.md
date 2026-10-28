@@ -51,7 +51,7 @@ cheap trick for water and fire.
 ## Sprites
 
 Draw your sprites on a grid of 8 × 8 squares and save it as `sprites.png`
-in the game's folder.
+in the game's `sprites/` folder.
 
 - The picture's width and height must be multiples of 8, and it may hold
   at most 131,072 pixels (for example 512 × 256).
@@ -73,7 +73,8 @@ Maps are made in [Tiled](https://www.mapeditor.org), a free map editor.
    spacing. Tile `n` in Tiled is sprite `n` in the game.
 3. Draw on up to two tile layers. The first becomes layer 0, drawn first;
    the second becomes layer 1, drawn on top.
-4. Save the map as `map.tmx` in the game's folder.
+4. Save the map as `map.tmx` in the game's `maps/` folder, and the tileset
+   (`sprites.tsx`) beside it.
 
 A game with a `map.ooru` starts with it loaded, so after packing,
 `map.draw(0)` and `map.draw(1)` draw it. Other maps, such as `level2.tmx`,

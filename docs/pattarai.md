@@ -14,8 +14,8 @@ Its tools, one tab each:
 | Tool | For | Makes |
 |---|---|---|
 | **Vidhi** (விதி, "rule") | the code | `*.lua` |
-| **Kolam** (கோலம்) | sprites | `sprites.png` and other sprite sheets |
-| **Ooru** (ஊர், "town") | maps | Tiled maps, `*.tmx`, and their tile flags in `sprites.tsx` |
+| **Kolam** (கோலம்) | sprites | `sprites/sprites.png` and other sprite sheets |
+| **Ooru** (ஊர், "town") | maps | Tiled maps, `maps/*.tmx`, and their tile flags in `maps/sprites.tsx` |
 | **Thirai** (திரை, "curtain" or "screen") | backdrops | 320 × 240 pictures, `*.png` |
 | **Oli** (ஒலி, "sound") | sound effects | `sfx/*.wav` |
 | **Isai** (இசை, "music") | music | `music/*.wav` |
@@ -66,11 +66,11 @@ README's "Build and test"); the tools themselves do not.
 
 | In the game's folder | In the game |
 |---|---|
-| `main.lua`, `enemies.lua` ... | `require("enemies")` |
-| `sprites.png` | `spr(n)`, counting 8 × 8 cells left to right, top to bottom |
-| `actors.png` | `sheet.load("actors.kolam")` |
-| `hall.tmx` | `map.load("hall.ooru")`, then `map.draw(0)` |
-| `bg_forest.png` (320 × 240) | `backdrop("bg_forest.kolam")`, then `cls()` each frame |
+| `code/main.lua`, `code/enemies.lua` ... | `require("enemies")` |
+| `sprites/sprites.png` | `spr(n)`, counting 8 × 8 cells left to right, top to bottom |
+| `sprites/actors.png` | `sheet.load("actors.kolam")` |
+| `maps/hall.tmx` | `map.load("hall.ooru")`, then `map.draw(0)` |
+| `backdrops/bg_forest.png` (320 × 240) | `backdrop("bg_forest.kolam")`, then `cls()` each frame |
 | `sfx/00-jump.wav`, `sfx/01-coin.wav` | `sfx(0)`, `sfx(1)`: numbered in order of file name |
 | `music/00-title.wav` | `music(0)` |
 

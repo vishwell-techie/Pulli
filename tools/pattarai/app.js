@@ -1,5 +1,6 @@
 // Pattarai's shell: the tabs, the game folder (through `pulli edit`), the
 // palette and the sprite sheet the editors share.
+import { named } from "./lib/layout.js";
 import { BUILTIN, parsePalette, quantiseTo } from "./lib/palette.js";
 import { encodePNG } from "./lib/png.js";
 import { kolam } from "./kolam.js";
@@ -215,7 +216,8 @@ async function start() {
     isai(document.getElementById("isai"));
     project(document.getElementById("project"));
     shared.changed("files");                       // the editors were made after the files were listed
-    if (shared.files.includes("sprites.png")) await loadSheet("sprites.png");
+    const sheet = named(shared.files, "sprites.png");
+    if (sheet) await loadSheet(sheet);
     if (ta) useTamil(document.body);
     status(`Editing ${document.getElementById("game").textContent}: ${shared.files.length} files the editors can open.`);
   } catch (e) {

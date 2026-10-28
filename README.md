@@ -143,7 +143,7 @@ nothing and builds a complete game in eight steps, then covers art, sound,
 maps, the helpers and every function. What follows is the short version.
 
 ```bash
-python3 tools/pulli.py new mygame          # scaffold manifest.lua and main.lua
+python3 tools/pulli.py new mygame          # scaffold manifest.lua and code/main.lua
 python3 tools/pulli.py run mygame          # play it in a window
 python3 tools/pulli.py check mygame        # run 600 frames with no window
 python3 tools/pulli.py pack mygame         # write mygame.pulli
@@ -170,11 +170,10 @@ The tools are optional: any paint program, Tiled and a sound editor make
 the same files.
 
 For pictures, draw an 8x8 grid of sprites in any paint program and save it
-as `sprites.png` in the game's folder: `spr(n)` draws the n-th one.
+as `sprites/sprites.png` in the game's folder: `spr(n)` draws the n-th one.
 `python3 tools/pulli.py palette pulli.gpl` writes the 64 colours for the
 paint program to load. For a map, make one in [Tiled](https://www.mapeditor.org)
-with 8x8 tiles and `sprites.png` as its tileset, and save it as `map.tmx`
-beside it. `examples/manickam` does both, and is the fullest example: a
+with 8x8 tiles and `sprites.png` as its tileset, and save it as `maps/map.tmx`. `examples/manickam` does both, and is the fullest example: a
 whole adventure in Tamil and English, with an opening cut-scene, six
 regions drawn in Tiled (the biggest 128x128 tiles), night lit by lamps,
 mirror puzzles, a confrontation and a festival, saved progress, ten music
@@ -219,7 +218,9 @@ A file in the game's folder is used in place of the SDK's, which is how a
 game changes a helper. Each helper explains itself at the top of its file;
 `docs/SPEC.md` §3 lists them all, and every example uses some of them.
 
-A game is a folder with a `manifest.lua` and a `main.lua`:
+A game is a folder with a `manifest.lua` and a `code/main.lua`; its other
+code, sprites, maps, backdrops, sound effects and music each have a folder
+of their own (`code/`, `sprites/`, `maps/`, `backdrops/`, `sfx/`, `music/`):
 
 ```lua
 function init()      end   -- once

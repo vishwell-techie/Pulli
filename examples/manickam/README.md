@@ -153,6 +153,10 @@ The pause screen shows the ruby pieces found, the hearts and these.
 
 ## The files
 
+Each kind of file has a folder of its own: the Lua in `code/`, the sheets in
+`sprites/`, the backdrops the rooms and their
+tileset in `maps/`, the sounds in `sfx/` and `music/`; `manifest.lua` is at the top. The game names each by its file alone.
+
 | File | What it is |
 |---|---|
 | `manifest.lua` | The game's name, id and version, and how its save data is kept. |

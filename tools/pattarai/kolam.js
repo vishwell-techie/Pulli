@@ -1,6 +1,7 @@
 // Kolam: the sprite editor. Draws on the game's sprite sheet (a .png) in
 // its 64 colours; colour 0 is see-through. spr(n) counts 8x8 cells left to
 // right, top to bottom, and the number of the cell in hand is shown.
+import { FOLDERS, place, sheets } from "./lib/layout.js";
 import { api, h, shared, status, loadSheet, saveSheet, refreshFiles } from "./app.js";
 import { css } from "./lib/palette.js";
 
@@ -343,9 +344,10 @@ export function kolam(root) {
     } catch (e) { status(e.message, true); }
   }
   async function newSheet() {
-    const name = prompt("File name for the new sheet", "sprites.png");
+    let name = prompt("File name for the new sheet (kept in sprites/)", "sprites.png");
     if (!name) return;
     if (!/^[\w-]+(\/[\w-]+)*\.png$/.test(name)) return status("A sheet's name ends in .png", true);
+    name = place(FOLDERS.sprites, name);
     if (shared.files.includes(name) && !confirm(`${name} exists. Replace it with a blank sheet?`)) return;
     const w = +prompt("Width in pixels (a multiple of 8)", "128"), hh = +prompt("Height in pixels (a multiple of 8)", "128");
     if (!(w > 0 && hh > 0 && w % 8 === 0 && hh % 8 === 0 && w * hh <= 131072))
@@ -367,7 +369,7 @@ export function kolam(root) {
   shared.listeners.push((what) => {
     if (what === "files") {
       const was = files.value;
-      files.replaceChildren(...shared.files.filter((f) => f.endsWith(".png")).map((f) => h("option", { value: f }, f)));
+      files.replaceChildren(...sheets(shared.files).map((f) => h("option", { value: f }, f)));
       if (was) files.value = was;
     }
     if (what === "sheet") { if (S()) files.value = S().path; draw(); }
