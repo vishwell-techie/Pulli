@@ -74,6 +74,7 @@ const uint8_t *pulli_part_use(pulli_engine *e, uint32_t offset, uint32_t len, co
                           label, (len + 1023) / 1024, (e->active + 1023) / 1024);
         let_go(e, oldest);
     }
+    if (p) e->rereads++;                           /* let go for room before */
     if (!p) {
         if (e->part_count == e->part_cap) {
             int cap = e->part_cap ? e->part_cap * 2 : 32;
@@ -103,6 +104,7 @@ const uint8_t *pulli_part_use(pulli_engine *e, uint32_t offset, uint32_t len, co
     p->used = ++e->part_clock;
     p->pins = pin ? 1 : 0;
     e->active += len;
+    if (e->active > e->active_peak) e->active_peak = e->active;
     return data;
 }
 
@@ -119,6 +121,9 @@ void pulli_parts_free(pulli_engine *e) {
     e->part_count = e->part_cap = 0;
     e->active = 0;
 }
+
+uint32_t pulli_active_peak(const pulli_engine *e) { return e->active_peak; }
+uint32_t pulli_active_rereads(const pulli_engine *e) { return e->rereads; }
 
 /* A whole entry of the package, by name. */
 const uint8_t *pulli_entry_use(pulli_engine *e, const char *name, bool pin, uint32_t *len) {

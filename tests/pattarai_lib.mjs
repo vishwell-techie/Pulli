@@ -9,7 +9,7 @@ import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
 import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
 import { songWav, madeNote, refreshNote, needsWav, songDigest } from "../tools/pattarai/lib/make.js";
-import { say } from "../tools/pattarai/lib/i18n.js";
+import { say, sayTitle, TA } from "../tools/pattarai/lib/i18n.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
 const [, , village, ...exampleSongs] = process.argv;
@@ -234,6 +234,8 @@ out.statusTa = ["Editing catch: 6 files the editors can open.", "Opened map.tmx:
   "Not hot-reloaded: main.lua:4: unexpected symbol (the game goes on with the code it had)", "running, hot-reloaded on each save",
   "Budget set: SD card, strict.", "Copied 3×2 tiles of layer 1: paint with them."].map((m) => [m, say(m, "ta"), say(m, "en")]);
 out.statusUnknown = say("the package has no 'x.lua'", "ta");
+out.taKeys = Object.keys(TA);
+out.titleTa = ["Pen (P)", "colour 12", "bit 0: solid (map.flags(tile) & 1)", "Undo (Ctrl+Z)"].map((t) => [t, sayTitle(t)]);
 
 // files
 const px = new Uint8Array(24 * 16 * 4);

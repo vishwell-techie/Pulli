@@ -45,6 +45,7 @@ function watchLive() {
   liveTimer = setInterval(async () => {
     try {
       const l = await api.live();
+      if (l.memory) { shared.memory = l.memory; shared.changed("memory"); }
       if (!l.running) { clearInterval(liveTimer); return; }
       if (liveHeard < 0) liveHeard = l.heard;                 // (what was said before this run)
       if (l.heard > liveHeard) {

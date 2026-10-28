@@ -242,9 +242,12 @@ int main(int argc, char **argv) {
         { fprintf(stderr, "pulli-headless: cannot write %s\n", dump_wav); ok = false; }
 
     if (engine.error[0]) fprintf(stderr, "error: %s\n", engine.error);
-    fprintf(stderr, "%s: %ld of %ld frames, Lua heap %.1f KB, peak %.1f of %d KB\n",
+    fprintf(stderr, "%s: %ld of %ld frames, Lua heap %.1f KB, peak %.1f of %d KB; "
+            "active %.1f KB, peak %.1f of %u KB, read again %u\n",
             engine.manifest.title[0] ? engine.manifest.title : game, done, frames,
-            pulli_heap_used(&engine) / 1024.0, pulli_heap_peak(&engine) / 1024.0, engine.manifest.lua_heap_kb);
+            pulli_heap_used(&engine) / 1024.0, pulli_heap_peak(&engine) / 1024.0, engine.manifest.lua_heap_kb,
+            engine.active / 1024.0, pulli_active_peak(&engine) / 1024.0, PULLI_ACTIVE_MAX / 1024,
+            (unsigned)pulli_active_rereads(&engine));
     pulli_shutdown(&engine);
     host_link_close();
     free(data);

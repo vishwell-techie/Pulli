@@ -8,8 +8,9 @@ import { h, status, api, shared, refreshBudget, help } from "./app.js";
 export function project(root) {
   const out = h("div");
   const plan = h("div", { className: "box", style: "margin-bottom:14px" });
+  const ran = h("div", { className: "box", style: "margin-bottom:14px" });
   const button = h("button", { className: "on", onclick: measure }, "Measure");
-  root.append(plan,
+  root.append(plan, ran,
     h("div", { className: "bar" }, button,
       help("Packs the game as pulli pack does, and checks it against the spec's limits: the package, what is held at once, " +
         "what is read as it starts, and the Pico 2 board's flash. A game with a lot of music takes a while.")),
@@ -54,6 +55,27 @@ export function project(root) {
     } catch (e) { status("Not saved: " + e.message, true); }
   }
   shared.listeners.push((what) => { if (what === "budget") drawPlan(); });
+
+  // ---- memory, as the game last ran: the Lua heap and the active set ----------
+  const ACTIVE_MAX = 6 * 1048576;                   // SPEC §2
+  function drawRan() {
+    const m = shared.memory;
+    ran.replaceChildren(
+      h("div", { className: "bar", style: "margin-bottom:6px" }, h("h3", { style: "margin:0" }, "Memory, as the game ran"),
+        help("Measured while the game runs from Run, once a second. The Lua heap is the game's working memory: its " +
+          "tables, strings and code. The active set is the parts of the package in memory at once (pictures, maps, " +
+          "sounds), at most 6 MB. When it is full, parts not in use are let go and read again when wanted: on a " +
+          "console each of those is a read from the SD card, a pause in the game. Preload behind a loading screen " +
+          "to avoid them.")),
+      !m ? h("p", { className: "muted", style: "margin:0" }, "Run the game to measure it.")
+        : h("div", {}, row("Lua heap, its peak", m.heap_peak, 256 * 1024),
+            row("active set, its peak", m.active_peak, ACTIVE_MAX),
+            row("active set, now", m.active, ACTIVE_MAX),
+            h("div", { className: m.reread ? "warn" : "muted", style: "margin:3px 0" },
+              ...(m.reread ? ["⚠ ", String(m.reread), " parts let go for room and read again"] : ["✓ No part was read again"]))));
+  }
+  shared.listeners.push((what) => { if (what === "memory") drawRan(); });
+  drawRan();
 
   const kb = (n) => (n < 1048576 ? `${Math.ceil(n / 1024).toLocaleString("en")} KB` : `${(n / 1048576).toFixed(2)} MB`);
 

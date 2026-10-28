@@ -1467,7 +1467,8 @@ def edit_server(game: str, port: int = 0, token: str = None):
                 if url.path == "/api/live":           # the running game's last word on a reload
                     running = bool(live["proc"] and live["proc"].poll() is None)
                     return self.reply(200, json.dumps({"mode": live["on"] or "", "running": running,
-                                                       "said": live["said"], "heard": live["heard"]}),
+                                                       "said": live["said"], "heard": live["heard"],
+                                                       "memory": live["memory"]}),
                                       "application/json")
                 if url.path == "/api/file":
                     path = edit_path(game, q.get("path", [""])[0])
@@ -1598,7 +1599,8 @@ def edit_server(game: str, port: int = 0, token: str = None):
     # "live" is "restart" it starts again; while "hot", it goes on with what
     # changed (pulli-host --hot: hot reload, its state kept), and starts
     # again only when the manifest changed or the reload could not be sent.
-    live = {"on": False, "proc": None, "tmp": None, "timer": None, "entries": None, "n": 0, "said": "", "heard": 0}
+    live = {"on": False, "proc": None, "tmp": None, "timer": None, "entries": None, "n": 0, "said": "", "heard": 0,
+            "memory": None}
     lock = threading.Lock()
 
     def stop_game():
@@ -1624,19 +1626,22 @@ def edit_server(game: str, port: int = 0, token: str = None):
         with open(pkg, "wb") as f:
             f.write(data)
         hot = live["on"] == "hot"
-        proc = subprocess.Popen([host, pkg] + (["--hot"] if hot else []), stdin=subprocess.PIPE if hot else None,
-                                stdout=subprocess.PIPE if hot else None, text=True if hot else None)
+        proc = subprocess.Popen([host, pkg, "--memory"] + (["--hot"] if hot else []),
+                                stdin=subprocess.PIPE if hot else None, stdout=subprocess.PIPE, text=True)
         with lock:
-            live["proc"], live["tmp"], live["n"] = proc, tmp, 0
+            live["proc"], live["tmp"], live["n"], live["memory"] = proc, tmp, 0, None
             live["entries"] = dict(parse(data)) if hot else None
-        if hot:                                    # what it says of each reload, kept for the page
-            def listen():
-                for line in proc.stdout:
-                    line = line.strip()
-                    print(f"live run: {line}", file=sys.stderr)
-                    if line.startswith("reload"):       # (not the game's own dbg lines)
-                        live["said"], live["heard"] = line, live["heard"] + 1
-            threading.Thread(target=listen, daemon=True).start()
+        def listen():                              # what it says of each reload, and its memory
+            for line in proc.stdout:
+                line = line.strip()
+                if line.startswith("memory\t"):        # once a second: kept for the budget
+                    n = [int(x) for x in line.split("\t")[1:6]]
+                    live["memory"] = dict(zip(("heap", "heap_peak", "active", "active_peak", "reread"), n))
+                    continue
+                print(f"live run: {line}", file=sys.stderr)
+                if line.startswith("reload"):           # (not the game's own dbg lines)
+                    live["said"], live["heard"] = line, live["heard"] + 1
+        threading.Thread(target=listen, daemon=True).start()
         return "\n".join(notes)
 
     def hot_reload():

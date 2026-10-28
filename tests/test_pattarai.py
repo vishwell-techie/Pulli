@@ -161,6 +161,32 @@ def library(t):
             all(re.search("[\u0b80-\u0bff]", ta) and en == m and all(n in ta for n in re.findall(r"\d+(?:\.\d+)?|[\w-]+\.(?:lua|tmx|json|wav)", m))
                 for m, ta, en in r["statusTa"]) and r["statusUnknown"] == "the package has no 'x.lua'",
             [m for m, ta, en in r["statusTa"] if not re.search("[\u0b80-\u0bff]", ta)])
+    # the help behind each "?" and the tooltips: every one Pattarai writes has
+    # its Tamil (code, keys and file names in them kept)
+    texts = []
+    lit = r'"((?:[^"\\]|\\.)*)"'
+    def joined(src):                       # string literals, those joined by + as one
+        return [re.sub(r'"\s*\+\s*"', "", m.group(0))[1:-1].strip()
+                for m in re.finditer(lit + r'(?:\s*\+\s*' + lit + r')*', src)]
+    pattarai_dir = os.path.join(ROOT, "tools", "pattarai")
+    for f in sorted(os.listdir(pattarai_dir)):
+        if not f.endswith(".js"):
+            continue
+        src = open(os.path.join(pattarai_dir, f), encoding="utf-8").read()
+        for m in re.finditer(r"\bhelp\(", src):
+            depth, i = 1, m.end()
+            while depth:
+                depth += {"(": 1, ")": -1}.get(src[i], 0)
+                i += 1
+            texts += joined(src[m.end():i - 1])
+        texts += [s.strip() for s in re.findall(r'title:\s*' + lit + r'\s*[,}]', src)]
+        texts += joined("".join(re.findall(r"CHANNEL_NOTE = ((?:.|\n)*?);\n", src)))
+    texts += re.findall(r'title="([^"]*)"', open(os.path.join(pattarai_dir, "index.html"), encoding="utf-8").read())
+    texts = {json.loads(f"\"{s}\"") for s in texts if " " in s and re.search("[a-z]{3}", s) and s != "தமிழ் / English"}
+    missing = sorted(texts - set(r["taKeys"]))
+    t.check(f"the help behind each ? and every tooltip have their Tamil ({len(texts)} texts)", len(texts) > 60 and not missing, missing)
+    t.check("a tooltip with a key or a number is given in Tamil with it in place",
+            all(re.search("[\u0b80-\u0bff]", ta) for _, ta in r["titleTa"]) and r["titleTa"][0][1].endswith("(P)"), r["titleTa"])
     o = r["ornaments"]
     t.check("bell, conch and jalra: in any drum part, two at once, a volume, written back by name, each a sound, the same on every kit",
             o["hits"] == [[0, "bell", None], [2, "conch", None], [2, "strong", None], [3, "jalra", 5]] and
@@ -708,6 +734,8 @@ def hot(t):
             src = open(os.path.join(game, "main.lua")).read()
             ask("PUT", "/api/file?path=main.lua", (src + "\nlocal again = true\n").encode())
             first = heard(0)
+            until(lambda: json.loads(ask("GET", "/api/live")[1])["memory"])
+            memory = json.loads(ask("GET", "/api/live")[1])["memory"]
             proc = srv.live_proc()
             ask("PUT", "/api/file?path=manifest.lua",
                 open(os.path.join(game, "manifest.lua")).read().replace('"Catch"', '"Catch again"').encode())
@@ -721,6 +749,9 @@ def hot(t):
             t.check("hot reload: a file that will not run is said (with its line), and the game goes on",
                     second["said"].startswith("reload: main.lua:") and second["running"], second)
             t.check("hot reload: a changed manifest starts the game again", restarted)
+            t.check("the running game's memory reaches Pattarai once a second: the Lua heap, the active set and their peaks, "
+                    "and the parts read again", memory and 0 < memory["heap"] <= memory["heap_peak"]
+                    and 0 < memory["active"] <= memory["active_peak"] <= 6 * 1048576 and memory["reread"] == 0, memory)
         finally:
             ask("POST", "/api/stop")
             srv.shutdown()

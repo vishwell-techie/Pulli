@@ -5,7 +5,7 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
-item 32 on 27 October 2026 and items 33 to 36 on 28 October
+item 32 on 27 October 2026 and items 33 to 37 on 28 October
 2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
@@ -554,6 +554,8 @@ map.objects(layer)                 -- the map's objects; layer optional
 sheet.load(name)                   -- use another sprite sheet from the package
 preload(name, ...)                 -- read parts of the package into memory now
 stat("active")                     -- KB of the package in memory
+stat("active_peak")                -- the most KB of it held at once
+stat("reread")                     -- parts let go for room and read again
 backdrop(name)                     -- a picture each frame starts from; backdrop() lets it go
 ```
 
@@ -988,7 +990,7 @@ Pattarai, the editors, in a web browser (§10 item 32).
 
 Made while building and testing the first runtime. Items 1 to 28 were
 approved by 18 October 2026, item 32 on 27 October 2026 and items 33 to
-36 on 28 October 2026; the others
+37 on 28 October 2026; the others
 await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
@@ -1190,7 +1192,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    returns them to the game as tables, with their own properties. Ooru
    places, moves and removes objects and sets their names, classes and
    properties, keeping any it does not change as Tiled wrote them.
-37. **Hot reload** (§3, §6), awaiting approval. An emulator may hot-reload
+37. **Hot reload** (§3, §6), approved 28 October 2026. An emulator may hot-reload
    a running game while it is edited (`pulli-host --hot`, Pattarai's Run
    with "on save: hot reload"): the package is written again and the
    entries that changed are named; what the game has in memory from the
@@ -1204,3 +1206,11 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    had; a changed manifest starts the game again. Hot reload keeps the
    game's debug information (the names it joins by). A console never
    reloads and never calls `reload()`.
+38. **The active set's peak, and parts read again** (§2, §3), awaiting
+   approval. `stat("active_peak")` is the most of the package the active
+   set has held at once, in KB, and `stat("reread")` how many times a part
+   let go for room was read again; on a console each of those is a read
+   from the SD card or cartridge, a pause a game avoids with `preload`. A
+   port reports both with the Lua heap; the emulators and the Pico 2 board
+   print them, and `pulli-host --memory` writes them once a second for
+   Pattarai.

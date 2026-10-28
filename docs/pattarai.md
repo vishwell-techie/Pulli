@@ -300,6 +300,13 @@ spec: the package against 64 MB and 1,024 entries, each part against the
 6 MB a game holds in memory at once, what is read as it starts, and the
 Pico 2 board's 4 MB of flash. Bars show what takes the most room.
 
+**Memory, as the game ran** shows, while the game runs from **▶ Run game**
+and after it stops, the Lua heap's peak and the active set's (the parts of
+the package in memory at once, at most 6 MB), measured once a second, and
+how many parts were let go for room and read again. Each of those is a read
+from the SD card on a console, a pause in the game: `preload` the parts
+behind a loading screen instead.
+
 ## Running the game
 
 **▶ Run game** packs the game and plays it in the emulator's window; **■ Stop game**
@@ -325,11 +332,7 @@ to see it.
 
 ## In Tamil
 
-The **தமிழ்** button puts Pattarai's own words in Tamil, the status line's
-messages too. Code, file names and swaras stay as they are written, and so
+The **தமிழ்** button puts Pattarai's own words in Tamil: the status line's
+messages, the help behind each **?** and the notes shown when the pointer
+rests on a control too. Code, file names and swaras stay as they are written, and so
 does an error from a file (pack's or Lua's).
-
-## Not yet
-
-- The help behind each **?**, and the notes shown when the pointer rests
-  on a control, in Tamil.

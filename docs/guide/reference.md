@@ -316,7 +316,10 @@ Seconds since the game started, counted in frames: it goes up by exactly
 `stat("frame")`: updates since the game started. `stat("mem")`: Lua memory
 in use, in KB. `stat("fps")`: updates a second over the last second.
 `stat("active")`: the game's parts in memory, in KB (at most 6144; see
-Loading). `stat("cpu")`: the percentage of the last frame's time that `update` and
+Loading). `stat("active_peak")`: the most of them held at once, in KB.
+`stat("reread")`: how many parts were let go for room and read again; on a
+console each is a read from the SD card, so a game keeps it at 0 by
+preloading. `stat("cpu")`: the percentage of the last frame's time that `update` and
 `draw` used; over 100 means the frame ran late. `fps` and `cpu` are for
 finding out why a game is slow, not for the game to act on: they differ from
 run to run, and are `nil` where there is no clock to measure with.

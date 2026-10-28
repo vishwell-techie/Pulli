@@ -1,13 +1,18 @@
 /* sdl_main.c — Pulli desktop host: a window, a keyboard, game controllers
  * (pad.c) and a clock.
  *
- *   pulli-host <game.pulli> [scale] [--link PORT] [--debug] [--hot]   (scale 3 when left out)
+ *   pulli-host <game.pulli> [scale] [--link PORT] [--debug] [--hot] [--memory]   (scale 3 when left out)
  *
  * --hot: hot reload, for Pattarai. A line on the standard input,
  * "reload<TAB>PACKAGE<TAB>ENTRY ENTRY...", gives the game's package written
  * again (a file of its own) and the entries that changed (none listed:
  * any); the game goes on with them (pulli_reload), and "reloaded" or
  * "reload: why not" is written back.
+ *
+ * --memory: once a second, a line on the standard output,
+ * "memory<TAB>HEAP<TAB>PEAK<TAB>ACTIVE<TAB>PEAK<TAB>READ AGAIN": the Lua heap
+ * and the active set (SPEC §2) in bytes as the console counts them, and how
+ * many parts were let go for room and read again. For Pattarai's budget.
  *
  * Start two with the same --link port to play a linked game between them.
  *
@@ -94,12 +99,14 @@ static const SDL_Scancode KEYMAP[PULLI_BTN_COUNT] = {
 int main(int argc, char **argv) {
     const char *game = NULL, *link_port = NULL;
     int scale = SCALE_DEFAULT;
-    bool bad = false, debug = false, hot = false;
+    bool bad = false, debug = false, hot = false, memory = false;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--link")) {
             if (++i < argc) link_port = argv[i]; else bad = true;
         } else if (!strcmp(argv[i], "--hot")) {
             hot = debug = true;                 /* the names of a function's values: kept */
+        } else if (!strcmp(argv[i], "--memory")) {
+            memory = true;
         } else if (!strcmp(argv[i], "--debug")) {
             debug = true;                       /* keep line numbers for errors */
         } else if (!game) {
@@ -111,7 +118,7 @@ int main(int argc, char **argv) {
         }
     }
     if (!game || bad) {
-        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT] [--debug] [--hot]\n");
+        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT] [--debug] [--hot] [--memory]\n");
         return 2;
     }
 
@@ -217,6 +224,12 @@ int main(int argc, char **argv) {
                 if (keys[KEYMAP[i]]) buttons |= 1u << i;
             running = pulli_update(&engine, buttons);
             accum -= STEP;
+            if (memory && engine.ctx.frame % PULLI_TICK_HZ == 0) {
+                printf("memory\t%zu\t%zu\t%u\t%u\t%u\n", pulli_heap_used(&engine), pulli_heap_peak(&engine),
+                       (unsigned)engine.active, (unsigned)pulli_active_peak(&engine),
+                       (unsigned)pulli_active_rereads(&engine));
+                fflush(stdout);
+            }
         }
         if (!running || !pulli_draw(&engine)) break;
 
