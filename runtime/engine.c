@@ -517,6 +517,105 @@ void pulli_present(pulli_engine *e) {
     }
 }
 
+/* ---- hot reload (the emulator, while a game is edited) ---------------- */
+/* The entry of `pk` that holds the byte at `offset`: its name and place. */
+static bool entry_holding(const pulli_pkg *pk, uint32_t offset, char name[PULLI_PKG_NAME_MAX + 1], pulli_entry *en) {
+    for (int i = 0; i < pk->count; i++) {
+        pulli_pkg_name(pk, i, name);
+        if (pulli_pkg_find(pk, name, en) && offset >= en->offset && offset < en->offset + (en->len ? en->len : 1))
+            return true;
+    }
+    return false;
+}
+
+static bool listed(const char *name, const char *const *names, int count) {
+    if (!names) return true;                       /* no list: everything changed */
+    for (int i = 0; i < count; i++) if (!strcmp(names[i], name)) return true;
+    return false;
+}
+
+const char *pulli_reload(pulli_engine *e, size_t len, const char *const *changed, int count) {
+    static char why[300];
+    if (!e->running) return "the game is not running";
+    if (e->pkg.base || !e->backend || !e->backend->pkg_read) return "hot reload needs the package read in parts";
+    pulli_pkg old = e->pkg;
+    const char *bad = pulli_pkg_open(&e->pkg, NULL, len, e->backend->pkg_read);
+    if (bad) {                                     /* the game cannot go on: its package is gone */
+        pulli_pkg_close(&old);
+        snprintf(e->error, sizeof(e->error), "hot reload: %s", bad);
+        e->running = false;
+        return e->error;
+    }
+    /* Each part in memory: moved to where its entry now lies, if the entry
+     * did not change; otherwise marked to go (len 0 is not a part's). */
+    char name[PULLI_PKG_NAME_MAX + 1], sheet[PULLI_PKG_NAME_MAX + 1] = "", back[PULLI_PKG_NAME_MAX + 1] = "",
+         map[PULLI_PKG_NAME_MAX + 1] = "";
+    bool sound_gone = false;
+    pulli_entry was, now;
+    for (int i = 0; i < e->part_count; i++) {
+        pulli_part *p = &e->parts[i];
+        if (!entry_holding(&old, p->offset, name, &was)) { p->len = 0; continue; }
+        bool keep = !listed(name, changed, count) && pulli_pkg_find(&e->pkg, name, &now) && now.len == was.len;
+        if (p->data && p->data == e->sheet) strcpy(sheet, name);
+        if (p->data && p->data == e->backdrop_part) strcpy(back, name);
+        if (p->data && p->data == e->map_part) strcpy(map, name);
+        if (keep) { p->offset = now.offset + (p->offset - was.offset); continue; }
+        if (!strcmp(name, "sfx.oli") || !strcmp(name, "music.isai")) sound_gone = true;
+        p->len = 0;
+    }
+    pulli_pkg_close(&old);
+    /* A changed sound bank: every sound stops, and the banks are read again. */
+    if (sound_gone) {
+        for (int i = 0; i < e->part_count; i++)
+            if (e->parts[i].sound || e->parts[i].data == e->audio.sfx.data || e->parts[i].data == e->audio.music.data)
+                e->parts[i].len = 0;
+    }
+    /* What was in use from a changed entry is read again from the new one. */
+    const uint8_t *old_sheet = e->sheet, *old_back = e->backdrop_part, *old_map = e->map_part;
+    bool sheet_gone = false, back_gone = false, map_gone = false;
+    for (int i = 0; i < e->part_count; i++) {
+        if (e->parts[i].len) continue;
+        if (e->parts[i].data && e->parts[i].data == old_sheet) sheet_gone = true;
+        if (e->parts[i].data && e->parts[i].data == old_back) back_gone = true;
+        if (e->parts[i].data && e->parts[i].data == old_map) map_gone = true;
+    }
+    int kept = 0;                                  /* the marked parts let go */
+    for (int i = 0; i < e->part_count; i++) {
+        pulli_part *p = &e->parts[i];
+        if (p->len == 0) { free(p->buf); continue; }
+        e->parts[kept++] = *p;
+    }
+    e->part_count = kept;
+    e->active = 0;
+    for (int i = 0; i < kept; i++) if (e->parts[i].data) e->active += e->parts[i].len;
+    why[0] = 0;
+    const char *w;
+    if (sheet_gone) { e->sheet = NULL; if ((w = pulli_sheet_load(e, sheet))) snprintf(why, sizeof(why), "%s", w); }
+    if (back_gone) { e->backdrop_part = NULL; if ((w = pulli_backdrop_load(e, back))) snprintf(why, sizeof(why), "%s", w); }
+    if (map_gone) { e->map_part = NULL; if ((w = pulli_map_use(e, map))) snprintf(why, sizeof(why), "%s", w); }
+    if (sound_gone) {
+        const char *bank;
+        if ((w = pulli_audio_boot(e, &bank))) snprintf(why, sizeof(why), "%s: %s", bank, w);
+    }
+    /* The game's code: each changed Lua file run again in the running game */
+    for (int i = 0; i < (changed ? count : e->pkg.count); i++) {
+        if (changed) snprintf(name, sizeof(name), "%s", changed[i]);
+        else pulli_pkg_name(&e->pkg, i, name);
+        size_t n = strlen(name);
+        if (n < 5 || strcmp(name + n - 4, ".lua") || !strcmp(name, "manifest.lua")) continue;
+        uint32_t srclen;
+        const uint8_t *src = pulli_entry_use(e, name, false, &srclen);
+        if (!src) { snprintf(why, sizeof(why), "%s", e->part_error); continue; }
+        if ((w = pulli_api_reload(e->L, name, src, srclen))) snprintf(why, sizeof(why), "%s", w);
+    }
+    lua_getglobal(e->L, "reload");                 /* the game's own: after its code is new */
+    if (lua_isfunction(e->L, -1)) {
+        lua_pop(e->L, 1);
+        if (!run_callback(e, "reload", false)) return e->error;
+    } else lua_pop(e->L, 1);
+    return why[0] ? why : NULL;
+}
+
 void pulli_shutdown(pulli_engine *e) {
     if (e->save && !pulli_save_commit(e) && e->backend && e->backend->log)
         e->backend->log("save data could not be written");

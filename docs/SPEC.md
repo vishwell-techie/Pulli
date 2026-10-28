@@ -1190,3 +1190,17 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    returns them to the game as tables, with their own properties. Ooru
    places, moves and removes objects and sets their names, classes and
    properties, keeping any it does not change as Tiled wrote them.
+37. **Hot reload** (§3, §6), awaiting approval. An emulator may hot-reload
+   a running game while it is edited (`pulli-host --hot`, Pattarai's Run
+   with "on save: hot reload"): the package is written again and the
+   entries that changed are named; what the game has in memory from the
+   others is kept; a changed sprite sheet, backdrop, map (its cells as the
+   file has them) or sound bank (every sound stops) is read again; each
+   changed Lua file runs again in the running game, its functions new and
+   the values they keep (their upvalues, joined by name to the old
+   functions') as they were, a module's table kept with its functions
+   replaced and new keys added; then the optional callback `reload()`. A
+   file that does not run is reported and the game goes on with the code it
+   had; a changed manifest starts the game again. Hot reload keeps the
+   game's debug information (the names it joins by). A console never
+   reloads and never calls `reload()`.

@@ -21,7 +21,7 @@ Run: python3 tests/test_pattarai.py
 The library checks need node (any recent version); they are skipped,
 loudly, without it.
 """
-import base64, http.client, json, os, re, shutil, struct, subprocess, sys, tempfile, threading
+import base64, http.client, json, os, re, shutil, struct, subprocess, sys, tempfile, threading, time
 
 from harness import Suite, ROOT, pulli
 
@@ -156,6 +156,11 @@ def library(t):
             r["drumSame"] == [True, True, True, True], r["drumSame"])
     t.check("with the drum pattern 'my own' and no drum part, no drums play", r["ownSilent"])
     t.check("a part that cannot be read is left out, and the rest of the song still plays", r["brokenPlays"])
+    t.check("the status line in Tamil: each kind of message, its names and numbers in place; in English as it was; "
+            "a message no pattern knows (a file's own error) as it came",
+            all(re.search("[\u0b80-\u0bff]", ta) and en == m and all(n in ta for n in re.findall(r"\d+(?:\.\d+)?|[\w-]+\.(?:lua|tmx|json|wav)", m))
+                for m, ta, en in r["statusTa"]) and r["statusUnknown"] == "the package has no 'x.lua'",
+            [m for m, ta, en in r["statusTa"] if not re.search("[\u0b80-\u0bff]", ta)])
     o = r["ornaments"]
     t.check("bell, conch and jalra: in any drum part, two at once, a volume, written back by name, each a sound, the same on every kit",
             o["hits"] == [[0, "bell", None], [2, "conch", None], [2, "strong", None], [3, "jalra", 5]] and
@@ -659,6 +664,62 @@ def server(t):
             srv.server_close()
 
 
+def hot(t):
+    """Run with hot reload: a saved Lua file is sent to the running emulator,
+    which goes on with it; a file that will not run is said, and the game
+    goes on; a changed manifest starts the game again."""
+    try:
+        pulli.find_host("pulli-host")
+    except pulli.PackageError:
+        t.skipped += 1
+        print("  SKIP  hot reload (pulli-host is not built)")
+        return
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")     # no window wanted
+    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    with tempfile.TemporaryDirectory() as tmp:
+        game = os.path.join(tmp, "game")
+        shutil.copytree(os.path.join(ROOT, "examples", "catch"), game)
+        srv, token = pulli.edit_server(game, 0)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+        def ask(method, path, body=None):
+            c = http.client.HTTPConnection("127.0.0.1", srv.server_port, timeout=60)
+            c.request(method, path, body=body, headers={"Host": f"127.0.0.1:{srv.server_port}", "X-Pulli-Token": token})
+            r = c.getresponse()
+            return r.status, r.read().decode()
+
+        def heard(after, wait=10):
+            for _ in range(wait * 10):
+                live = json.loads(ask("GET", "/api/live")[1])
+                if live["heard"] > after:
+                    return live
+                time.sleep(0.1)
+            return json.loads(ask("GET", "/api/live")[1])
+        try:
+            status, said = ask("POST", "/api/run?live=hot")
+            time.sleep(1)
+            src = open(os.path.join(game, "main.lua")).read()
+            ask("PUT", "/api/file?path=main.lua", (src + "\nlocal again = true\n").encode())
+            first = heard(0)
+            proc = srv.live_proc()
+            ask("PUT", "/api/file?path=manifest.lua",
+                open(os.path.join(game, "manifest.lua")).read().replace('"Catch"', '"Catch again"').encode())
+            time.sleep(2)
+            restarted = srv.live_proc() is not proc and json.loads(ask("GET", "/api/live")[1])["running"]
+            time.sleep(1)
+            ask("PUT", "/api/file?path=main.lua", (src + "\nlocal = broken\n").encode())
+            second = heard(first["heard"])
+            t.check("Run with hot reload: a saved Lua file goes into the running game, which says it is reloaded",
+                    status == 200 and "hot-reloaded" in said and first["said"] == "reloaded", (said, first))
+            t.check("hot reload: a file that will not run is said (with its line), and the game goes on",
+                    second["said"].startswith("reload: main.lua:") and second["running"], second)
+            t.check("hot reload: a changed manifest starts the game again", restarted)
+        finally:
+            ask("POST", "/api/stop")
+            srv.shutdown()
+            srv.server_close()
+
+
 def main():
     t = Suite("Pattarai, the editors")
     palette(t)
@@ -667,6 +728,7 @@ def main():
     tamil(t)
     project(t)
     server(t)
+    hot(t)
     library(t)
     return t.finish()
 

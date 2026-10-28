@@ -9,6 +9,7 @@ import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
 import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
 import { songWav, madeNote, refreshNote, needsWav, songDigest } from "../tools/pattarai/lib/make.js";
+import { say } from "../tools/pattarai/lib/i18n.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
 
 const [, , village, ...exampleSongs] = process.argv;
@@ -224,6 +225,15 @@ const intro = { ...chip, cycles: 4, loopCycle: 2 };
 out.loop = { frame: M.loopFrame(intro), want: Math.round(2 * M.cycleOf(intro).beats * intro.steps * 60 / intro.tempo / intro.steps * intro.rate), none: M.loopFrame(chip),
   past: M.loopFrame({ ...chip, loopCycle: 99 }) };
 out.loopWav = b64(encodeWAV([M.render(intro)[0]], intro.rate, M.loopFrame(intro)));
+
+// the status line in Tamil: a message with names and numbers, given in Tamil with them in place
+out.statusTa = ["Editing catch: 6 files the editors can open.", "Opened map.tmx: 40×30 tiles, 2 layers.",
+  "Saved music/00-title.json.", "Made music/00-title.wav (6.9 s, 107 KB) and saved music/00-title.json.",
+  "Mohanam: notes not in it were moved to its nearest notes in lead (5 notes).", "Not saved: the budget is strict: music",
+  "A point at 16, 24: name it, give it a class and properties.", "Hot-reloaded: the game goes on with what was saved.",
+  "Not hot-reloaded: main.lua:4: unexpected symbol (the game goes on with the code it had)", "running, hot-reloaded on each save",
+  "Budget set: SD card, strict.", "Copied 3×2 tiles of layer 1: paint with them."].map((m) => [m, say(m, "ta"), say(m, "en")]);
+out.statusUnknown = say("the package has no 'x.lua'", "ta");
 
 // files
 const px = new Uint8Array(24 * 16 * 4);

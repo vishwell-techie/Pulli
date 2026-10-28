@@ -576,6 +576,135 @@ static int l_unrequire(lua_State *L) {
     return 1;
 }
 
+/* ---- hot reload -------------------------------------------------------- */
+/* A changed Lua file of the game, run again while it plays. Its functions
+ * are new; the values they keep (their upvalues: the file's locals) are
+ * joined to the old functions' of the same name, so the game's state stays
+ * where it was. A kept function is followed in turn (a local helper's own
+ * locals are joined too). Names need the debug information, which the
+ * emulator keeps while it hot-reloads. */
+static void join(lua_State *L, int nf, int of, int seen) {
+    /* nf, of: absolute indices of the new and the old function */
+    if (lua_iscfunction(L, nf) || lua_iscfunction(L, of) || lua_rawequal(L, nf, of)) return;
+    lua_pushvalue(L, nf);
+    if (lua_rawget(L, seen) != LUA_TNIL) { lua_pop(L, 1); return; }
+    lua_pop(L, 1);
+    lua_pushvalue(L, nf); lua_pushboolean(L, 1); lua_rawset(L, seen);
+    for (int i = 1; ; i++) {
+        const char *n = lua_getupvalue(L, nf, i);
+        if (!n) break;
+        if (!*n || !strcmp(n, "_ENV") || !strcmp(n, "(no name)") || !strcmp(n, "?")) { lua_pop(L, 1); continue; }
+        int nv = lua_gettop(L);
+        for (int j = 1; ; j++) {
+            const char *o = lua_getupvalue(L, of, j);
+            if (!o) break;
+            if (strcmp(o, n) != 0) { lua_pop(L, 1); continue; }
+            int ov = lua_gettop(L);
+            if (lua_isfunction(L, nv) && lua_isfunction(L, ov)) join(L, nv, ov, seen);   /* new code, old state */
+            else if (!lua_isfunction(L, nv)) lua_upvaluejoin(L, nf, i, of, j);          /* the old value, shared */
+            lua_pop(L, 1);
+            break;
+        }
+        lua_pop(L, 1);
+    }
+}
+
+/* A function new in the file (no old one of its name): its values joined
+ * to those of the same name that any of the file's old functions keep. */
+static void join_any(lua_State *L, int nf, int olds) {
+    lua_pushnil(L);
+    while (lua_next(L, olds)) {
+        if (lua_isfunction(L, -1)) {
+            lua_newtable(L);
+            join(L, nf, lua_gettop(L) - 1, lua_gettop(L));
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+}
+
+const char *pulli_api_reload(lua_State *L, const char *entry, const uint8_t *src, uint32_t len) {
+    static char why[300];
+    char chunk[PULLI_PKG_NAME_MAX + 2], name[PULLI_PKG_NAME_MAX + 1];
+    snprintf(chunk, sizeof(chunk), "@%s", entry);
+    snprintf(name, sizeof(name), "%s", entry);
+    name[strlen(name) - 4] = 0;                                /* without ".lua" */
+    bool main_file = !strcmp(name, "main");
+    lua_settop(L, 0);
+    lua_newtable(L);                                           /* 1: functions followed */
+    int seen = 1;
+    if (!main_file) {
+        luaL_getsubtable(L, LUA_REGISTRYINDEX, MODULES);       /* 2 */
+        int t = lua_getfield(L, 2, name);                      /* 3: the module as loaded */
+        if (t == LUA_TNIL || t == LUA_TLIGHTUSERDATA) { lua_settop(L, 0); return NULL; }   /* not loaded: read when required */
+    } else {
+        lua_pushnil(L); lua_pushnil(L);                        /* 2, 3 unused */
+        lua_newtable(L);                                       /* 4: the old global functions */
+        lua_pushglobaltable(L);
+        lua_pushnil(L);
+        while (lua_next(L, -2)) {
+            if (lua_isfunction(L, -1)) { lua_pushvalue(L, -2); lua_insert(L, -2); lua_rawset(L, 4); }
+            else lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+    if (luaL_loadbufferx(L, (const char *)src, len, chunk, "t") != LUA_OK) {
+        snprintf(why, sizeof(why), "%s", lua_tostring(L, -1));
+        lua_settop(L, 0);
+        return why;
+    }
+    pulli_lua_loaded(E, L);
+    if (!main_file) lua_pushstring(L, name);                  /* a module is given its name, as require does */
+    if (lua_pcall(L, main_file ? 0 : 1, main_file ? 0 : 1, 0) != LUA_OK) {
+        snprintf(why, sizeof(why), "%s", lua_tostring(L, -1));
+        lua_settop(L, 0);
+        return why;
+    }
+    if (main_file) {
+        /* each global function the file defines again: joined to the old */
+        lua_pushglobaltable(L);
+        int g = lua_gettop(L);
+        lua_pushnil(L);
+        while (lua_next(L, g)) {                               /* key, new value */
+            if (lua_isfunction(L, -1)) {
+                lua_pushvalue(L, -2);
+                if (lua_rawget(L, 4) == LUA_TFUNCTION) join(L, lua_gettop(L) - 1, lua_gettop(L), seen);
+                else join_any(L, lua_gettop(L) - 1, 4);
+                lua_pop(L, 1);
+            }
+            lua_pop(L, 1);
+        }
+        lua_settop(L, 0);
+        return NULL;
+    }
+    int nw = lua_gettop(L), old = 3;                           /* the new module value, the old */
+    if (lua_istable(L, old) && lua_istable(L, nw)) {
+        /* the old table stays the module (others hold it): its functions
+         * new, its values as they are, new keys added */
+        lua_pushnil(L);
+        while (lua_next(L, nw)) {
+            lua_pushvalue(L, -2);
+            int ot = lua_rawget(L, old);
+            if (lua_isfunction(L, -2)) {
+                if (ot == LUA_TFUNCTION) join(L, lua_gettop(L) - 1, lua_gettop(L), seen);
+                else join_any(L, lua_gettop(L) - 1, old);
+                lua_pop(L, 1);
+                lua_pushvalue(L, -2); lua_pushvalue(L, -2); lua_rawset(L, old);
+            } else if (ot == LUA_TNIL) {
+                lua_pop(L, 1);
+                lua_pushvalue(L, -2); lua_pushvalue(L, -2); lua_rawset(L, old);
+            } else lua_pop(L, 1);
+            lua_pop(L, 1);
+        }
+    } else {                                                   /* not a table: the new value is the module */
+        if (lua_isfunction(L, old) && lua_isfunction(L, nw)) join(L, nw, old, seen);
+        lua_pushvalue(L, nw);
+        lua_setfield(L, 2, name);
+    }
+    lua_settop(L, 0);
+    return NULL;
+}
+
 /* Sandbox by construction: the io, os, package and debug libraries are
  * never opened, rather than opened and then hidden. */
 static const luaL_Reg LIBS[] = {

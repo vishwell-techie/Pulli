@@ -48,6 +48,8 @@ void pulli_map_load(pulli_map *m, pulli_blob b);        /* b must have passed th
 
 /* api.c */
 void pulli_api_open(lua_State *L, pulli_engine *e);
+/* Runs a changed Lua file of the game again (hot reload): NULL, or why not. */
+const char *pulli_api_reload(lua_State *L, const char *entry, const uint8_t *src, uint32_t len);
 
 /* save.c — Ninaivu, the key-value save store */
 void pulli_save_boot(pulli_engine *e);

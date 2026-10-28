@@ -24,6 +24,11 @@ Called 60 times a second. `dt` is the time since the last call, always
 Called after each `update`. If the console runs short of time it skips a
 `draw`, never an `update`.
 
+### `reload()`
+Only while the game is hot-reloaded in Pattarai: called after a saved file
+has been run again in the running game, to refresh anything built from
+the old code. A console never calls it.
+
 ## Drawing
 
 ### `cls([c = 0])`

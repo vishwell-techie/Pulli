@@ -102,12 +102,39 @@ static bool parse_taps(const char *list) {
     return true;
 }
 
+/* --reload FRAME:PACKAGE[:ENTRIES]: before frame FRAME, the game's package
+ * becomes PACKAGE and is hot-reloaded, as Pattarai does when a file is
+ * saved (ENTRIES: the entries that changed, by comma; all if left out). */
+#define RELOADS_MAX 4
+static struct { long frame; char *pkg; const char *names[64]; int count; } reloads[RELOADS_MAX];
+static int reload_count;
+
+static bool parse_reload(char *v) {
+    if (reload_count == RELOADS_MAX) return false;
+    char *pkg = strchr(v, ':');
+    if (!pkg) return false;
+    *pkg++ = 0;
+    reloads[reload_count].frame = atol(v);
+    char *names = strchr(pkg, ':');
+    reloads[reload_count].pkg = pkg;
+    reloads[reload_count].count = -1;              /* all */
+    if (names) {
+        *names++ = 0;
+        int n = 0;
+        for (char *t = strtok(names, ","); t && n < 64; t = strtok(NULL, ",")) reloads[reload_count].names[n++] = t;
+        reloads[reload_count].count = n;
+    }
+    reload_count++;
+    return true;
+}
+
 static int usage(void) {
     fprintf(stderr,
         "usage: pulli-headless <game.pulli> [--frames N] [--hold BUTTONS] [--tap BUTTON@FRAME[-FRAME],...]\n"
         "                      [--caps CAPS] [--link PORT]\n"
         "                      [--saves DIR] [--dump-fb FILE] [--dump-rgb FILE] [--dump-wav FILE]\n"
-        "                      [--clock-step US] [--mapped] [--cart IMAGE] [--cart-cut BYTES] [--debug]\n");
+        "                      [--clock-step US] [--mapped] [--cart IMAGE] [--cart-cut BYTES] [--debug]\n"
+        "                      [--reload FRAME:PACKAGE[:ENTRY,ENTRY...]]\n");
     return 2;
 }
 
@@ -149,6 +176,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--link"))     { if (!host_use_link(&backend, v, true)) return usage(); }
         else if (!strcmp(a, "--cart"))     cart = v;
         else if (!strcmp(a, "--cart-cut")) cart_cut = atol(v);
+        else if (!strcmp(a, "--reload"))   { if (!parse_reload(argv[i])) return usage(); }
         else return usage();
     }
     if ((!game) == (!cart) || frames < 0 || (cart && mapped)) return usage();
@@ -182,6 +210,14 @@ int main(int argc, char **argv) {
     bool ok = pulli_boot(&engine, data, len, &backend);
     long done = 0;
     while (ok && done < frames) {
+        for (int r = 0; r < reload_count; r++) {
+            if (reloads[r].frame != done + 1) continue;
+            size_t n;
+            if (!host_open_package(reloads[r].pkg, &n)) { fprintf(stderr, "pulli-headless: cannot read %s\n", reloads[r].pkg); return 2; }
+            const char *why = pulli_reload(&engine, n, reloads[r].count < 0 ? NULL : reloads[r].names,
+                                           reloads[r].count < 0 ? 0 : reloads[r].count);
+            if (why) fprintf(stderr, "reload: %s\n", why);
+        }
         uint32_t buttons = held;
         for (int i = 0; i < tap_count; i++)
             if (taps[i].frame <= done + 1 && done + 1 <= taps[i].last) buttons |= taps[i].buttons;

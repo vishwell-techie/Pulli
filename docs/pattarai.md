@@ -303,16 +303,33 @@ Pico 2 board's 4 MB of flash. Bars show what takes the most room.
 ## Running the game
 
 **▶ Run game** packs the game and plays it in the emulator's window; **■ Stop game**
-closes it. With **restart on save** ticked it starts again a moment after
-each save, so a change shows at once. The game starts from the beginning
-each time: this is not hot reload.
+closes it. **On save** says what the running game does a moment after each
+save:
+
+- **hot reload** (the first choice): the game goes on where it is, with
+  what was saved. A Lua file runs again: its functions are new, and the
+  values they keep (the file's locals, a module's table) keep the state
+  they have, so a change to how the game behaves shows at once, mid-level.
+  A changed sprite sheet, backdrop or sound is read again; a changed map
+  comes back as the file has it; a changed sound bank stops every sound. A
+  game may define `reload()`, called after, to refresh what it built from
+  the old code. A file that does not run is said in the status line, with
+  its line, and the game goes on with the code it had. A change to
+  `manifest.lua` starts the game again.
+- **restart**: the game starts again from the beginning.
+- **nothing**: the game is left as it is.
+
+What hot reload cannot change: a value the code set once and kept (a table
+of constants, say, edited in the file) keeps the value it has; start again
+to see it.
 
 ## In Tamil
 
-The **தமிழ்** button puts Pattarai's own words in Tamil. Code, file names
-and swaras stay as they are written.
+The **தமிழ்** button puts Pattarai's own words in Tamil, the status line's
+messages too. Code, file names and swaras stay as they are written, and so
+does an error from a file (pack's or Lua's).
 
 ## Not yet
 
-- Hot reload that keeps the game's state.
-- The status line and help text in Tamil.
+- The help behind each **?**, and the notes shown when the pointer rests
+  on a control, in Tamil.

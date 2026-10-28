@@ -1464,6 +1464,11 @@ def edit_server(game: str, port: int = 0, token: str = None):
                     return self.reply(200, json.dumps(out), "application/json")
                 if url.path == "/api/budget":
                     return self.reply(200, json.dumps(budget(game)), "application/json")
+                if url.path == "/api/live":           # the running game's last word on a reload
+                    running = bool(live["proc"] and live["proc"].poll() is None)
+                    return self.reply(200, json.dumps({"mode": live["on"] or "", "running": running,
+                                                       "said": live["said"], "heard": live["heard"]}),
+                                      "application/json")
                 if url.path == "/api/file":
                     path = edit_path(game, q.get("path", [""])[0])
                     if not path or not os.path.isfile(path):
@@ -1543,9 +1548,11 @@ def edit_server(game: str, port: int = 0, token: str = None):
                 return self.reply(200, "stopped")
             if call != "/api/run":
                 return self.reply(404, "no such call")
-            live["on"] = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("live") == ["1"]
+            mode = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("live", [""])[0]
+            live["on"] = {"1": "restart", "restart": "restart", "hot": "hot"}.get(mode, False)
             try:
-                return self.reply(200, start_game() or ("running, restarted on each save" if live["on"] else "running"))
+                return self.reply(200, start_game() or {"restart": "running, restarted on each save",
+                                                        "hot": "running, hot-reloaded on each save"}.get(live["on"], "running"))
             except (PackageError, OSError) as e:
                 return self.reply(400, str(e))
 
@@ -1587,9 +1594,11 @@ def edit_server(game: str, port: int = 0, token: str = None):
             return None
         return "the budget is strict: " + "; ".join(after["over"])
 
-    # The game the Run button started: one at a time, restarted after each
-    # save while "live" is on (its state starts again; this is not hot reload)
-    live = {"on": False, "proc": None, "tmp": None, "timer": None}
+    # The game the Run button started: one at a time. After each save, while
+    # "live" is "restart" it starts again; while "hot", it goes on with what
+    # changed (pulli-host --hot: hot reload, its state kept), and starts
+    # again only when the manifest changed or the reload could not be sent.
+    live = {"on": False, "proc": None, "tmp": None, "timer": None, "entries": None, "n": 0, "said": "", "heard": 0}
     lock = threading.Lock()
 
     def stop_game():
@@ -1614,12 +1623,57 @@ def edit_server(game: str, port: int = 0, token: str = None):
         pkg = os.path.join(tmp, os.path.basename(game) + EXT)
         with open(pkg, "wb") as f:
             f.write(data)
+        hot = live["on"] == "hot"
+        proc = subprocess.Popen([host, pkg] + (["--hot"] if hot else []), stdin=subprocess.PIPE if hot else None,
+                                stdout=subprocess.PIPE if hot else None, text=True if hot else None)
         with lock:
-            live["proc"], live["tmp"] = subprocess.Popen([host, pkg]), tmp
+            live["proc"], live["tmp"], live["n"] = proc, tmp, 0
+            live["entries"] = dict(parse(data)) if hot else None
+        if hot:                                    # what it says of each reload, kept for the page
+            def listen():
+                for line in proc.stdout:
+                    line = line.strip()
+                    print(f"live run: {line}", file=sys.stderr)
+                    if line.startswith("reload"):       # (not the game's own dbg lines)
+                        live["said"], live["heard"] = line, live["heard"] + 1
+            threading.Thread(target=listen, daemon=True).start()
         return "\n".join(notes)
 
+    def hot_reload():
+        """The game packed again and sent to the running emulator: only the
+        entries that changed. False if it must start again instead."""
+        data = build(game)
+        entries = dict(parse(data))
+        with lock:
+            proc, tmp, old = live["proc"], live["tmp"], live["entries"]
+        if not proc or proc.poll() is not None or old is None or proc.stdin is None:
+            return False
+        changed = sorted(n for n in set(entries) | set(old) if entries.get(n) != old.get(n))
+        if "manifest.lua" in changed:
+            return False
+        if not changed:
+            return True
+        live["n"] += 1                            # a file of its own: the emulator has the last one open
+        pkg = os.path.join(tmp, f"{os.path.basename(game)}.{live['n']}{EXT}")
+        with open(pkg, "wb") as f:
+            f.write(data)
+        try:
+            proc.stdin.write(f"reload\t{pkg}\t{' '.join(changed)}\n")
+            proc.stdin.flush()
+        except (OSError, ValueError):
+            return False
+        with lock:
+            live["entries"] = entries
+        for n in range(1, live["n"] - 1):         # older ones, no longer read
+            try:
+                os.remove(os.path.join(tmp, f"{os.path.basename(game)}.{n}{EXT}"))
+            except OSError:
+                pass
+        return True
+
     def saved():
-        """After a file is saved: restart a live game, once the saving stops."""
+        """After a file is saved: hot-reload or restart a live game, once the
+        saving stops."""
         if not live["on"] or not live["proc"] or live["proc"].poll() is not None:
             return
         if live["timer"]:
@@ -1627,7 +1681,8 @@ def edit_server(game: str, port: int = 0, token: str = None):
 
         def restart():
             try:
-                start_game()
+                if live["on"] != "hot" or not hot_reload():
+                    start_game()
             except (PackageError, OSError) as e:
                 print(f"live run: {e}", file=sys.stderr)
         live["timer"] = threading.Timer(0.4, restart)
@@ -1635,6 +1690,7 @@ def edit_server(game: str, port: int = 0, token: str = None):
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
     server.stop_game = stop_game
+    server.live_proc = lambda: live["proc"]
     return server, token
 
 

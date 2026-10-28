@@ -63,10 +63,12 @@ class Suite:
         return False
 
     def _start(self, tmp, data, frames=1, hold=None, tap=None, caps=None, saves=None, link=None,
-               sound=False, clock=None, mapped=False, cart=None, cart_cut=None, debug=False):
+               sound=False, clock=None, mapped=False, cart=None, cart_cut=None, debug=False, reload=None):
         """`mapped` holds the whole package in memory instead of reading it in
         parts; `cart`, a path, runs that cartridge image (and `data` is
-        ignored), its first save cut off after `cart_cut` bytes if given."""
+        ignored), its first save cut off after `cart_cut` bytes if given;
+        `reload`, [(frame, package bytes, [changed entries] or None)], hot-
+        reloads the game with each package before that frame."""
         os.makedirs(tmp)
         pkg, fb, rgb, wav = (os.path.join(tmp, n) for n in ("game.pulli", "fb", "rgb", "wav"))
         with open(pkg, "wb") as f:
@@ -75,6 +77,11 @@ class Suite:
         cmd = [self.headless] + game + ["--frames", str(frames), "--dump-fb", fb, "--dump-rgb", rgb]
         if mapped:
             cmd.append("--mapped")
+        for n, (frame, again, names) in enumerate(reload or []):
+            path = os.path.join(tmp, f"reload{n}.pulli")
+            with open(path, "wb") as f:
+                f.write(again)
+            cmd += ["--reload", f"{frame}:{path}" + (":" + ",".join(names) if names else "")]
         if debug:
             cmd.append("--debug")             # keep line numbers, as a developer would
         if cart_cut is not None:

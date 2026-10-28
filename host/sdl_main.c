@@ -1,7 +1,13 @@
 /* sdl_main.c — Pulli desktop host: a window, a keyboard, game controllers
  * (pad.c) and a clock.
  *
- *   pulli-host <game.pulli> [scale] [--link PORT]      (scale 3 when left out)
+ *   pulli-host <game.pulli> [scale] [--link PORT] [--debug] [--hot]   (scale 3 when left out)
+ *
+ * --hot: hot reload, for Pattarai. A line on the standard input,
+ * "reload<TAB>PACKAGE<TAB>ENTRY ENTRY...", gives the game's package written
+ * again (a file of its own) and the entries that changed (none listed:
+ * any); the game goes on with them (pulli_reload), and "reloaded" or
+ * "reload: why not" is written back.
  *
  * Start two with the same --link port to play a linked game between them.
  *
@@ -37,6 +43,44 @@ static void audio(const int16_t *stereo, int frames) {
     SDL_QueueAudio(speaker, stereo, (Uint32)frames * 2 * sizeof(int16_t));
 }
 
+/* --hot: the lines read from the standard input, by a thread of their own
+ * (a read waits), handed to the main loop. */
+static SDL_mutex *hot_lock;
+static char hot_line[4096];
+static bool hot_ready;
+
+static int hot_reader(void *unused) {
+    (void)unused;
+    char line[sizeof(hot_line)];
+    while (fgets(line, sizeof(line), stdin)) {
+        SDL_LockMutex(hot_lock);
+        memcpy(hot_line, line, sizeof(line));
+        hot_ready = true;
+        SDL_UnlockMutex(hot_lock);
+    }
+    return 0;
+}
+
+static void hot_reload(void) {
+    char line[sizeof(hot_line)];
+    SDL_LockMutex(hot_lock);
+    bool ready = hot_ready;
+    if (ready) memcpy(line, hot_line, sizeof(line));
+    hot_ready = false;
+    SDL_UnlockMutex(hot_lock);
+    if (!ready || strncmp(line, "reload\t", 7) != 0) return;
+    char *game = line + 7, *list = strchr(game, '\t');
+    if (list) *list++ = 0; else game[strcspn(game, "\r\n")] = 0;
+    const char *names[64];
+    int n = 0;
+    for (char *t = list ? strtok(list, " \r\n") : NULL; t && n < 64; t = strtok(NULL, " \r\n")) names[n++] = t;
+    size_t len;
+    if (!host_open_package(game, &len)) { printf("reload: cannot read %s\n", game); fflush(stdout); return; }
+    const char *why = pulli_reload(&engine, len, n ? names : NULL, n);
+    if (why) printf("reload: %s\n", why); else printf("reloaded\n");
+    fflush(stdout);
+}
+
 static uint32_t micros(void) {
     return (uint32_t)((SDL_GetPerformanceCounter() * 1000000ull) / SDL_GetPerformanceFrequency());
 }
@@ -50,10 +94,12 @@ static const SDL_Scancode KEYMAP[PULLI_BTN_COUNT] = {
 int main(int argc, char **argv) {
     const char *game = NULL, *link_port = NULL;
     int scale = SCALE_DEFAULT;
-    bool bad = false, debug = false;
+    bool bad = false, debug = false, hot = false;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--link")) {
             if (++i < argc) link_port = argv[i]; else bad = true;
+        } else if (!strcmp(argv[i], "--hot")) {
+            hot = debug = true;                 /* the names of a function's values: kept */
         } else if (!strcmp(argv[i], "--debug")) {
             debug = true;                       /* keep line numbers for errors */
         } else if (!game) {
@@ -65,7 +111,7 @@ int main(int argc, char **argv) {
         }
     }
     if (!game || bad) {
-        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT] [--debug]\n");
+        fprintf(stderr, "usage: pulli-host <game.pulli> [scale, 3 if left out] [--link PORT] [--debug] [--hot]\n");
         return 2;
     }
 
@@ -143,7 +189,14 @@ int main(int argc, char **argv) {
     double accum = 0.0;
     bool running = true;
 
+    if (hot) {
+        hot_lock = SDL_CreateMutex();
+        SDL_Thread *t = hot_lock ? SDL_CreateThread(hot_reader, "hot", NULL) : NULL;
+        if (t) SDL_DetachThread(t); else hot = false;
+    }
+
     while (running) {
+        if (hot) hot_reload();
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) running = false;
