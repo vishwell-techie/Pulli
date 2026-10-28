@@ -6,7 +6,8 @@ Run: python3 tests/test_runtime.py
 Each case is a tiny game. It reports through dbg(), which the headless host
 prints to stdout, and the test compares that with what SPEC.md promises.
 """
-import os, sys, tempfile
+import os
+import re, sys, tempfile
 
 from harness import Suite, ROOT
 
@@ -478,6 +479,19 @@ def main():
             out[:4] == ["true\t5120", "true\t5120", "true\t5120", "false\ttrue"], r.out + r.err)
     t.check("a part too big for memory is an error naming it",
             len(out) > 4 and out[4].startswith("false") and "huge.bin" in out[4] and "6144 KB" in out[4], r.out)
+
+    # the active set's peak, and the parts let go for room and read again: on
+    # a console each is a read from the SD card (SPEC §2)
+    r = t.run_game("""
+        local base = stat("active")
+        preload("a.bin", "b.bin") dbg(math.floor(stat("active_peak") - base), stat("reread"))
+        preload("c.bin") preload("a.bin") dbg(math.floor(stat("active_peak") - base), stat("reread"))
+        preload("b.bin") dbg(stat("active_peak") <= 6144, stat("reread"))
+    """, extra=parts)
+    t.check("stat('active_peak') is the most of the package held at once; stat('reread') counts parts read again",
+            r.out.split("\n")[:3] == ["5120\t0", "5120\t1", "true\t2"], r.out + r.err)
+    t.check("the emulator's last line gives the active set's peak and the parts read again",
+            re.search(r"active [\d.]+ KB, peak [\d.]+ of 6144 KB, read again 2", r.err) is not None, r.err[-300:])
 
     sheets = {"sprites.kolam": pulli.kolam(8, 8, bytes([8]) * 64), "blue.kolam": pulli.kolam(8, 8, bytes([12]) * 64)}
     r = t.run_game("""

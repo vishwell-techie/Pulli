@@ -265,6 +265,12 @@ def main():
                               frames=frames, hold=hold, tap=tap, sound=True)
             if not t.check(f"{key}: runs without error", r.code == 0, r.err):
                 continue
+            # the active set (SPEC §2): each example stays well inside its
+            # 6 MB and never lets a part go for room, which on a console is a
+            # pause to read the SD card again
+            m = re.search(r"active [\d.]+ KB, peak ([\d.]+) of 6144 KB, read again (\d+)", r.err)
+            t.check(f"{key}: the active set peaks under 6 MB and nothing is read again",
+                    m is not None and float(m[1]) < 6144 and m[2] == "0", r.err[-200:])
             seen[key] = hashlib.sha256(r.fb + r.rgb).hexdigest()
             seen[key + " sound"] = hashlib.sha256(r.wav).hexdigest()
             if not t.update:
@@ -2146,15 +2152,14 @@ def main():
                     f.write('\nrequire("title").skip = 1\nlocal body, rooms = require("body"), require("rooms")\nlocal up = update\n'
                             'function update(dt) local f = stat("frame") if f == 2 then rooms.enter("s5.ooru", "s4.ooru", body) end '
                             'if f == 100 then rooms.enter("boss.ooru", "s7.ooru", body) end up(dt) '
-                            'local a = stat("active") if a > (_G.most or 0) then _G.most = a end '
-                            'if f == 200 then dbg("active", _G.most) end end\n')
+                            'if f == 200 then dbg("active", stat("active_peak"), stat("reread")) end end\n')
                 data = pulli.build(folder)
                 clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
                 r = t.run_package(data, frames=205)
-            active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999"])
-            t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB",
+            active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999", "-1"])
+            t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB, reading nothing again",
                     len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
-                    and r.code == 0 and float(active[0]) < 6144, f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
+                    and r.code == 0 and float(active[0]) < 6144 and active[1] == "0", f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
 
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",

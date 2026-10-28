@@ -380,6 +380,7 @@ typedef struct {
     pulli_part *parts;                           /* the active set */
     int         part_count, part_cap;
     uint32_t    active, part_clock;              /* bytes in memory; uses counted */
+    uint32_t    active_peak, rereads;            /* the most in memory; parts let go and read again */
     const uint8_t *sheet, *map_part;             /* the sprite sheet and map in use */
     const uint8_t *backdrop_part;                /* the backdrop's part, kept while it is set */
     char        part_error[200];                 /* why a part could not be read */
@@ -423,5 +424,11 @@ const char *pulli_reload(pulli_engine *e, size_t len, const char *const *changed
  * the manifest's lua_heap are in these bytes. */
 size_t pulli_heap_used(const pulli_engine *e);
 size_t pulli_heap_peak(const pulli_engine *e);
+
+/* The active set (SPEC §2): the most of the package it has held at once, in
+ * bytes, and how many times a part let go for room was read again. On a
+ * console each of those reads is a read from the SD card or cartridge. */
+uint32_t pulli_active_peak(const pulli_engine *e);
+uint32_t pulli_active_rereads(const pulli_engine *e);
 
 #endif /* PULLI_RUNTIME_H */

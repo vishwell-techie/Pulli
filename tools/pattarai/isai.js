@@ -48,7 +48,7 @@ export function isai(root) {
       h("div", { className: "wide" }, partsBox,
         h("div", { className: "bar" }, h("button", { onclick: addPart }, "+ Part"),
           h("button", { title: "A drum part of your own, starting from the automatic pattern written out", onclick: addDrumPart }, "+ Drum part"),
-          help("The parts are mixed into one track, which the game plays with music(n). " + CHANNEL_NOTE))),
+          help("The parts are mixed into one track, which the game plays with music(n). ", CHANNEL_NOTE))),
       scaleBox));
 
   // ---- the song's settings ----------------------------------------------------
@@ -210,14 +210,14 @@ export function isai(root) {
       h("p", { className: "muted", style: "margin:0 0 4px" }, song.system === "carnatic" ? "Arohanam" : "Up"), keys(s.up),
       h("p", { className: "muted", style: "margin:8px 0 4px" }, song.system === "carnatic" ? "Avarohanam" : "Down"), keys(s.down),
       h("div", { style: "margin-top:10px" }, h("span", { className: "muted", style: "font-size:12px;margin-right:6px" }, "How to write notes"), help(
-        song.system === "carnatic"
-          ? (song.longCaps ? "Capitals are two aksharas, small letters one: S , r G P D Ṡ N D |. " : "") +
-            "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' or a dot above (Ṡ) an octave up, . or a dot below (Ṇ) down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."
-          : (song.solfa === "fixed"
-              ? "Write fixed do: do re mi fa sol la si, with # or b and an octave (sol4) or without; or letters C D# Bb…; "
-              : "Write letters C D# Bb… with an octave (C4) or without (the song's), or movable do: do re mi fa so la ti, do being the key note; " +
-                "di ri fi si li raise a step, ra me se le te lower one, ' and . for octaves (do' so.); ") +
-            ", holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume.")));
+        ...(song.system === "carnatic"
+          ? [song.longCaps ? "Capitals are two aksharas, small letters one: S , r G P D Ṡ N D |. " : "",
+            "Write S R G M P D N (the raga's own), R1 G3 M2… for others; ' or a dot above (Ṡ) an octave up, . or a dot below (Ṇ) down; , holds; ; holds two; - rests; ~ shakes (kampita), / slides up into a note, \\ down; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."]
+          : [...(song.solfa === "fixed"
+              ? ["Write fixed do: do re mi fa sol la si, with # or b and an octave (sol4) or without; or letters C D# Bb…; "]
+              : ["Write letters C D# Bb… with an octave (C4) or without (the song's), or movable do: do re mi fa so la ti, do being the key note; ",
+                "di ri fi si li raise a step, ra me se le te lower one, ' and . for octaves (do' so.); "]),
+            ", holds; ; holds two; - rests; | bar lines are skipped; ~ / \\ bend a note; {0,4,7} after a note plays it as an arpeggio; !1 to !9 at the end sets its volume."]))));
   }
 
   // ---- parts --------------------------------------------------------------------

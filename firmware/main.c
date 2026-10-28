@@ -104,10 +104,12 @@ static void run_game(void) {
         if (t3 - t0 > worst_us) worst_us = t3 - t0;
         if (++frames == PULLI_TICK_HZ) {
             printf("[pulli] per frame: update %u us, draw %u us, scanout %u us; worst frame %u us of %u; "
-                   "late %u/%u; heap %u KB, peak %u KB\n",
+                   "late %u/%u; heap %u KB, peak %u KB; active %u KB, peak %u KB, read again %u\n",
                    (unsigned)(update_us / frames), (unsigned)(draw_us / frames),
                    (unsigned)(scanout_us / frames), (unsigned)worst_us, (unsigned)FRAME_US,
-                   late, frames, (unsigned)(pulli_heap_used(&engine) / 1024), (unsigned)(pulli_heap_peak(&engine) / 1024));
+                   late, frames, (unsigned)(pulli_heap_used(&engine) / 1024), (unsigned)(pulli_heap_peak(&engine) / 1024),
+                   (unsigned)(engine.active / 1024), (unsigned)(pulli_active_peak(&engine) / 1024),
+                   (unsigned)pulli_active_rereads(&engine));
             update_us = draw_us = scanout_us = worst_us = 0;
             frames = late = 0;
         }
