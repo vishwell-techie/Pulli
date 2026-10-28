@@ -18,11 +18,11 @@ Software first; hardware comes last.
 
 | Part | State |
 |---|---|
-| Spec v0.1 | drafted; October 2026 revision awaiting approval (`docs/SPEC.md` §10) |
+| Spec v0.1 | drafted; October 2026 revision: items 1 to 28 and 32 to 38 approved, 29 to 31 awaiting approval (`docs/SPEC.md` §10) |
 | Engine: rasterizer, package reader, save store, Lua API | built and tested; not yet the whole API (see "Not implemented yet") |
 | Desktop host, windowed and headless | built and tested on Linux (Raspberry Pi 5) |
 | Reference rasterizer and conformance suite | passing; the C engine matches it byte for byte |
-| Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add`, `edit` |
+| Package format and command line | `new`, `pack`, `list`, `unpack`, `run`, `check`, `palette`, `add`, `edit`, `cart` |
 | Maths (`sin`, `cos`, `^` and the rest) | the engine's own, the same bits on every machine; a Pico 2 passes the self-check |
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
@@ -30,10 +30,10 @@ Software first; hardware comes last.
 | Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed; a game may bring its own 64 colours |
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
-| Examples | hello, pong, manickam, talk, catch; all use the SDK helpers |
+| Examples | hello, pong, manickam, talk, catch, nizhalattam; all use the SDK helpers |
 | Audio | 8 effect channels plus music, built from WAV files; plays in the window; no sound output on a board yet |
 | Firmware | one-chip firmware runs on a Pico 2 (RP2350): Pong at 60 frames a second, and Manickam and its benchmark, with no screen or buttons yet; its second core helps draw. The GPU chip's firmware is not started |
-| Pattarai, the workshop | in a browser: Vidhi (code), Kolam (sprites), Ooru (maps), Thirai (backdrops), Oli (sound effects), Isai (music, western and Carnatic); see [docs/pattarai.md](docs/pattarai.md) |
+| Pattarai, the workshop | in a browser: Vidhi (code), Kolam (sprites), Ooru (maps), Thirai (backdrops), Oli (sound effects), Isai (music, western and Carnatic); hot reload while the game runs, a memory budget (heap and active set), help and tooltips in English or Tamil; see [docs/pattarai.md](docs/pattarai.md) |
 | Store (Santhai), launcher (Vaasal) | not started |
 
 ## Not implemented yet
@@ -45,15 +45,16 @@ Measured against `docs/SPEC.md`:
   unless `--clock-step` gives it a pretend one for tests.
 - Packages hold Lua source only: bytecode, encrypted and signed packages
   are refused.
-- `check` does no static analysis, and `run` has no hot reload.
+- `check` does no static analysis. Hot reload is for Pattarai's emulator
+  only; a console never reloads.
 - The spec's GPU coprocessor (§1) exists only as a plan: today one chip
   does everything, with its second core helping to draw.
-- Packages are read whole into memory. Reading a package of up to 64 MB in
-  parts, `preload`, `sheet.load` and `stat("active")` (SPEC §2 and §3) are
-  not built, nor is the cartridge slot.
+- A package is read in parts, up to 6 MB of it at once (the active set,
+  SPEC §2), but on the Pico 2 it is read in place from flash: no console
+  yet copies parts from an SD card, a cartridge or PSRAM. `pulli cart`
+  makes a cartridge image; there is no cartridge slot yet.
 - The firmware has no screen, buttons, sound output, SD card or save
   storage yet.
-- Maps made in Tiled bring across tile layers only, not objects.
 - The desktop's Lua heap limit is stricter than the device's will be,
   because Lua values are larger on a 64-bit machine.
 
@@ -254,7 +255,8 @@ To put it on a Pico 2, hold BOOTSEL while plugging the board in and copy
 `picotool load -x -f firmware/build/pulli.uf2`.
 
 It runs Pong with no display and prints update, draw and screen-conversion
-times and Lua memory over USB serial once a second. On a Pico 2 at 150 MHz
+times, Lua memory and the active set (its size, its peak and parts read
+again) over USB serial once a second. On a Pico 2 at 150 MHz
 Pong takes about 2 ms a frame to update and draw, and converting a frame to
 the screen's colours about 5 ms. The biggest drawing calls, `map.draw`,
 `shade` and `sspr`, are drawn as two halves of the screen, one on each of

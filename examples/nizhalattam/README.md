@@ -374,8 +374,10 @@ Twenty-six sound effects (`sfx/`, named in `sound.lua`) mark jumps,
 landings, blows, tearing paper, rolls, the shops, pickups, and a bell before
 each boss move.
 
-The music (`music/`) is kept out of the repository until it is final; the
-game plays without it (`music()` then does nothing).
+The songs are kept as text (`music/*.json`, made and edited in Pattarai's
+Isai); their WAVs are made from them, never committed:
+`node tools/pattarai/make-wavs.mjs examples/nizhalattam`. Without the WAVs
+the game plays silent (`music()` then does nothing).
 
 ### Saves
 
@@ -452,7 +454,7 @@ files here are already in the console's form.
 | Folder | What it is |
 |---|---|
 | `sfx/` | The 26 sound effects, numbered in the order `sound.lua` names them. |
-| `music/` | The eleven tracks: the title, the Courtyard, each story, the bosses, the King, the endings. (Kept out of the repository until final.) |
+| `music/` | The eleven tracks: the title, the Courtyard, each story, the bosses, the King, the endings. Songs as `.json`; their `.wav` files are made by `tools/pattarai/make-wavs.mjs`. |
 
 The pictures, the rooms and the sound are made by scripts kept with the
 project's private material; the files here are what they make. `pulli pack`

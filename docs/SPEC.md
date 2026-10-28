@@ -990,7 +990,7 @@ Pattarai, the editors, in a web browser (§10 item 32).
 
 Made while building and testing the first runtime. Items 1 to 28 were
 approved by 18 October 2026, item 32 on 27 October 2026 and items 33 to
-37 on 28 October 2026; the others
+38 on 28 October 2026; the others
 await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
@@ -1206,8 +1206,8 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    had; a changed manifest starts the game again. Hot reload keeps the
    game's debug information (the names it joins by). A console never
    reloads and never calls `reload()`.
-38. **The active set's peak, and parts read again** (§2, §3), awaiting
-   approval. `stat("active_peak")` is the most of the package the active
+38. **The active set's peak, and parts read again** (§2, §3), approved 28
+   October 2026. `stat("active_peak")` is the most of the package the active
    set has held at once, in KB, and `stat("reread")` how many times a part
    let go for room was read again; on a console each of those is a read
    from the SD card or cartridge, a pause a game avoids with `preload`. A
