@@ -698,12 +698,12 @@ def main():
         game = os.path.join(tmp, "g")
         subprocess.run(tool + ["new", game], capture_output=True)
         added = subprocess.run(tool + ["add", game, "tween", "dialog"], capture_output=True, text=True)
-        same = open(os.path.join(game, "tween.lua")).read() == open(os.path.join(SDK, "tween.lua")).read()
+        same = open(os.path.join(game, "code", "tween.lua")).read() == open(os.path.join(SDK, "tween.lua")).read()
         t.check("pulli.py add copies helpers into a game", added.returncode == 0 and same, added.stderr)
         t.check("a copy in the game's folder is used in place of the SDK's",
-                dict(pulli.parse(pulli.build(game)))["tween.lua"] == open(os.path.join(game, "tween.lua"), "rb").read())
-        open(os.path.join(game, "dialog.lua"), "w").write("return { mine = true }")
-        open(os.path.join(game, "main.lua"), "w").write("dbg(require('dialog').mine)")
+                dict(pulli.parse(pulli.build(game)))["tween.lua"] == open(os.path.join(game, "code", "tween.lua"), "rb").read())
+        open(os.path.join(game, "code", "dialog.lua"), "w").write("return { mine = true }")
+        open(os.path.join(game, "code", "main.lua"), "w").write("dbg(require('dialog').mine)")
         r = t.run_package(pulli.build(game), frames=1)
         t.check("a game that changes its copy gets its own version", r.code == 0 and r.lines == ["true"], r.err)
         again = subprocess.run(tool + ["add", game, "tween"], capture_output=True, text=True)
@@ -711,7 +711,7 @@ def main():
                 again.returncode == 1 and "already exists" in again.stderr, again.stderr)
         t.check("pulli.py add refuses a helper that does not exist",
                 subprocess.run(tool + ["add", game, "nope"], capture_output=True).returncode == 1)
-        open(os.path.join(game, "main.lua"), "w").write(
+        open(os.path.join(game, "code", "main.lua"), "w").write(
             "local tween = require('tween') local o = { x = 0 } tween.to(o, { x = 1 }, 0)"
             " function update(dt) tween.update(dt) end function draw() if o.x == 1 then dbg('ok') o.x = 2 end end")
         r = t.run_package(pulli.build(game), frames=3)

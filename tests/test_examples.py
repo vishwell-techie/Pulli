@@ -44,9 +44,9 @@ def manickam_variant(tmp, chapter, extra=""):
     import shutil
     folder = os.path.join(tmp, "manickam")
     shutil.copytree(MANICKAM, folder, ignore=shutil.ignore_patterns("music", "sfx"))
-    main = open(os.path.join(folder, "main.lua")).read()
+    main = open(os.path.join(folder, "code", "main.lua")).read()
     main = main.replace('core.go("title")', f'core.go("play", {chapter})')
-    open(os.path.join(folder, "main.lua"), "w").write(main + extra)
+    open(os.path.join(folder, "code", "main.lua"), "w").write(main + extra)
     return pulli.build(folder)
 
 
@@ -55,11 +55,11 @@ def walkable_without_keys(name):
     opening a shrine gate. Reads the .tmx and the tileset's flags."""
     import xml.etree.ElementTree as ET
     flags = {}
-    for tile in ET.parse(os.path.join(MANICKAM, "sprites.tsx")).getroot().iter("tile"):
+    for tile in ET.parse(os.path.join(MANICKAM, "maps", "sprites.tsx")).getroot().iter("tile"):
         for prop in tile.iter("property"):
             if prop.get("name") == "flags":
                 flags[int(tile.get("id"))] = int(prop.get("value"))
-    root = ET.parse(os.path.join(MANICKAM, name + ".tmx")).getroot()
+    root = ET.parse(os.path.join(MANICKAM, "maps", name + ".tmx")).getroot()
     w, h = int(root.get("width")), int(root.get("height"))
     ground, front = [[(int(v) & 0x0FFFFFFF) - 1 for v in layer.find("data").text.replace("\n", "").split(",")
                       if v.strip()] for layer in root.iter("layer")]
@@ -150,13 +150,13 @@ def nizhalattam_climbs(up=3, across=7):
     import glob, xml.etree.ElementTree as ET
     game = os.path.join(ROOT, "examples", "nizhalattam")
     flags = {}
-    for tile in ET.parse(os.path.join(game, "sprites.tsx")).getroot().iter("tile"):
+    for tile in ET.parse(os.path.join(game, "maps", "sprites.tsx")).getroot().iter("tile"):
         for prop in tile.iter("property"):
             if prop.get("name") == "flags":
                 flags[int(tile.get("id"))] = int(prop.get("value"))
     START, DOOR, BOAT, FERRY = 1000, 1002, 1016, 1017
     stuck = []
-    for path in sorted(glob.glob(os.path.join(game, "*.tmx"))):
+    for path in sorted(glob.glob(os.path.join(game, "maps", "*.tmx"))):
         name = os.path.basename(path)[:-4]
         root = ET.parse(path).getroot()
         w, h = int(root.get("width")), int(root.get("height"))
@@ -249,7 +249,7 @@ def main():
         folder = os.path.join(ROOT, "examples", name)
         packed = {n for n, _ in pulli.parse(pulli.build(folder))}
         t.check(f"{name} uses SDK helpers and keeps no copies of them",
-                packed & helpers and not helpers & set(os.listdir(folder)), sorted(packed & helpers))
+                packed & helpers and not helpers & set(os.listdir(os.path.join(folder, "code"))), sorted(packed & helpers))
 
     # The forest: shrine gates close the piece, the heart lotus and the way
     # out, and all three keys can be found without opening one.
@@ -497,7 +497,7 @@ def main():
                     r.code == 0 and kb and not late, late)
             sounds = len([f for f in os.listdir(os.path.join(MANICKAM, "sfx")) if f.endswith(".wav")])
             t.check("manickam: it reads ahead every sound it has, and no more",
-                    f"for i = 0, {sounds - 1} do" in open(os.path.join(MANICKAM, "main.lua")).read(), sounds)
+                    f"for i = 0, {sounds - 1} do" in open(os.path.join(MANICKAM, "code", "main.lua")).read(), sounds)
             # Switching language lets the other language's lines go, and
             # a benchmark run from the title is let go when a game starts:
             # either way chapter 0 has the room it has in a plain game.
@@ -522,7 +522,7 @@ def main():
                     plain_kb and swap_kb and abs(swap_kb - plain_kb) < 1, f"{plain_kb} {swap_kb} {r.err[-200:]}")
             folder = os.path.join(tmp, "benchfirst")
             shutil.copytree(MANICKAM, folder, ignore=shutil.ignore_patterns("music", "sfx"))
-            with open(os.path.join(folder, "main.lua"), "a") as f:
+            with open(os.path.join(folder, "code", "main.lua"), "a") as f:
                 f.write(settle)
             # Up to 4 KB may stay: the tables of lights and orbs the benchmark
             # filled, which the later chapters fill to the same size anyway.
@@ -639,7 +639,7 @@ def main():
                 {"tween.lua", "camera_follow.lua", "inventory.lua", "dialog.lua", "quest.lua", "particles.lua",
                  "input.lua", "anim.lua", "text.lua"}
                 <= {name for name, _ in pulli.parse(pulli.build(talk_dir))}
-                and not any(f.endswith(".lua") and f not in ("main.lua", "manifest.lua") for f in os.listdir(talk_dir)))
+                and not any(f.endswith(".lua") and f not in ("main.lua", "manifest.lua") for f in os.listdir(os.path.join(talk_dir, "code"))))
         talk = pulli.build(talk_dir)
         gem_in_bag = lambda fb: any(fb[y * 320 + x] not in (0, 32) for y in range(2, 10) for x in range(110, 118))
         with tempfile.TemporaryDirectory() as saves:
@@ -698,7 +698,7 @@ def main():
         # Each level has its own backdrop: above the menu, away from the net,
         # the screen is the level's picture.
         def backdrop_shown(fb, name):
-            w, h, pixels = pulli.read_png(open(os.path.join(ROOT, "examples", "pong", name + ".png"), "rb").read())
+            w, h, pixels = pulli.read_png(open(os.path.join(ROOT, "examples", "pong", "backdrops", name + ".png"), "rb").read())
             index = {c: i for i, c in reversed(list(enumerate(pulli.palette()))) if i}   # (black packs as 32)
             return all(fb[y * 320 + x] == index[pixels[y * w + x][:3]]
                        for y in range(36) for x in range(320) if x not in (159, 160))
@@ -728,7 +728,7 @@ def main():
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
                 shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
-                with open(os.path.join(folder, "main.lua"), "a") as f:
+                with open(os.path.join(folder, "code", "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames)
             return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
@@ -917,7 +917,7 @@ def main():
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
                 shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
-                with open(os.path.join(folder, "main.lua"), "a") as f:
+                with open(os.path.join(folder, "code", "main.lua"), "a") as f:
                     f.write("\n" + extra)
                 r = t.run_package(pulli.build(folder), frames=frames, saves=saves)
             return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
@@ -1013,15 +1013,15 @@ def main():
         # for the stall's cheapest good: the first stall is never out of reach
         import xml.etree.ElementTree as ET
         nz = os.path.join(ROOT, "examples", "nizhalattam")
-        src = open(os.path.join(nz, "shadows.lua")).read()
+        src = open(os.path.join(nz, "code", "shadows.lua")).read()
         least = {"soldier": int(re.search(r"mai = \{ (\d+), \d+ \},\s+-- drops of ink he leaves", src).group(1))}
         for kind in ("dummy", "ink", "scrap"):
             least[kind] = int(re.search(kind + r" = \{[^}]*mai = \{ (\d+),", src).group(1))
         earned = 0
         for n in range(1, 6):
-            root = ET.parse(os.path.join(nz, f"s{n}.tmx")).getroot()
+            root = ET.parse(os.path.join(nz, "maps", f"s{n}.tmx")).getroot()
             earned += sum(least.get(o.get("class"), 0) for o in root.iter("object"))
-        prices = [int(p) for p in re.findall(r"price = (\d+)", open(os.path.join(nz, "stall.lua")).read())]
+        prices = [int(p) for p in re.findall(r"price = (\d+)", open(os.path.join(nz, "code", "stall.lua")).read())]
         t.check("nizhalattam: the Screen's shadows leave enough mai for something at its stall",
                 earned >= min(prices), f"{earned} {min(prices)}")
 
@@ -1960,7 +1960,7 @@ def main():
         # The boss room's rails climb to a bridge above Veeran: from the
         # floor, rails each a jump above the last lead over him.
         import xml.etree.ElementTree as ET
-        root = ET.parse(os.path.join(ROOT, "examples", "nizhalattam", "boss.tmx")).getroot()
+        root = ET.parse(os.path.join(ROOT, "examples", "nizhalattam", "maps", "boss.tmx")).getroot()
         bw, bh = int(root.get("width")), int(root.get("height"))
         layer = [(int(v) & 0x0FFFFFFF) - 1 for v in root.find("layer").find("data").text.replace("\n", "").split(",") if v.strip()]
         stand = {(x, y) for y in range(bh) for x in range(bw) if layer[y * bw + x] in (1, 3, 5, 6, 7, 11, 12)}
@@ -1984,14 +1984,14 @@ def main():
         t.check("nizhalattam: at the Aasaan's box oil buys the double jump, which takes hold from the next run",
                 got.get("bought") == ["5", "1", "false"] and got.get("next") == ["true"], got)
 
-        en = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_en.lua")).read(), re.M))
-        ta = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "lines_ta.lua")).read(), re.M))
+        en = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "code", "lines_en.lua")).read(), re.M))
+        ta = set(re.findall(r"^  (\w+) =", open(os.path.join(ROOT, "examples", "nizhalattam", "code", "lines_ta.lua")).read(), re.M))
         t.check("nizhalattam: every line is there in Tamil and in English", en == ta and len(en) > 30, en ^ ta)
         # each story's own words, in its rooms' file: the same keys in both languages
         uneven = {}
-        for name in sorted(os.listdir(os.path.join(ROOT, "examples", "nizhalattam"))):
+        for name in sorted(os.listdir(os.path.join(ROOT, "examples", "nizhalattam", "code"))):
             if name.startswith("rooms_") and name.endswith(".lua"):
-                text = open(os.path.join(ROOT, "examples", "nizhalattam", name)).read()
+                text = open(os.path.join(ROOT, "examples", "nizhalattam", "code", name)).read()
                 langs = {lang: set(re.findall(r"^    (\w+) =", body, re.M))
                          for lang, body in re.findall(r"^  (en|ta) = \{\n(.*?)^  \},", text, re.M | re.S)}
                 if not langs.get("en") or langs.get("en") != langs.get("ta"):
@@ -2148,7 +2148,7 @@ def main():
             with tempfile.TemporaryDirectory() as tmp:
                 folder = os.path.join(tmp, "n")
                 shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder)
-                with open(os.path.join(folder, "main.lua"), "a") as f:
+                with open(os.path.join(folder, "code", "main.lua"), "a") as f:
                     f.write('\nrequire("title").skip = 1\nlocal body, rooms = require("body"), require("rooms")\nlocal up = update\n'
                             'function update(dt) local f = stat("frame") if f == 2 then rooms.enter("s5.ooru", "s4.ooru", body) end '
                             'if f == 100 then rooms.enter("boss.ooru", "s7.ooru", body) end up(dt) '

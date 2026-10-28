@@ -204,7 +204,7 @@ out.examples = exampleSongs.map((f) => {
 // reading WAV files back, exactly
 const back = decodeWAV(encodeWAV([new Float32Array([0, 0.5, -0.5, 0.25]), new Float32Array([1, -1, 0, 0])], 12345, 2));
 out.decoded = { rate: back.rate, loop: back.loop, ch: back.channels.map((c) => [...c].map((v) => Math.round(v * 32768))) };
-const real = decodeWAV(readFileSync(village.replace(/manickam\/[^/]*$/, "catch/sfx/0-catch.wav")));
+const real = decodeWAV(readFileSync(village.replace(/manickam\/.*$/, "catch/sfx/0-catch.wav")));
 out.real = { rate: real.rate, channels: real.channels.length, frames: real.channels[0].length,
   first: [...real.channels[0].subarray(0, 50)].map((v) => Math.round(v * 32768)) };
 try { decodeWAV(new Uint8Array(20)); out.notWav = false; } catch (e) { out.notWav = true; }

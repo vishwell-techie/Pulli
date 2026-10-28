@@ -4,6 +4,7 @@
 // and the call under the cursor shows what it names: the sprite drawn, the
 // sound's file with a button to hear it. Check runs the game for two
 // seconds with no window and lists its errors by line.
+import { FOLDERS, base, named, place, inFolder, sheets, backdrops } from "./lib/layout.js";
 import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE, help } from "./app.js";
 import { css } from "./lib/palette.js";
 import { highlight, callAt, numbered, wordBefore, complete, callHint, SIGS } from "./lib/lua.js";
@@ -208,7 +209,7 @@ export function vidhi(root) {
                              : h("span", { className: "err" }, `${call.fn}(${call.arg}): there are only ${list.length} WAV files in ${call.fn === "sfx" ? "sfx" : "music"}/`));
     } else if (typeof call.arg === "string") {
       const stem = call.arg.replace(/\.(ooru|kolam)$/, "");
-      const src = shared.files.find((f) => f === stem + ".tmx" || f === stem + ".png");
+      const src = named(shared.files, stem + ".tmx") || named(shared.files, stem + ".png");
       card.replaceChildren(src ? h("span", {}, `${call.fn}("${call.arg}") is made from ${src}`)
                                : h("span", { className: "err" }, `${call.fn}("${call.arg}"): no ${stem}.tmx or ${stem}.png in the game`));
     }
@@ -270,11 +271,11 @@ export function vidhi(root) {
         insert(w > 1 || hh > 1 ? `spr(${n}, x, y, ${w}, ${hh})` : `spr(${n}, x, y)`);
       };
       c.onmousemove = (e) => { const [x, y] = cellOf(e); c.title = `spr(${y * cols + x})`; };
-      const others = shared.files.filter((f) => f.endsWith(".png") && f !== s.path && !f.includes("/"));
+      const others = sheets(shared.files).filter((f) => f !== s.path);
       assets.replaceChildren(h("div", { className: "scroll", style: "max-height:46vh" }, c), hint,
         ...(others.length ? [h("p", { className: "muted", style: "margin:10px 0 4px" }, "Other sheets:"),
-          h("div", { className: "keys" }, ...others.map((f) => h("button", { title: `sheet.load("${f.replace(/\.png$/, ".kolam")}")`,
-            onclick: () => insert(`sheet.load("${f.replace(/\.png$/, ".kolam")}")`) }, f)))] : []));
+          h("div", { className: "keys" }, ...others.map((f) => h("button", { title: `sheet.load("${base(f).replace(/\.png$/, ".kolam")}")`,
+            onclick: () => insert(`sheet.load("${base(f).replace(/\.png$/, ".kolam")}")`) }, f)))] : []));
     } else if (tab === "sfx" || tab === "music") {
       const list = numbered(shared.files, tab);
       const rows = shared.sounds?.[tab] || [];
@@ -291,18 +292,18 @@ export function vidhi(root) {
             h("div", { className: rows[i]?.error ? "err" : "muted", style: "font-size:12px;margin-left:4px" }, soundInfo(rows[i])))))
         : h("p", { className: "muted" }, `No WAV files in ${tab}/ yet.` + (tab === "music" ? " Isai makes them." : " Oli makes them.")));
     } else if (tab === "backdrops") {
-      const pics = shared.files.filter((f) => f.endsWith(".png") && !f.includes("/") && f !== "sprites.png");
+      const pics = backdrops(shared.files);
       assets.replaceChildren(h("p", { className: "muted", style: "margin:0 0 8px;font-size:12px" },
           "backdrop(name) once, then cls() each frame starts from it. A backdrop is 320 × 240; make one in Thirai."),
         pics.length ? h("div", {}, ...pics.map((f) => h("div", { className: "bar", style: "margin:0 0 4px" },
-          h("button", { onclick: () => insert(`backdrop("${f.replace(/\.png$/, ".kolam")}")`) }, `backdrop("${f.replace(/\.png$/, ".kolam")}")`))),
+          h("button", { onclick: () => insert(`backdrop("${base(f).replace(/\.png$/, ".kolam")}")`) }, `backdrop("${base(f).replace(/\.png$/, ".kolam")}")`))),
           h("button", { onclick: () => insert("backdrop()") }, "backdrop()  -- let it go"))
-        : h("p", { className: "muted" }, "No pictures yet."));
+        : h("p", { className: "muted" }, "No backdrops yet: Thirai keeps them in backdrops/."));
     } else {
-      const maps = shared.files.filter((f) => f.endsWith(".tmx") && !f.includes("/"));
+      const maps = inFolder(shared.files, FOLDERS.maps, ".tmx");
       assets.replaceChildren(maps.length
         ? h("div", {}, ...maps.map((f) => h("div", { className: "bar", style: "margin:0 0 4px" },
-            h("button", { onclick: () => insert(`map.load("${f.replace(/\.tmx$/, ".ooru")}")`) }, `map.load("${f.replace(/\.tmx$/, ".ooru")}")`),
+            h("button", { onclick: () => insert(`map.load("${base(f).replace(/\.tmx$/, ".ooru")}")`) }, `map.load("${base(f).replace(/\.tmx$/, ".ooru")}")`),
             h("button", { onclick: () => insert(`map.draw(0)\n`) }, "map.draw"))))
         : h("p", { className: "muted" }, "No maps yet: make one in Ooru."));
     }
@@ -321,11 +322,11 @@ export function vidhi(root) {
     } catch (e) { status(e.message, true); }
   }
   async function create() {
-    const name = prompt("Name of the new Lua file", "enemy.lua");
+    const name = prompt("Name of the new Lua file (kept in code/)", "enemy.lua");
     if (!name) return;
-    if (!/^[\w-]+\.lua$/.test(name)) return status("A Lua file's name ends in .lua and sits in the game folder.", true);
-    if (shared.files.includes(name)) return status(`${name} exists; open it instead.`, true);
-    path = name;
+    if (!/^[\w-]+\.lua$/.test(name)) return status("A Lua file's name ends in .lua; it is kept in code/.", true);
+    if (named(shared.files, name)) return status(`${name} exists; open it instead.`, true);
+    path = place(FOLDERS.code, name);
     area.value = `-- ${name}: used with require("${name.replace(/\.lua$/, "")}")\nlocal M = {}\n\nreturn M\n`;
     saved = "";
     paint();
@@ -370,7 +371,7 @@ export function vidhi(root) {
     if (what === "files") {
       const was = files.value;
       files.replaceChildren(...shared.files.filter((f) => f.endsWith(".lua")).map((f) => h("option", { value: f }, f)));
-      files.value = was || (shared.files.includes("main.lua") ? "main.lua" : files.value);
+      files.value = was || named(shared.files, "main.lua") || files.value;
       if (!path && files.value) open();
     }
     if (what === "files" || what === "sheet" || (what === "pixels" && tab === "sprites")) drawAssets();

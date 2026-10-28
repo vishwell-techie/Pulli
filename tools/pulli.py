@@ -41,6 +41,14 @@ MAX_SIZE = 64 * 1024 * 1024
 ACTIVE_MAX = 6 * 1024 * 1024    # of a package in memory at once (SPEC §2)
 BOARD_GAME = 3584 * 1024        # the Pico 2's 4 MB flash less its firmware (about 360 KB) and room for it to grow
 REQUIRED = ("manifest.lua", "main.lua")
+# A game folder's own folders (SPEC §2 entries are flat: pack takes each
+# file by its name, so code/main.lua is the entry main.lua). Files may also
+# sit in the game folder itself; sfx/ and music/ are the sound banks'.
+FOLDERS = ("code", "sprites", "maps", "backdrops")
+
+
+def _shown(path, srcdir):
+    return os.path.relpath(path, srcdir).replace(os.sep, "/")
 EXT = ".pulli"
 
 # Header flags. Reserved now, before the format ships, because adding them
@@ -198,11 +206,20 @@ def gather(srcdir: str, notes=None, fast=False, swap=None):
     swap = {os.path.normpath(k): v for k, v in (swap or {}).items()}
     if not os.path.isdir(srcdir):
         raise PackageError(f"{srcdir} is not a directory")
-    files = [f for f in os.listdir(srcdir) if os.path.isfile(os.path.join(srcdir, f))]
-    for path in swap:                                   # a file about to be saved, new to the folder
-        if os.path.dirname(path) == os.path.normpath(srcdir) and os.path.basename(path) not in files:
-            files.append(os.path.basename(path))
-    real = lambda path: swap.get(os.path.normpath(path), path)
+    where = {}                                          # entry name: its file, in the folder or one of FOLDERS
+    for sub in ("",) + FOLDERS:
+        top = os.path.join(srcdir, sub) if sub else srcdir
+        here = [f for f in os.listdir(top) if os.path.isfile(os.path.join(top, f))] if os.path.isdir(top) else []
+        for path in swap:                               # a file about to be saved, new to the folder
+            if os.path.dirname(path) == os.path.normpath(top) and os.path.basename(path) not in here:
+                here.append(os.path.basename(path))
+        for f in here:
+            if f in where:
+                raise PackageError(f"{srcdir} has {f} in both {_shown(where[f], srcdir)} and "
+                                   f"{_shown(os.path.join(top, f), srcdir)}; keep one")
+            where[f] = os.path.join(top, f)
+    files = list(where)
+    real = lambda name: swap.get(os.path.normpath(where[name]), where[name])
     skipped = sorted(f for f in files if os_made(f))
     if skipped and notes is not None:
         notes.append(f"left out {len(skipped)} file{'s' if len(skipped) > 1 else ''} the operating system made, "
@@ -232,7 +249,7 @@ def gather(srcdir: str, notes=None, fast=False, swap=None):
         if ext in (".png", ".tmx"):
             made[stem + (".kolam" if ext == ".png" else ".ooru")] = n
         elif ext != ".tsx":                             # a Tiled tileset is read through its map
-            with open(real(os.path.join(srcdir, n)), "rb") as f:
+            with open(real(n), "rb") as f:
                 entries.append((n, f.read()))
     for entry, source in made.items():
         if entry in names:
@@ -240,14 +257,14 @@ def gather(srcdir: str, notes=None, fast=False, swap=None):
     sheet_columns = None                                # tiles across the sheet, for checking maps
     for entry, source in sorted(made.items()):
         if entry.endswith(".kolam"):
-            with open(real(os.path.join(srcdir, source)), "rb") as f:
+            with open(real(source), "rb") as f:
                 entries.append((entry, kolam_from_png(f.read(), source, notes, colours)))
     for name, blob in entries:
         if name == "sprites.kolam":
             sheet_columns = struct.unpack("<H", blob[4:6])[0] // CELL
     for entry, source in sorted(made.items()):
         if entry.endswith(".ooru"):
-            entries.append((entry, ooru_from_tmx(real(os.path.join(srcdir, source)), sheet_columns, notes)))
+            entries.append((entry, ooru_from_tmx(real(source), sheet_columns, notes)))
     for kind, (entry, _) in BANKS.items():
         folder = os.path.join(srcdir, kind)
         if not fast:                              # the budget measures a game whose WAVs are not made yet
@@ -1078,10 +1095,10 @@ def cmd_new(path):
     name = os.path.basename(os.path.normpath(path))
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "game"
     title = name.replace('"', "").replace("\\", "") or "Game"
-    os.makedirs(path)
+    os.makedirs(os.path.join(path, "code"))
     with open(os.path.join(path, "manifest.lua"), "w") as f:
         f.write(MANIFEST_TEMPLATE.format(slug=slug, title=title))
-    with open(os.path.join(path, "main.lua"), "w") as f:
+    with open(os.path.join(path, "code", "main.lua"), "w") as f:
         f.write(MAIN_TEMPLATE.format(title=title))
     print(f"created {path}/  (try: python3 {shlex.quote(sys.argv[0])} run {shlex.quote(path)})")
 
@@ -1184,13 +1201,15 @@ def cmd_add(game=None, *helpers):
     for name in helpers:
         if name not in have:
             raise PackageError(f"no helper called '{name}'; there are: {', '.join(have)}")
+    code = os.path.join(game, "code")
     for name in helpers:
-        dest = os.path.join(game, name + ".lua")
-        if os.path.exists(dest):
+        dest = os.path.join(code, name + ".lua")
+        if os.path.exists(dest) or os.path.exists(os.path.join(game, name + ".lua")):
             raise PackageError(f"{dest} already exists; delete it first if you want a fresh copy")
     for name in helpers:
-        shutil.copyfile(os.path.join(sdk_dir(), name + ".lua"), os.path.join(game, name + ".lua"))
-        print(f"added {os.path.join(game, name + '.lua')}: the game now uses this copy, which is yours to change")
+        os.makedirs(code, exist_ok=True)
+        shutil.copyfile(os.path.join(sdk_dir(), name + ".lua"), os.path.join(code, name + ".lua"))
+        print(f"added {os.path.join(code, name + '.lua')}: the game now uses this copy, which is yours to change")
 
 
 def find_host(name):

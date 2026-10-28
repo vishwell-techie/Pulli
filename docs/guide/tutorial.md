@@ -6,7 +6,7 @@ In this tutorial you build **Catch**: gems fall from the sky and you move a
 basket to catch them. Miss three and the game is over. By the end it has
 pictures, a title screen, a saved best score, sound and sparks.
 
-Each step below is the whole of `main.lua` at that point, so you can copy
+Each step below is the whole of `code/main.lua` at that point, so you can copy
 it in and run it. Read the notes after each one: they explain what is new.
 The finished game is in `examples/catch`.
 
@@ -16,7 +16,7 @@ Make the game's folder and copy in the pictures and sounds the tutorial uses:
 
 ```bash
 python3 tools/pulli.py new catch
-cp examples/catch/sprites.png catch/
+cp -r examples/catch/sprites catch/
 cp -r examples/catch/sfx catch/
 ```
 

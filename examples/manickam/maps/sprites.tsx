@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.10" tiledversion="1.10.2" name="sprites" tilewidth="8" tileheight="8" tilecount="2048" columns="64">
- <image source="sprites.png" width="512" height="256"/>
+ <image source="../sprites/sprites.png" width="512" height="256"/>
  <tile id="43">
   <properties>
    <property name="flags" type="int" value="1"/>

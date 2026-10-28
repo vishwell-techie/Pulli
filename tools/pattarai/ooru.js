@@ -1,6 +1,7 @@
 // Ooru: the map editor. Opens and saves Tiled maps (.tmx), which `pulli
 // pack` turns into .ooru; their tiles are the game's sprite sheet, so tile
 // n is spr(n), and tile 0 is empty. Two layers, as the console draws.
+import { FOLDERS, place, inFolder } from "./lib/layout.js";
 import { api, h, shared, status, refreshFiles } from "./app.js";
 import { parseTMX, writeTMX, newTMX, newTSX, parseTSX, setTileFlags, parseObjects, writeObjects, objectTop } from "./lib/tmx.js";
 
@@ -529,9 +530,10 @@ export function ooru(root) {
   }
 
   async function create() {
-    const name = prompt("File name for the new map", "map.tmx");
+    let name = prompt("File name for the new map (kept in maps/)", "map.tmx");
     if (!name) return;
-    if (!/^[\w-]+\.tmx$/.test(name)) return status("A map's name ends in .tmx and sits in the game folder.", true);
+    if (!/^[\w-]+\.tmx$/.test(name)) return status("A map's name ends in .tmx; it is kept in maps/.", true);
+    name = place(FOLDERS.maps, name);
     if (shared.files.includes(name) && !confirm(`${name} exists. Replace it?`)) return;
     const w = +prompt("Width in tiles (40 is one screen)", "40"), hh = +prompt("Height in tiles (30 is one screen)", "30");
     if (!(w > 0 && hh > 0 && w * hh * 2 <= 32768)) return status("A map holds at most 32,768 cells over both its layers.", true);
@@ -540,8 +542,9 @@ export function ooru(root) {
     path = name;
     dirty = true;
     undo.length = redo.length = 0;
-    if (!shared.files.includes("sprites.tsx") && shared.sheet) {
-      await api.write("sprites.tsx", newTSX(shared.sheet.width, shared.sheet.height));
+    const tileset = place(FOLDERS.maps, "sprites.tsx");
+    if (!shared.files.includes(tileset) && shared.sheet) {
+      await api.write(tileset, newTSX(shared.sheet.width, shared.sheet.height, "../" + shared.sheet.path));
       await refreshFiles();
     }
     await loadTileset();
@@ -569,7 +572,7 @@ export function ooru(root) {
   shared.listeners.push((what) => {
     if (what === "files") {
       const was = files.value;
-      files.replaceChildren(...shared.files.filter((f) => f.endsWith(".tmx")).map((f) => h("option", { value: f }, f)));
+      files.replaceChildren(...inFolder(shared.files, FOLDERS.maps, ".tmx").map((f) => h("option", { value: f }, f)));
       if (was) files.value = was;
     }
     if (what === "sheet" || what === "pixels") { buildTiles(); drawPicker(); draw(); }

@@ -5,7 +5,7 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
-item 32 on 27 October 2026 and items 33 to 37 on 28 October
+item 32 on 27 October 2026 and items 33 to 38 on 28 October
 2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
@@ -916,7 +916,16 @@ pulli check            static checks: API misuse, budget overruns, GC churn
 pulli flash            push to device over USB
 ```
 
-`pack` takes every file in the game's folder except hidden ones (a name
+A game's folder keeps `manifest.lua` (and a palette, and a README) at its
+top, and the rest in folders of their own: `code/` (every `.lua` file,
+`main.lua` among them), `sprites/` (sheets), `maps/` (Tiled maps and
+their tilesets), `backdrops/`, `sfx/` and `music/`. An entry is named by
+its file alone, so `code/main.lua` is the entry `main.lua`; two files of
+one name in different folders are refused. Files kept at the top, as
+older games have them, are taken too.
+
+`pack` takes every file in the game's folder and in `code/`, `sprites/`,
+`maps/` and `backdrops/` except hidden ones (a name
 starting with `.`), Tiled tilesets (`.tsx`, read through the maps that use
 them), Markdown (`.md`), which is left for people to read, such as a
 game's README, and files the operating system makes: any name with a `:`
@@ -990,7 +999,7 @@ Pattarai, the editors, in a web browser (§10 item 32).
 
 Made while building and testing the first runtime. Items 1 to 28 were
 approved by 18 October 2026, item 32 on 27 October 2026 and items 33 to
-37 on 28 October 2026; the others
+38 on 28 October 2026; the others
 await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
@@ -1206,11 +1215,18 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    had; a changed manifest starts the game again. Hot reload keeps the
    game's debug information (the names it joins by). A console never
    reloads and never calls `reload()`.
-38. **The active set's peak, and parts read again** (§2, §3), awaiting
-   approval. `stat("active_peak")` is the most of the package the active
+38. **The active set's peak, and parts read again** (§2, §3), approved 28
+   October 2026. `stat("active_peak")` is the most of the package the active
    set has held at once, in KB, and `stat("reread")` how many times a part
    let go for room was read again; on a console each of those is a read
    from the SD card or cartridge, a pause a game avoids with `preload`. A
    port reports both with the Lua heap; the emulators and the Pico 2 board
    print them, and `pulli-host --memory` writes them once a second for
    Pattarai.
+39. **A game's folders** (§6), awaiting approval. A game's folder keeps
+   `manifest.lua` at its top and the rest in `code/`, `sprites/`, `maps/`,
+   `backdrops/`, `sfx/` and `music/`. `pack` names each entry by its file
+   alone, so packages, `require` and every name a game loads are as they
+   were; two files of one name in different folders are refused, and files
+   at the top are still taken. `pulli new` and `pulli add` write into
+   `code/`, and Pattarai saves each kind of file in its folder.

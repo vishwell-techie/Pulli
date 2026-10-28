@@ -57,8 +57,9 @@ controller: on a PlayStation pad, A is ✕ and B is ○.
 
 A game is a folder. Two files are required:
 
-- **`manifest.lua`** says what the game is called and what it needs.
-- **`main.lua`** is the game.
+- **`manifest.lua`**, at the top of the folder, says what the game is
+  called and what it needs.
+- **`code/main.lua`** is the game.
 
 ```lua
 -- manifest.lua
@@ -71,16 +72,21 @@ return {
 }
 ```
 
-Anything else in the folder is optional:
+Everything else is optional, and each kind has a folder of its own:
 
 | File or folder | Becomes |
 |---|---|
-| `sprites.png` | the sprite sheet: see [Art and sound](art-and-sound.md) |
-| `map.tmx`, or any other `.tmx` | a map made in Tiled |
+| `code/*.lua` | `main.lua`, and modules loaded with `require("name")` |
+| `sprites/sprites.png` | the sprite sheet: see [Art and sound](art-and-sound.md); other sheets beside it |
+| `maps/map.tmx`, or any other `.tmx` | a map made in Tiled, with its tileset (`.tsx`) |
+| `backdrops/*.png` | whole-screen pictures for `backdrop()` |
 | `sfx/*.wav` | sound effects: `sfx(0)` plays the first file by name |
 | `music/*.wav` | music: `music(0)` plays the first |
-| `palette.hex` or `palette.gpl` | 64 colours of your own instead of Pulli's: see [Art and sound](art-and-sound.md) |
-| any other `.lua` file | a module, loaded with `require("name")` |
+| `palette.hex` or `palette.gpl`, at the top | 64 colours of your own instead of Pulli's: see [Art and sound](art-and-sound.md) |
+
+A game's code and assets are named by their file alone: `code/enemy.lua` is
+`require("enemy")` and `maps/hall.tmx` is `map.load("hall.ooru")`. Two files
+of one name in different folders are an error when the game is packed.
 
 ## How a game runs
 
@@ -134,6 +140,10 @@ python3 tools/pulli.py check mygame        # run 600 frames, report errors and m
 python3 tools/pulli.py check mygame 3600   # a minute of game time
 ```
 
+Pattarai, the workshop in a browser, edits the same folder and runs the game
+as you change it (hot reload): `python3 tools/pulli.py edit mygame`. See
+[the Pattarai guide](../pattarai.md).
+
 ## Packing a game
 
 ```bash
@@ -183,6 +193,13 @@ shortest interval allowed is 10 seconds, and a game should call
   how much is in use, in KB, counted as the console counts it, on every
   machine. Making new tables every frame fills memory
   with garbage; make them once and reuse them (the `pool` helper helps).
+- **The package in memory:** up to 6 MB of your package (code, sheets,
+  maps, sounds) is held at once, the active set. Past that, the parts used
+  longest ago are let go, and a part let go and needed again is read again
+  from the SD card or cartridge: a pause. `stat("active_peak")` says the most
+  the game has held, in KB, and `stat("reread")` how many parts were read
+  again; `check` prints both, and Pattarai shows them as the game runs.
+  Read a level's parts ahead behind a loading screen with `preload`.
 - **Lua:** Lua 5.4 with 32-bit numbers. Whole numbers run from about −2.1
   billion to 2.1 billion and wrap around past that. Fractions have about
   seven digits of precision.

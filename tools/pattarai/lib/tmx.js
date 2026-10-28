@@ -85,11 +85,11 @@ export function newTMX(width, height, layers = 2) {
   return map;
 }
 
-export function newTSX(sheetWidth, sheetHeight) {
+export function newTSX(sheetWidth, sheetHeight, image = "../sprites/sprites.png") {
   const cols = sheetWidth / 8, count = cols * (sheetHeight / 8);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <tileset version="1.10" tiledversion="1.10.2" name="sprites" tilewidth="8" tileheight="8" tilecount="${count}" columns="${cols}">
- <image source="sprites.png" width="${sheetWidth}" height="${sheetHeight}"/>
+ <image source="${image}" width="${sheetWidth}" height="${sheetHeight}"/>
 </tileset>
 `;
 }

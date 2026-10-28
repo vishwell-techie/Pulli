@@ -15,8 +15,8 @@ Pattarai (பட்டறை) என்பது Pulli விளையாட்�
 | கருவி | எதற்கு | உருவாக்குவது |
 |---|---|---|
 | **Vidhi** (விதி) | நிரல் | `*.lua` |
-| **Kolam** (கோலம்) | உருவங்கள் (sprites) | `sprites.png`, மற்ற உருவத் தாள்கள் |
-| **Ooru** (ஊர்) | வரைபடங்கள் | Tiled வரைபடங்கள், `*.tmx`; அவற்றின் டைல் கொடிகள் `sprites.tsx`-இல் |
+| **Kolam** (கோலம்) | உருவங்கள் (sprites) | `sprites/sprites.png`, மற்ற உருவத் தாள்கள் |
+| **Ooru** (ஊர்) | வரைபடங்கள் | Tiled வரைபடங்கள், `maps/*.tmx`; அவற்றின் டைல் கொடிகள் `maps/sprites.tsx`-இல் |
 | **Thirai** (திரை) | பின்னணிகள் | 320 × 240 படங்கள், `*.png` |
 | **Oli** (ஒலி) | ஒலி விளைவுகள் | `sfx/*.wav` |
 | **Isai** (இசை) | இசை | `music/*.wav` |
@@ -70,11 +70,11 @@ Pattarai இந்தக் கணினியில் மட்டுமே (`
 
 | விளையாட்டின் கோப்புறையில் | விளையாட்டில் |
 |---|---|
-| `main.lua`, `enemies.lua` ... | `require("enemies")` |
-| `sprites.png` | `spr(n)`, 8 × 8 கட்டங்களை இடமிருந்து வலமாக, மேலிருந்து கீழாக எண்ணி |
-| `actors.png` | `sheet.load("actors.kolam")` |
-| `hall.tmx` | `map.load("hall.ooru")`, பிறகு `map.draw(0)` |
-| `bg_forest.png` (320 × 240) | `backdrop("bg_forest.kolam")`, பிறகு ஒவ்வொரு frame-இலும் `cls()` |
+| `code/main.lua`, `code/enemies.lua` ... | `require("enemies")` |
+| `sprites/sprites.png` | `spr(n)`, 8 × 8 கட்டங்களை இடமிருந்து வலமாக, மேலிருந்து கீழாக எண்ணி |
+| `sprites/actors.png` | `sheet.load("actors.kolam")` |
+| `maps/hall.tmx` | `map.load("hall.ooru")`, பிறகு `map.draw(0)` |
+| `backdrops/bg_forest.png` (320 × 240) | `backdrop("bg_forest.kolam")`, பிறகு ஒவ்வொரு frame-இலும் `cls()` |
 | `sfx/00-jump.wav`, `sfx/01-coin.wav` | `sfx(0)`, `sfx(1)`: கோப்புப் பெயர் வரிசையில் எண்ணப்படுகின்றன |
 | `music/00-title.wav` | `music(0)` |
 
