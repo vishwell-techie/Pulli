@@ -304,10 +304,13 @@ challenge room does not end the run: the Jester is back at its door.
 ### Rooms
 
 The rooms are maps of 8 × 8 tiles made in Tiled (`.tmx`); `pulli pack` turns
-each into an `.ooru` map. Layer 0 is the room. Layer 1 holds **markers**:
-where the Jester starts, doors, shadows, bosses, the stall, the box, the
-tear, pages, secret doors, chests. `rooms.lua` reads them when a room loads,
-places what they say, and takes them off.
+each into an `.ooru` map. Layer 0 is the room. Its **objects**, on the
+object layer `things`, are where the Jester starts, doors, shadows, bosses,
+the stall, the box, the tear, pages and secret doors, each a point whose
+class says what it is. `rooms.lua` reads them with `map.objects("things")`
+when a room loads and places what they say. A challenge room is laid out as
+the Jester steps in, so `challenge.lua` gives its things (its doors,
+shadows and chest) the same way.
 
 Each tile's flags are set in `sprites.tsx`: **1**, solid; **2**, a thin floor
 (stood on from above, jumped through from below, dropped through with down +
@@ -398,7 +401,7 @@ order, room, health, mai, charms, roles, the chests opened).
 | `forest.lua`, `sea.lua`, `flags.lua`, `masks.lua`, `palace.lua` | Each story's own shadows (and the sea's boats). |
 | `veeran.lua`, `vil.lua`, `aattakkaari.lua`, `yaanai.lua`, `mandhiri.lua`, `rani.lua` | The six bosses, each with its shadow's stronger moves. |
 | `king.lua` | The Puppet King in three acts, and his shadow. |
-| `rooms.lua` | Rooms and doors: loading a room and its markers, reading ahead, which code and words a room keeps, fades, secret doors, the music, the light at a way in. |
+| `rooms.lua` | Rooms and doors: loading a room and its objects, reading ahead, which code and words a room keeps, fades, secret doors, the music, the light at a way in. |
 | `rooms_screen.lua` ... `rooms_palace.lua` | Each story's rooms (where their doors lead, their hints, their boss) and its words in both languages. |
 | `challenge.lua` | A challenge room: built from the seed and the Jester's skills; its chest. |
 | `run.lua` | What is kept between runs and what a run carries; the seed and the stories' order; keeping a run at a door. |

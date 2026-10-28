@@ -5,7 +5,7 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
-item 32 on 27 October 2026 and items 33 to 35 on 28 October
+item 32 on 27 October 2026 and items 33 to 36 on 28 October
 2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
@@ -988,7 +988,7 @@ Pattarai, the editors, in a web browser (§10 item 32).
 
 Made while building and testing the first runtime. Items 1 to 28 were
 approved by 18 October 2026, item 32 on 27 October 2026 and items 33 to
-35 on 28 October 2026; the others
+36 on 28 October 2026; the others
 await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
@@ -1183,7 +1183,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    these four sizes. The console's cartridge reader does not exist yet;
    the emulator reads a cartridge image as the one range, which is what a
    game sees.
-36. **A map's objects** (§2, §3), awaiting approval. `pulli pack` keeps a
+36. **A map's objects** (§2, §3), approved 28 October 2026. `pulli pack` keeps a
    Tiled map's object layers (spawn points, doors, enemies, triggers...)
    in its `.ooru`, after the tile flags, when byte 9 of the header is 1;
    a map without objects is the same bytes as before. `map.objects(layer)`

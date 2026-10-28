@@ -1,7 +1,7 @@
 -- rooms.lua — rooms, and the doors between them.
 --
 --   rooms.enter(name, from)   load a room; Komali comes in at the door from
---                             `from`, or at its start marker
+--                             `from`, or where the map's objects say he starts
 --   rooms.update(input, body) once a frame: up at a door goes through it.
 --                             True while the screen fades (the world waits)
 --   rooms.draw_doors(k)       the doors, with the room's tiles; a light where
@@ -37,8 +37,9 @@
 -- (run.order), or to the halfway tear after the middle one, or out ("end")
 -- after the last.
 --
--- A room is a map of its own, drawn with its own tile sheet. Its doors are
--- markers on layer 1, taken in the order the map is read (row by row), and
+-- A room is a map of its own, drawn with its own tile sheet. Its doors, and
+-- where Komali starts, the shadows stand and the stall is, are the map's
+-- objects (on its layer "things"); the doors are taken in their order, and
 -- ROOMS says where each leads. Going through one, the screen fades out, the
 -- next room is loaded behind it, and the rooms beyond that room's doors,
 -- with their sheets, are read ahead (`preload`), so nothing is read while
@@ -124,15 +125,6 @@ rooms.LAST = "palace"
 rooms.ROOMS = ROOMS
 rooms.ACTORS = "actors.kolam"           -- Komali and the shadows: their own sheet
 
--- markers on layer 1
-local START, SOLDIER, DOOR, DUMMY, INK, SCRAP, STALL, BOX, BOSS = 1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008
-local TEAR, PAGE, SECRET, CHEST, LAST = 1012, 1027, 1028, 1029, 1029
-local KIND = { [SOLDIER] = "soldier", [DUMMY] = "dummy", [INK] = "ink", [SCRAP] = "scrap",
-               [1009] = "vine", [1010] = "moth", [1011] = "wisp",
-               [1013] = "crab", [1014] = "wave", [1015] = "gull", [1016] = "boat", [1017] = "ferry",
-               [1018] = "archer", [1019] = "flag", [1020] = "drum",
-               [1021] = "thief", [1022] = "juggler", [1023] = "twin",
-               [1024] = "lampguard", [1025] = "mirror", [1026] = "cinder" }
 -- In hard mode every other one of these has a second beside it.
 local MORE = { soldier = true, ink = true, scrap = true, vine = true, moth = true, wisp = true,
                crab = true, wave = true, gull = true, archer = true, thief = true,
@@ -184,8 +176,8 @@ function rooms.locked()
   return false
 end
 
--- a second shadow of a kind, a little way off the marker: where there is
--- room for it, and a floor if the marker has one
+-- a second shadow of a kind, a little way off the first: where there is
+-- room for it, and a floor if the first has one
 local function another(x, y, kind)
   local floor = move.blocked(x, y, 1, 1)
   for _, d in ipairs({ -18, 18 }) do
@@ -260,7 +252,6 @@ function rooms.enter(name, from, body)
   rooms.shop, rooms.pick = def.shop and code[def.shop], code.pick
   if def.start and from == "map.ooru" then rooms.started = true end
   map.load(name)
-  if def.challenge then code[def.shop].build(def, body.k) end      -- (laid out now, then read as any room)
   preload(def.sheet, def.bg)
   -- the place's background: set once, and each frame starts from it (cls)
   rooms.dress(def.place, def.bg)
@@ -286,35 +277,37 @@ function rooms.enter(name, from, body)
   for n = #dx, 1, -1 do dx[n], dy[n], dto[n], dsecret[n] = nil, nil, nil, nil end
   local nd = 0                                  -- the doors ROOMS names (not the secret ones)
   local sx, sy = 40, 200
-  for cy = 0, h - 1 do
-    for cx = 0, w - 1 do
-      local m = map.get(1, cx, cy)
-      local x, y = cx * 8 + 4, cy * 8 + 8
-      if m == START then sx, sy = x, y
-      elseif KIND[m] then
-        shadows.add(x, y, KIND[m])
-        if hard and MORE[KIND[m]] then
-          more = more + 1
-          if more % 2 == 1 then another(x, y, KIND[m]) end
-        end
-      elseif m == BOSS then shadows.add(x, y, def.boss)
-      elseif m == STALL then rooms.stall_x, rooms.floor_y = x, y
-      elseif m == BOX then rooms.box_x, rooms.floor_y = x, y
-      elseif m == TEAR then rooms.tear_x, rooms.floor_y = x, y
-      elseif m == PAGE and run.data and not run.page_found(def.story) and not run.hard() then   -- (hard: in the challenge room)
-        rooms.page_x, rooms.page_y = x, y
-      elseif m == CHEST then rooms.chest_x, rooms.floor_y = x, y
-      elseif m == SECRET then
-        local n = #dx + 1
-        dx[n], dy[n], dto[n], dsecret[n] = cx, cy, "challenge.ooru", true
-        challenge_of(def, name)
-      elseif m == DOOR then
-        local n = #dx + 1
-        nd = nd + 1
-        dx[n], dy[n], dto[n] = cx, cy, def.doors[nd] == "next" and rooms.after(def.story) or def.doors[nd]
+  -- each thing in the room: what it is, where it stands (x, its feet's y)
+  -- and its cell
+  local function put(kind, x, y, cx, cy)
+    if kind == "start" then sx, sy = x, y
+    elseif kind == "door" then
+      local n = #dx + 1
+      nd = nd + 1
+      dx[n], dy[n], dto[n] = cx, cy, def.doors[nd] == "next" and rooms.after(def.story) or def.doors[nd]
+    elseif kind == "boss" then shadows.add(x, y, def.boss)
+    elseif kind == "stall" then rooms.stall_x, rooms.floor_y = x, y
+    elseif kind == "box" then rooms.box_x, rooms.floor_y = x, y
+    elseif kind == "tear" then rooms.tear_x, rooms.floor_y = x, y
+    elseif kind == "page" then
+      if run.data and not run.page_found(def.story) and not run.hard() then rooms.page_x, rooms.page_y = x, y end   -- (hard: in the challenge room)
+    elseif kind == "chest" then rooms.chest_x, rooms.floor_y = x, y
+    elseif kind == "secret" then
+      local n = #dx + 1
+      dx[n], dy[n], dto[n], dsecret[n] = cx, cy, "challenge.ooru", true
+      challenge_of(def, name)
+    else                                        -- one of the shadows
+      shadows.add(x, y, kind)
+      if hard and MORE[kind] then
+        more = more + 1
+        if more % 2 == 1 then another(x, y, kind) end
       end
-      if m >= START and m <= LAST then map.set(1, cx, cy, 0) end
     end
+  end
+  -- the room's things: the map's objects, placed when it was made; a
+  -- challenge room's, from challenge.lua as it lays the room out
+  for _, o in ipairs(def.challenge and code[def.shop].build(def, body.k) or map.objects("things")) do
+    put(o.type, o.x, o.y, (o.x - 4) // 8, (o.y - 8) // 8)
   end
   -- in at the door from where he came
   -- (of two doors back to the same room, the leftmost: a challenge room's start)
@@ -443,27 +436,11 @@ function rooms.draw_doors(k)
   end end
 end
 
--- the stall and the Aasaan's box, drawn from the actors' sheet; the tear,
--- a rip in the cloth with the lamp blazing through
+-- the stall and the Aasaan's box, drawn from the actors' sheet; the tear
+-- and a challenge room's chest by their own code (the room's shop)
 function rooms.draw_things()
-  if rooms.tear_x then
-    local x, y, f = rooms.tear_x, rooms.floor_y, stat("frame")
-    for n = 0, 11 do
-      local y0, y1 = y - 64 + n * 5, y - 59 + n * 5
-      local x0 = x + ((n * 5) % 7 - 3) * 2
-      local x1 = x + (((n + 1) * 5) % 7 - 3) * 2
-      local w = 6 - math.abs(n - 6) // 2 + (f // 8 + n) % 2
-      for d = -w, w do line(x0 + d, y0, x1 + d, y1, math.abs(d) < w - 2 and C.glow or math.abs(d) < w and C.lamp or C.ink) end
-    end
-  end
+  if rooms.shop and rooms.shop.draw_thing and rooms.shop_x then rooms.shop.draw_thing(rooms.shop_x, rooms.floor_y, rooms.def()) end
   if rooms.stall_x then spr(774, rooms.stall_x - 16, rooms.floor_y - 32, 4, 4) end
-  if rooms.chest_x then                         -- a challenge room's chest: aglow until opened
-    local shut = not run.claimed[rooms.def().story]
-    if shut then circ(rooms.chest_x, rooms.floor_y - 8, 14 + stat("frame") // 10 % 2, C.lamp)
-    else pal(C.marigold, C.wood) pal(C.lamp, C.tan) end
-    spr(771, rooms.chest_x - 12, rooms.floor_y - 16, 3, 2)
-    pal()
-  end
   if rooms.page_x then                          -- a page of the King's story, drifting, aglow
     local f = stat("frame")
     local y = rooms.page_y - 14 + math.sin(f * 0.06) * 2

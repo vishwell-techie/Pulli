@@ -162,6 +162,10 @@ def nizhalattam_climbs(up=3, across=7):
         w, h = int(root.get("width")), int(root.get("height"))
         ground, front = [[(int(v) & 0x0FFFFFFF) - 1 for v in layer.find("data").text.replace("\n", "").split(",")
                           if v.strip()] for layer in root.iter("layer")]
+        for o in root.iter("object"):          # the room's things, its map's objects, put in their cells
+            kind = {"start": START, "door": DOOR, "boat": BOAT, "ferry": FERRY}.get(o.get("class"))
+            if kind:
+                front[(int(o.get("y")) - 8) // 8 * w + (int(o.get("x")) - 4) // 8] = kind
         flag = lambda x, y: 1 if not 0 <= x < w else 0 if not 0 <= y < h else flags.get(ground[y * w + x], 0)
         decks = set()                          # cells a boat's deck holds Komali up in
         for i, m in enumerate(front):
@@ -1007,12 +1011,10 @@ def main():
         least = {"soldier": int(re.search(r"mai = \{ (\d+), \d+ \},\s+-- drops of ink he leaves", src).group(1))}
         for kind in ("dummy", "ink", "scrap"):
             least[kind] = int(re.search(kind + r" = \{[^}]*mai = \{ (\d+),", src).group(1))
-        marker = {1001: "soldier", 1003: "dummy", 1004: "ink", 1005: "scrap"}
         earned = 0
         for n in range(1, 6):
             root = ET.parse(os.path.join(nz, f"s{n}.tmx")).getroot()
-            cells = root.findall("layer")[1].find("data").text.replace("\n", "").split(",")
-            earned += sum(least[marker[int(c) - 1]] for c in cells if c.strip() and int(c) - 1 in marker)
+            earned += sum(least.get(o.get("class"), 0) for o in root.iter("object"))
         prices = [int(p) for p in re.findall(r"price = (\d+)", open(os.path.join(nz, "stall.lua")).read())]
         t.check("nizhalattam: the Screen's shadows leave enough mai for something at its stall",
                 earned >= min(prices), f"{earned} {min(prices)}")
@@ -2180,7 +2182,7 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 144 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
+                hub < 143 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
                 and fieldroom < 161 and elephantroom < 158 and marketroom < 158 and ministerroom < 163
                 and palaceroom < 167 and queenroom < 164 and kingroom < 171
                 # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
