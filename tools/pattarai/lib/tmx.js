@@ -144,3 +144,85 @@ export function setTileFlags(text, id, value) {
   if (after !== null) return text.slice(0, after) + xml + text.slice(after);
   return text.replace(/<\/tileset>/, ` ${xml.trimEnd()}\n</tileset>`);
 }
+
+// ---- objects, on object layers (SPEC §2: pack keeps them, map.objects reads them)
+// Each object layer is {name, open, objects}; each object {id, name, type,
+// x, y, w, h, gid, point, props: [{name, type, value}], raw}. An object Ooru
+// has not changed is written back as Tiled wrote it (its polygon, text,
+// template and all); a changed or new one is written afresh, keeping any
+// shape inside it.
+
+const GROUP = /<objectgroup\b[^>]*?(?:\/>|>[\s\S]*?<\/objectgroup>)/g;
+const OBJECT = /<object\b[^>]*?(?:\/>|>[\s\S]*?<\/object>)/g;
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const unesc = (s) => (s == null ? s : s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"));
+
+export function parseObjects(text) {
+  const groups = [];
+  for (const g of text.matchAll(GROUP)) {
+    const open = g[0].match(/^<objectgroup\b[^>]*?(?=\/?>)/)[0];
+    const objects = [];
+    for (const o of g[0].matchAll(OBJECT)) {
+      const tag = o[0].match(/^<object\b[^>]*>/)[0];
+      const props = [...o[0].matchAll(/<property\b[^>]*?(?:\/>|>([\s\S]*?)<\/property>)/g)].map((p) => {
+        const t = p[0].match(/^<property\b[^>]*>/)[0];
+        return { name: unesc(attr(t, "name")) || "", type: attr(t, "type") || "string",
+                 value: unesc(attr(t, "value") ?? p[1] ?? "") };
+      });
+      objects.push({ id: +attr(tag, "id") || 0, name: unesc(attr(tag, "name")) || "",
+        type: unesc(attr(tag, "class") ?? attr(tag, "type")) || "",
+        x: +attr(tag, "x") || 0, y: +attr(tag, "y") || 0, w: +attr(tag, "width") || 0, h: +attr(tag, "height") || 0,
+        gid: attr(tag, "gid") ? +attr(tag, "gid") : null, point: /<point\s*\/>/.test(o[0]),
+        props, raw: o[0] });
+    }
+    groups.push({ name: unesc(attr(open, "name")) || "", open, objects, raw: g[0] });
+  }
+  return groups;
+}
+
+function objectXML(o) {
+  if (o.raw && !o.changed) return o.raw;
+  const shape = o.raw ? (o.raw.match(/<(polygon|polyline)\b[^>]*\/>|<ellipse\s*\/>|<text\b[\s\S]*?<\/text>/) || [""])[0] : "";
+  let a = `<object id="${o.id}"` + (o.name ? ` name="${esc(o.name)}"` : "") + (o.type ? ` class="${esc(o.type)}"` : "") +
+    (o.gid ? ` gid="${o.gid >>> 0}"` : "") + ` x="${o.x}" y="${o.y}"` +
+    (o.w || o.h ? ` width="${o.w}" height="${o.h}"` : "");
+  const props = o.props.filter((p) => p.name);
+  const inner = (props.length ? "\n   <properties>\n" + props.map((p) =>
+    `    <property name="${esc(p.name)}"` + (p.type && p.type !== "string" ? ` type="${p.type}"` : "") +
+    ` value="${esc(p.value)}"/>`).join("\n") + "\n   </properties>" : "") +
+    (o.point ? "\n   <point/>" : shape ? "\n   " + shape : "");
+  return inner ? `${a}>${inner}\n  </object>` : `${a}/>`;
+}
+
+function groupXML(g) {
+  const was = g.raw && parseObjects(g.raw)[0];
+  if (was && was.name === g.name && was.objects.length === g.objects.length &&
+      g.objects.every((o, i) => !o.changed && o.raw === was.objects[i].raw)) return g.raw;
+  const open = / name="/.test(g.open) ? g.open.replace(/ name="[^"]*"/, ` name="${esc(g.name)}"`)
+    : g.open.replace(/^<objectgroup/, `<objectgroup name="${esc(g.name)}"`);
+  if (!g.objects.length) return `${open}/>`;
+  return `${open}>\n  ` + g.objects.map(objectXML).join("\n  ") + "\n </objectgroup>";
+}
+
+// The map's text with its object layers as `groups` says: each existing
+// one rewritten in place, removed ones taken out, new ones added at the end,
+// and the map's next object id past every id in it.
+export function writeObjects(text, groups) {
+  let i = 0;
+  text = text.replace(GROUP, () => (i < groups.length ? groupXML(groups[i++]) : ""));
+  let layerId = Math.max(0, ...[...text.matchAll(/<(?:layer|objectgroup|imagelayer|group)\b[^>]*\sid="(\d+)"/g)].map((m) => +m[1]));
+  for (; i < groups.length; i++) {
+    const g = groups[i];
+    g.open = `<objectgroup id="${++layerId}" name="${esc(g.name)}"`;
+    text = text.replace(/<\/map>/, " " + groupXML(g) + "\n</map>");
+  }
+  const ids = groups.flatMap((g) => g.objects.map((o) => o.id));
+  const next = Math.max(0, ...ids, ...[...text.matchAll(/<object\b[^>]*\sid="(\d+)"/g)].map((m) => +m[1])) + 1;
+  text = /<map\b[^>]*\snextobjectid="/.test(text) ? text.replace(/(<map\b[^>]*\snextobjectid=")(\d+)/, (_, a, n) => a + Math.max(+n, next))
+    : text.replace(/<map\b/, `<map nextobjectid="${next}"`);
+  return text.replace(/(<map\b[^>]*\snextlayerid=")(\d+)/, (_, a, n) => a + Math.max(+n, layerId + 1));
+}
+
+// An object's box in pixels as pack reads it: a tile object's y is its
+// bottom in Tiled, so its top is y - h.
+export const objectTop = (o) => (o.gid ? o.y - o.h : o.y);

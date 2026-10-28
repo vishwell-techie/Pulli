@@ -3,7 +3,7 @@
 // against the memory a game holds at once, what is read as it starts, and
 // the Pico 2 board's flash. The biggest parts are listed, to see what to
 // make smaller.
-import { h, status, api, shared, refreshBudget } from "./app.js";
+import { h, status, api, shared, refreshBudget, help } from "./app.js";
 
 export function project(root) {
   const out = h("div");
@@ -11,7 +11,8 @@ export function project(root) {
   const button = h("button", { className: "on", onclick: measure }, "Measure");
   root.append(plan,
     h("div", { className: "bar" }, button,
-      h("span", { className: "muted" }, "Packs the game as pulli pack does (a game with a lot of music takes a while).")),
+      help("Packs the game as pulli pack does, and checks it against the spec's limits: the package, what is held at once, " +
+        "what is read as it starts, and the Pico 2 board's flash. A game with a lot of music takes a while.")),
     out);
 
   // ---- the budget: where the game goes, and what it may take ------------------
@@ -27,17 +28,17 @@ export function project(root) {
       value: st.limits[k] ?? "", placeholder: "none", style: "width:80px" })]));
     const mb = (n) => (n / 1048576).toFixed(2);
     plan.replaceChildren(
-      h("h3", {}, "Budget"),
-      h("p", { className: "muted", style: "margin:0 0 8px;max-width:72ch" },
-        "Choose where the game is meant to go. The meter at the top shows what it takes against that, and Pattarai warns " +
-        "when a save takes it past. Strict refuses those saves instead. Whatever the setting, Pattarai always refuses a " +
-        "picture, map or sound the console could not use. The setting is kept in the game's folder (.pattarai.json), " +
-        "which pack leaves out."),
+      h("div", { className: "bar", style: "margin-bottom:6px" }, h("h3", { style: "margin:0" }, "Budget"),
+        help("Choose where the game is meant to go. The meter at the top shows what it takes against that, and Pattarai warns " +
+          "when a save takes it past. Strict refuses those saves instead. Whatever the setting, Pattarai always refuses a " +
+          "picture, map or sound the console could not use. The setting is kept in the game's folder (.pattarai.json), " +
+          "which pack leaves out.")),
       h("div", { className: "bar" }, h("label", {}, "made for", target),
         h("label", { title: "Refuse saves that take the game past its budget or a limit" }, strict, "strict"),
         h("button", { onclick: () => save(target.value, strict.checked, limits) }, "Save setting")),
-      h("div", { className: "limits" }, ...KINDS.map((k) => h("label", {},
-        h("span", {}, k, " ", h("small", {}, `${mb(b.kinds[k])} MB now`)), h("span", {}, limits[k], " MB")))),
+      h("table", { className: "limits" },
+        h("tr", {}, h("th", {}, "kind"), h("th", { style: "text-align:right" }, "now"), h("th", {}, "limit (MB, empty for none)")),
+        ...KINDS.map((k) => h("tr", {}, h("td", {}, k), h("td", { className: "num" }, `${mb(b.kinds[k])} MB`), h("td", {}, limits[k])))),
       b.error ? h("p", { className: "err", style: "margin:8px 0 0" }, "Not measured: " + b.error)
         : h("div", { style: "margin-top:10px" }, row(`the whole game, of ${b.target}`, b.size, b.room),
             ...KINDS.filter((k) => st.limits[k]).map((k) => row(`${k}, of its limit`, b.kinds[k], st.limits[k] * 1048576))),

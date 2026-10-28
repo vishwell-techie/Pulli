@@ -170,6 +170,19 @@ Change a tile of the loaded map. The package is not changed.
 A tile's flags, set in Tiled: a number from 0 to 255. `map.flags(t) & 1` is
 1 for a tile marked `solid`.
 
+### `map.objects([layer])`
+The loaded map's objects, placed in Tiled on an object layer: a list of
+tables, each with `layer`, `name`, `type`, `x`, `y`, `w`, `h` (in pixels),
+`tile` for a tile object, and its own custom properties by name. Name an
+object layer to have only its objects. Each call makes a new list, so call
+it once when the map is loaded.
+
+```lua
+for _, o in ipairs(map.objects("spawns")) do
+  if o.type == "enemy" then add_enemy(o.x, o.y, o.hp) end
+end
+```
+
 ## Buttons
 
 Buttons are named `"left"`, `"right"`, `"up"`, `"down"`, `"a"`, `"b"`, `"x"`,

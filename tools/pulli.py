@@ -522,10 +522,106 @@ def kolam_from_png(data: bytes, name: str = "picture", notes=None, colours=None)
 
 # ---- maps ---------------------------------------------------------------
 
-def ooru(width: int, height: int, layers, flags: bytes = b"") -> bytes:
+OBJECTS_MAX = 1024                          # objects a map may hold, over all its object layers
+OBJECT_TEXT_MAX = 255                       # bytes in a name, a type, a property's name or text
+OBJECT_KEYS = ("name", "type", "layer", "x", "y", "w", "h", "tile")
+
+
+def _short(text, what):
+    b = str(text).encode("utf-8")
+    if len(b) > OBJECT_TEXT_MAX:
+        raise PackageError(f"{what} is {len(b)} bytes; at most {OBJECT_TEXT_MAX}")
+    return bytes([len(b)]) + b
+
+
+def objects_section(groups) -> bytes:
+    """A map's objects (SPEC §2): groups as [(layer name, [object])], each
+    object a dict with x, y, w, h (pixels), tile (a cell, 0 for none), name,
+    type and props {name: int, float, bool or str}."""
+    total = sum(len(objs) for _, objs in groups)
+    if total > OBJECTS_MAX:
+        raise PackageError(f"{total} objects; a map holds at most {OBJECTS_MAX}")
+    out = bytearray(struct.pack("<H", len(groups)))
+    for layer, objs in groups:
+        out += _short(layer, f"object layer '{layer}' name") + struct.pack("<H", len(objs))
+        for o in objs:
+            for key in ("x", "y"):
+                if not -32768 <= o[key] <= 32767:
+                    raise PackageError(f"object '{o['name']}' is outside -32768 to 32767 pixels")
+            for key in ("w", "h"):
+                if not 0 <= o[key] <= 65535:
+                    raise PackageError(f"object '{o['name']}' is too large")
+            out += struct.pack("<hhHHH", o["x"], o["y"], o["w"], o["h"], o.get("tile", 0))
+            out += _short(o["name"], "an object's name") + _short(o["type"], "an object's type")
+            props = o.get("props", {})
+            if len(props) > 255:
+                raise PackageError(f"object '{o['name']}' has {len(props)} properties; at most 255")
+            out.append(len(props))
+            for key, value in props.items():
+                if key in OBJECT_KEYS:
+                    raise PackageError(f"object '{o['name']}': a property may not be called '{key}'")
+                out += _short(key, "a property's name")
+                if isinstance(value, bool):
+                    out += b"\2" + bytes([value])
+                elif isinstance(value, int):
+                    if not -2**31 <= value < 2**31:
+                        raise PackageError(f"object '{o['name']}': {key} = {value} is past a 32-bit number")
+                    out += b"\0" + struct.pack("<i", value)
+                elif isinstance(value, float):
+                    out += b"\1" + struct.pack("<f", value)
+                else:
+                    out += b"\3" + _short(value, f"property '{key}'")
+    return bytes(out)
+
+
+def read_objects(data: bytes):
+    """A map's objects as pack wrote them: a list of dicts, as map.objects() gives them."""
+    w, h, count, extra, nflags = struct.unpack("<HHBBH", data[4:12])
+    at = 12 + 2 * w * h * count + nflags
+    if not extra & 1:
+        return []
+
+    def short():
+        nonlocal at
+        n = data[at]
+        at += 1 + n
+        return data[at - n:at].decode("utf-8")
+
+    found = []
+    groups = struct.unpack("<H", data[at:at + 2])[0]
+    at += 2
+    for _ in range(groups):
+        layer = short()
+        n = struct.unpack("<H", data[at:at + 2])[0]
+        at += 2
+        for _ in range(n):
+            x, y, ow, oh, tile = struct.unpack("<hhHHH", data[at:at + 10])
+            at += 10
+            o = {"layer": layer, "name": short(), "type": short(), "x": x, "y": y, "w": ow, "h": oh}
+            if tile:
+                o["tile"] = tile
+            props = data[at]
+            at += 1
+            for _ in range(props):
+                key, kind = short(), data[at]
+                at += 1
+                if kind == 0:
+                    o[key] = struct.unpack("<i", data[at:at + 4])[0]; at += 4
+                elif kind == 1:
+                    o[key] = struct.unpack("<f", data[at:at + 4])[0]; at += 4
+                elif kind == 2:
+                    o[key] = bool(data[at]); at += 1
+                else:
+                    o[key] = short()
+            found.append(o)
+    return found
+
+
+def ooru(width: int, height: int, layers, flags: bytes = b"", objects=None) -> bytes:
     """A map.ooru: one or two layers of cells, row by row, then one byte of
-    flags per tile number (SPEC §2). A cell is a tile number, plus FLIP_X
-    and FLIP_Y."""
+    flags per tile number (SPEC §2), then the map's objects if it has any
+    (objects: as objects_section takes them). A cell is a tile number, plus
+    FLIP_X and FLIP_Y."""
     if not 1 <= len(layers) <= 2:
         raise PackageError(f"{len(layers)} layers; a map has one or two")
     if width < 1 or height < 1 or width * height * len(layers) > MAP_CELLS_MAX:
@@ -536,15 +632,76 @@ def ooru(width: int, height: int, layers, flags: bytes = b"") -> bytes:
     if len(flags) > TILE_MAX + 1:
         raise PackageError("flags for more tiles than there can be")
     cells = [c for layer in layers for c in layer]
-    return (b"ORU1" + struct.pack("<HHBBH", width, height, len(layers), 0, len(flags))
-            + struct.pack(f"<{len(cells)}H", *cells) + bytes(flags))
+    return (b"ORU1" + struct.pack("<HHBBH", width, height, len(layers), 1 if objects else 0, len(flags))
+            + struct.pack(f"<{len(cells)}H", *cells) + bytes(flags) + (objects_section(objects) if objects else b""))
 
 
 def read_ooru(data: bytes):
     """A map as (width, height, layers, flags)."""
     w, h, count, _, nflags = struct.unpack("<HHBBH", data[4:12])
     cells = struct.unpack(f"<{w * h * count}H", data[12:12 + 2 * w * h * count])
-    return w, h, [list(cells[i * w * h:(i + 1) * w * h]) for i in range(count)], data[12 + 2 * w * h * count:]
+    at = 12 + 2 * w * h * count
+    return w, h, [list(cells[i * w * h:(i + 1) * w * h]) for i in range(count)], data[at:at + nflags]
+
+
+def objects_from_tmx(group, first, fail, notes, name):
+    """A Tiled object layer as (its name, [object]) for objects_section:
+    each object's box in pixels, rounded; a point is a box of no size, a
+    polygon or polyline the box around its points, a tile object its tile
+    with the box's top at its top (Tiled puts it at the bottom)."""
+    layer = group.get("name", "")
+    objs = []
+    for e in group.findall("object"):
+        what = f"object '{e.get('name') or e.get('id')}' in '{layer}'"
+        if e.get("template"):
+            fail(f"{what} comes from a template; detach it (right-click, Detach Template)")
+        if e.find("text") is not None:
+            if notes is not None:
+                notes.append(f"{name}: {what} is text, which is not imported")
+            continue
+        try:
+            x, y = float(e.get("x", 0)), float(e.get("y", 0))
+            ow, oh = float(e.get("width", 0)), float(e.get("height", 0))
+        except ValueError:
+            fail(f"{what} has a position that is not a number")
+        if float(e.get("rotation", 0) or 0) and notes is not None:
+            notes.append(f"{name}: {what} is rotated; its rotation is not imported")
+        shape = e.find("polygon") if e.find("polygon") is not None else e.find("polyline")
+        if shape is not None:
+            try:
+                pts = [tuple(float(v) for v in p.split(",")) for p in shape.get("points", "").split()]
+            except ValueError:
+                fail(f"{what} has points that are not numbers")
+            xs, ys = [p[0] for p in pts] or [0], [p[1] for p in pts] or [0]
+            x, y, ow, oh = x + min(xs), y + min(ys), max(xs) - min(xs), max(ys) - min(ys)
+        tile = 0
+        if e.get("gid"):
+            gid = int(e.get("gid"))
+            n = (gid & 0x0FFFFFFF) - first
+            if not 0 <= n <= TILE_MAX:
+                fail(f"{what} is a tile from another tileset")
+            tile = n | (FLIP_X if gid & 0x80000000 else 0) | (FLIP_Y if gid & 0x40000000 else 0)
+            y -= oh
+        props = {}
+        for prop in e.iter("property"):
+            kind, key = prop.get("type", "string"), prop.get("name", "")
+            value = prop.get("value", prop.text or "")
+            try:
+                if kind in ("int", "object"):
+                    props[key] = int(value or 0)
+                elif kind == "float":
+                    props[key] = float(value or 0)
+                elif kind == "bool":
+                    props[key] = value == "true"
+                elif kind == "class":
+                    fail(f"{what}: property '{key}' is a class; use plain properties")
+                else:
+                    props[key] = value
+            except ValueError:
+                fail(f"{what}: property '{key}' is not a {kind}")
+        objs.append({"x": round(x), "y": round(y), "w": round(ow), "h": round(oh), "tile": tile,
+                     "name": e.get("name", ""), "type": e.get("class", e.get("type", "")), "props": props})
+    return layer, objs
 
 
 def ooru_from_tmx(path: str, sheet_columns: int = None, notes=None) -> bytes:
@@ -637,11 +794,11 @@ def ooru_from_tmx(path: str, sheet_columns: int = None, notes=None) -> bytes:
         layers.append(cells)
     if used_first and notes is not None:
         notes.append(f"{name}: uses the first tile of the sheet, which maps never draw; keep that tile blank")
-    others = [e.tag for e in root.iter() if e.tag in ("objectgroup", "imagelayer")]
-    if others and notes is not None:
-        notes.append(f"{name}: object and image layers are not imported")
+    if any(True for _ in root.iter("imagelayer")) and notes is not None:
+        notes.append(f"{name}: image layers are not imported")
+    groups = [objects_from_tmx(group, first, fail, notes, name) for group in root.iter("objectgroup")]
     try:
-        return ooru(w, h, layers, bytes(flags))
+        return ooru(w, h, layers, bytes(flags), groups)
     except PackageError as e:
         fail(str(e))
 
@@ -954,7 +1111,9 @@ def cmd_list(path):
             print(f"            {w}x{h} pixels, sprites 0 to {(w // CELL) * (h // CELL) - 1}")
         if blob[:4] == b"ORU1":
             w, h, layers, flags = read_ooru(blob)
-            print(f"            {w}x{h} tiles, {len(layers)} layer(s), flags for {len(flags)} tile(s)")
+            objs = read_objects(blob)
+            print(f"            {w}x{h} tiles, {len(layers)} layer(s), flags for {len(flags)} tile(s)"
+                  + (f", {len(objs)} object(s)" if objs else ""))
         if blob[:4] in (magic for _, magic in BANKS.values()):
             for i, (rate, channels, frames, loop, encoding, size) in enumerate(read_bank(blob)):
                 print(f"{size:>8}    {i}: {frames / rate:.2f} s, {rate} Hz, "

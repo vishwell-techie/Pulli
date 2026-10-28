@@ -137,6 +137,12 @@ tile 0 is empty. A map saved here keeps everything else Tiled put in it.
 - **Flags:** the tile in hand's eight flags, bit 0 being solid. They are
   kept in the tileset (`sprites.tsx`) and read by the game with
   `map.flags(tile)`. **Show flags** tints solid tiles red on the map.
+- **Objects** places things the game reads with `map.objects()`: a
+  player's start, enemies, doors, triggers. Click to place a point, drag
+  for a box, drag an object to move it, Delete to remove it; with **snap**
+  they sit on whole tiles. Give each a name, a class and properties (text,
+  whole numbers, numbers, true or false). Objects are kept on object
+  layers, named as the game asks for them (`map.objects("spawns")`).
 - The frame on the map is one screen, 40 × 30 tiles.
 
 The tiles are the picture open in Kolam. A map holds at most 32,768 tiles
@@ -194,6 +200,12 @@ Carnatic raga, played by a synthesised band.
   part, and a tour of every instrument) and a Bilahari line. Opening one
   starts an unsaved copy; Save puts it in the game's music folder.
 
+The song's settings are in four groups: the raga or scale and the tala or
+time, the rhythm, the sound and the WAV made. Choosing another raga keeps
+the parts' letters, which then name its notes; a note the new raga does not
+have (M in Mohanam) moves to its nearest note, and the status line says
+which parts changed.
+
 A part is written one note a step. In a new Carnatic song, as lines are
 written by hand, a capital is two aksharas and a small letter one, and a
 dot above or below a swara moves it an octave; **capitals long** switches
@@ -226,7 +238,7 @@ every song. Changing **note names** rewrites the parts to sound the same,
 and notes are spelled from the key, as a musician writes them: B♭ in G
 major's minor third, not A♯.
 
-The **roll** under the parts shows the part in hand: click to place a note,
+The **roll** above the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play
 each note.
 
@@ -290,7 +302,7 @@ Pico 2 board's 4 MB of flash. Bars show what takes the most room.
 
 ## Running the game
 
-**▶ Run game** packs the game and plays it in the emulator's window; ■
+**▶ Run game** packs the game and plays it in the emulator's window; **■ Stop game**
 closes it. With **restart on save** ticked it starts again a moment after
 each save, so a change shows at once. The game starts from the beginning
 each time: this is not hot reload.
@@ -303,6 +315,4 @@ and swaras stay as they are written.
 ## Not yet
 
 - Hot reload that keeps the game's state.
-- Spawn points and other objects on a map: `pack` takes only Tiled's tile
-  layers.
 - The status line and help text in Tamil.

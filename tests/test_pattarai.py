@@ -232,6 +232,19 @@ def library(t):
         fresh = ooru(r["fresh"], "new.tmx")
         t.check("a new map and its tileset are what pack reads", fresh[:2] == (10, 6) and len(fresh[2]) == 2 and
                 fresh[2][1][3] == 2 and sum(map(sum, fresh[2])) == 2, fresh[:2])
+        t.check("a map's object layers are read as Tiled wrote them, and written back unchanged when untouched",
+                r["objectsSame"] and r["objectsRead"] == [["spawns", [[3, "way", "", 10, 20, False, []],
+                [4, "start", "player", 16, 24, True, [{"name": "note", "type": "string", "value": 'a "quote" & more'}]]]]],
+                r["objectsRead"])
+        with open(os.path.join(tmp, "objects.tmx"), "w") as f:
+            f.write(r["objectsWritten"])
+        objs = pulli.read_objects(pulli.ooru_from_tmx(os.path.join(tmp, "objects.tmx")))
+        t.check("objects placed, moved and given properties in Ooru are what pack reads: kinds, Tamil, a new layer",
+                [(o["layer"], o["name"], o["type"], o["x"], o["y"], o["w"], o["h"]) for o in objs] == [
+                    ("spawns", "way", "", 11, 16, 12, 13), ("spawns", "start", "player", 16, 24, 0, 0),
+                    ("spawns", "guard <1>", "enemy", 40, 8, 16, 8), ("doors", "door", "", 0, 8, 0, 0)]
+                and objs[2]["hp"] == 3 and objs[2]["boss"] is True and objs[2]["speed"] == 1.5 and objs[2]["says"] == "வணக்கம்"
+                and objs[1]["note"] == 'a "quote" & more' and r["objectsAgain"] == [["spawns", 3], ["doors", 1]], objs)
         flags_of = lambda: dict(enumerate(pulli.read_ooru(pulli.ooru_from_tmx(os.path.join(tmp, "map.tmx")))[3]))
         shutil.copy(os.path.join(os.path.dirname(VILLAGE), "sprites.tsx"), tmp)
         ooru(r["mapSame"])
@@ -297,7 +310,7 @@ def vidhi(t, r):
             {k: v for k, v in sigs.items() if k != "stat"} == {k: v for k, v in found.items() if k != "stat"}
             and "stat" in found and "stat" in sigs, sorted(set(sigs.items()) ^ set(found.items())))
     t.check("names are offered as they are typed: the API, the callbacks, the file's own", r["complete"] == [
-        ["map.draw", "map.flags", "map.get", "map.load", "map.set", "map.size", "make_enemy"],
+        ["map.draw", "map.flags", "map.get", "map.load", "map.objects", "map.set", "map.size", "make_enemy"],
         ["spr", "speed"], [], ["map.draw"]], r["complete"])
     t.check("the name being typed is found, dots and all", r["word"] == [{"word": "map.lo", "start": 4}, None], r["word"])
     t.check("the hint names the call the cursor is in and which argument",
@@ -332,7 +345,9 @@ def project(t):
 def tamil(t):
     text = open(os.path.join(HERE, "lib", "i18n.js")).read()
     pairs = re.findall(r'"((?:[^"\\]|\\.)+)":\s*"((?:[^"\\]|\\.)+)"', text.split("export const TA")[1].split("};")[0])
-    ui = "".join(open(os.path.join(HERE, f)).read() for f in os.listdir(HERE) if f.endswith((".js", ".html")))
+    ui = "".join(open(os.path.join(d, f)).read() for d in (HERE, os.path.join(HERE, "lib"))
+                 for f in os.listdir(d) if f.endswith((".js", ".html")) and f != "i18n.js")
+    ui += " ".join(name for name, _ in pulli.TARGETS.values())          # the budget's targets, from the server
     missing = [en for en, _ in pairs if en.strip() not in ui]
     t.check("every English word Pattarai puts in Tamil is one the editors show", pairs and not missing, missing)
     t.check("each is given in Tamil", all(re.search("[\u0b80-\u0bff]", ta) for _, ta in pairs),

@@ -5,7 +5,8 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
-and item 32 on 27 October 2026; a new change goes there until it is approved.
+item 32 on 27 October 2026 and items 33 to 35 on 28 October
+2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
 are decision records kept outside this repository.
@@ -288,11 +289,21 @@ offset  size     field
 4       2        width in tiles (u16 LE)
 6       2        height in tiles
 8       1        layers: 1 or 2
-9       1        reserved, 0
+9       1        1 if the map's objects follow its flags, else 0
 10      2        count F of tile flags, at most 16384
 12      2*w*h*L  cells (u16 LE): layer 0 row by row, then layer 1
 ...     F        flags: one byte for each tile number from 0 to F-1
+...              objects, if byte 9 is 1:
+          2      count G of object layers
+                 each layer: its name, a count N (u16), then N objects:
+          10       x, y (i16), w, h (u16), in pixels; tile (u16 cell, 0 none)
+                   name, type, a count P (u8) of properties, then P of:
+                     name, a kind byte and its value: 0 a 32-bit integer
+                     (i32), 1 a number (f32), 2 true or false (u8), 3 text
 ```
+
+A name or text is a byte giving its length, 0 to 255, then that many bytes
+of UTF-8. A map holds at most 1,024 objects.
 
 A cell holds a tile number in its low 14 bits; bit 15 turns the tile over
 left to right and bit 14 top to bottom. Tile `n` is drawn as sprite `n`
@@ -308,8 +319,13 @@ loaded at the start.
 first two tile layers become layers 0 and 1. Tiles flipped in Tiled stay
 flipped; rotated tiles are refused. A tile's flags come from two custom
 properties on the tileset's tiles: `flags`, a number from 0 to 255, and
-`solid`, a tick box that sets bit 0. Object and image layers are not
-imported.
+`solid`, a tick box that sets bit 0. Every object layer is kept with the
+map (`map.objects`, §3): an object's box is rounded to whole pixels, a
+point is a box of no size, a polygon or polyline the box around its points,
+and a tile object keeps its tile, with the box's top at the tile's top.
+Rotation and text objects are not imported; an object from a template is
+refused until it is detached, and so is a property of a class. Image
+layers are not imported.
 
 ### palette.pal (draft)
 
@@ -509,6 +525,7 @@ map.draw(layer, sx, sy)            -- layer 0 = behind, 1 = in front; sx, sy opt
 map.get(layer, cx, cy)             -- tile, flip_x, flip_y
 map.set(layer, cx, cy, tile, flip_x, flip_y)
 map.flags(tile)                    -- 8 collision/meta bits per tile
+map.objects(layer)                 -- the map's objects; layer optional
 ```
 
 - A game with a `map.ooru` starts with it loaded. `map.load` replaces the
@@ -525,6 +542,11 @@ map.flags(tile)                    -- 8 collision/meta bits per tile
 - Outside the map, `map.get` gives 0 and `map.set` does nothing. With no
   map loaded every function is harmless.
 - `map.flags` gives 0 for a tile that has no flags.
+- `map.objects` gives a new table, a list of the loaded map's objects (only
+  those of the object layer named `layer`, if given) in the order they
+  were placed, or an empty list. Each is a table: `layer`, `name`, `type`,
+  `x`, `y`, `w`, `h` in pixels, `tile` for a tile object, and each of its
+  own properties by name. Changing it changes nothing in the map.
 
 ### Loading
 
@@ -965,7 +987,8 @@ Pattarai, the editors, in a web browser (§10 item 32).
 ## 10. Changes in this revision (October 2026)
 
 Made while building and testing the first runtime. Items 1 to 28 were
-approved by 18 October 2026, and item 32 on 27 October 2026; the others
+approved by 18 October 2026, item 32 on 27 October 2026 and items 33 to
+35 on 28 October 2026; the others
 await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
@@ -1127,7 +1150,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    palettes inside the game's folder. Run packs the game and plays it in
    the emulator, and can start it again after each save (not hot reload:
    the game starts over). The editors' words can be shown in Tamil.
-33. **Pattarai's budget** (§2, §6), awaiting approval. A game may keep a
+33. **Pattarai's budget** (§2, §6), approved 28 October 2026. A game may keep a
    setting for Pattarai in its folder, `.pattarai.json` (hidden, so `pack`
    leaves it out): the target it is made for (an SD card, a cartridge of 8,
    16, 32 or 64 MB less its 512 KB save area, or the Pico 2 board's 3.5 MB beside
@@ -1140,7 +1163,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    refuses a picture, map or sound the console could not use (this
    section's limits), and never refuses code. Nothing in the package or the
    runtime changes.
-34. **Songs are text; their WAVs are made** (§6), awaiting approval. A song
+34. **Songs are text; their WAVs are made** (§6), approved 28 October 2026. A song
    made in Isai is a `.json` file, and its WAV is made from it, the same to
    the byte in any browser and in Node (`tools/pattarai/make-wavs.mjs`),
    because Isai's sound uses only `+ - * /` and rounding. The song notes
@@ -1148,7 +1171,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    made. `pulli pack` refuses a song or sound `.json` without its WAV and
    notes a WAV that is out of date. Isai's drum parts also play a bell, a
    conch and jalra on any kit, and a song may have reverb (none unless set).
-35. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
+35. **A cartridge of one or two flash chips** (§1, §2), approved 28 October 2026.
    A cartridge is 8, 16, 32 or 64 MB: one or two chips of 8 or 32 MB,
    each on its own select line, read as one address range, the first chip
    then the second. The package and its seal start at offset 0 and the
@@ -1160,3 +1183,10 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    these four sizes. The console's cartridge reader does not exist yet;
    the emulator reads a cartridge image as the one range, which is what a
    game sees.
+36. **A map's objects** (§2, §3), awaiting approval. `pulli pack` keeps a
+   Tiled map's object layers (spawn points, doors, enemies, triggers...)
+   in its `.ooru`, after the tile flags, when byte 9 of the header is 1;
+   a map without objects is the same bytes as before. `map.objects(layer)`
+   returns them to the game as tables, with their own properties. Ooru
+   places, moves and removes objects and sets their names, classes and
+   properties, keeping any it does not change as Tiled wrote them.
