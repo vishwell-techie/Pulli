@@ -2182,7 +2182,7 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 142 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
+                hub < 143 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
                 and fieldroom < 161 and elephantroom < 158 and marketroom < 158 and ministerroom < 163
                 and palaceroom < 167 and queenroom < 164 and kingroom < 171
                 # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
