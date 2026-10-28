@@ -562,6 +562,15 @@ def main():
         for _ in range(3):
             r = t.run_package(b"", cart=img)
         t.check("a small save on a cartridge works the same", [l for l in r.lines if l.startswith("run")] == ["run\t2"], r.err)
+        # a cartridge is 8, 16, 32 or 64 MB (one chip, or two read as one range)
+        small = cart_game(10, 64)
+        def refused(mb):
+            try: pulli.cart_image(small, mb)
+            except pulli.PackageError: return True
+            return False
+        t.check("a cartridge image is the smallest cartridge that holds it, 8, 16, 32 or 64 MB, and no other size",
+                len(pulli.cart_image(small)) == 8 << 20 and len(pulli.cart_image(small, 16)) == 16 << 20
+                and refused(1) and refused(12) and refused(128), "")
 
     # ---- errors -------------------------------------------------------
     boom = "function update()\n  local t = nil\n  return t.x\nend\n"

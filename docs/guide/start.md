@@ -4,8 +4,11 @@
 
 ## Build the tools
 
-You need a C compiler, CMake, Ninja and Python 3. SDL2 is needed for the
-game window; without it everything else still works.
+You need a C compiler, CMake, Ninja and Python 3. SDL2 **2.24.0 or newer** is
+needed for the game window and controllers; without it everything else still
+works. Debian 12, Raspberry Pi OS Bookworm, newer Ubuntu and Homebrew have
+a new enough one; on Ubuntu 22.04 or Debian 11, build SDL2 as the
+[README](../../README.md#sdl2-2240-or-newer) shows.
 
 ```bash
 # Debian, Ubuntu, Raspberry Pi OS

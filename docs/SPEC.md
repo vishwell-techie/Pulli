@@ -50,7 +50,7 @@ them does not ship.
 | CPU chip storage | 16 MB QSPI flash; 8 MB QSPI PSRAM on the same bus | Flash: firmware and the launcher. PSRAM: the game being played (§2, "Size, and the parts in memory") |
 | GPU chip storage | 4 MB QSPI flash | Its own firmware only; sprite sheets and maps arrive over the link |
 | Game package | **up to 64 MB, of which at most 6 MB is in memory at once** | Read from the SD card or a cartridge into PSRAM as the game uses it (§2) |
-| Cartridge slot | Quad-SPI flash read by PIO; saves in the last 512 KB of that flash | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
+| Cartridge slot | Quad-SPI flash, one or two chips, read by PIO; saves in the last 512 KB of that flash | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
 | Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable (ADR-008) |
 | Tile layers | 2 scrolling + 1 sprite + 1 UI | |
 | Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core (ADR-002) |
@@ -176,10 +176,14 @@ counted alike, and the game behaves the same.
 
 A cartridge holds one game in flash memory: the package and its seal at
 offset 0 (see the seal, below), and the game's save data (§3, "Save data")
-in the last 512 KB. The flash is sized to the game; a package may take all
-of it but the save area, up to 64 MB. The console reads the flash over
-quad-SPI like the SD card, into the active set; nothing on the cartridge is
-run in place.
+in the last 512 KB. The flash is one or two chips, each on its own select
+line, read as **one address range: the first chip, then the second**. A
+cartridge is 8, 16, 32 or 64 MB (one 8 MB chip, two of them, one 32 MB
+chip, or two of those), the smallest that holds the game; a package may
+take all of it but the save area, up to 64 MB. On a two-chip cartridge the
+save area is at the end of the second chip. The console reads the flash
+over quad-SPI like the SD card, into the active set; nothing on the
+cartridge is run in place.
 
 - **The save area** is written in turn, a slot after the last one used:
   each slot holds a whole save (at most `save_size`, so at least seven
@@ -197,9 +201,16 @@ run in place.
 - A cartridge pulled out while its game runs pauses the game until it is
   back; the parts already in memory are not lost, and no save is written
   while it is out.
-- The cartridge's contacts are 3.3 V, ground, the quad-SPI bus (clock,
-  select, four data lines), an I2C pair kept for a chip on the cartridge,
-  and a detect contact that breaks first when it is pulled.
+- The console finds how many chips a cartridge has by reading the
+  manufacturer's ID from the first select line, then the second; with no
+  second chip fitted, the second select line (held high on the cartridge)
+  answers nothing. A read that runs past the end of the first chip goes on
+  in the second, as two transfers. A chip over 16 MB is addressed with
+  4 bytes, a smaller one with 3; the console chooses by the chip's ID.
+- The cartridge's contacts, 12 and fixed from the first cartridge, are
+  3.3 V, ground, the quad-SPI bus (clock, two select lines, four data
+  lines), an I2C pair kept for a chip on the cartridge, and a detect
+  contact that breaks first when it is pulled.
 
 ### The seal: licence and signature
 
@@ -1116,6 +1127,19 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    palettes inside the game's folder. Run packs the game and plays it in
    the emulator, and can start it again after each save (not hot reload:
    the game starts over). The editors' words can be shown in Tamil.
+33. **Pattarai's budget** (§2, §6), awaiting approval. A game may keep a
+   setting for Pattarai in its folder, `.pattarai.json` (hidden, so `pack`
+   leaves it out): the target it is made for (an SD card, a cartridge of 8,
+   16, 32 or 64 MB less its 512 KB save area, or the Pico 2 board's 3.5 MB beside
+   its firmware), a limit in MB for each kind of asset if wanted, and
+   whether the budget is strict. Pattarai shows what the game takes against
+   it, measured exactly as `pack` makes the package (music sized from its
+   WAV files, not squeezed, so it is quick), and warns when a save goes
+   past. When strict, it refuses a save that takes the game past its target
+   or a limit, unless the save makes the game smaller. In every case it
+   refuses a picture, map or sound the console could not use (this
+   section's limits), and never refuses code. Nothing in the package or the
+   runtime changes.
 34. **Songs are text; their WAVs are made** (§6), awaiting approval. A song
    made in Isai is a `.json` file, and its WAV is made from it, the same to
    the byte in any browser and in Node (`tools/pattarai/make-wavs.mjs`),
@@ -1124,3 +1148,15 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    made. `pulli pack` refuses a song or sound `.json` without its WAV and
    notes a WAV that is out of date. Isai's drum parts also play a bell, a
    conch and jalra on any kit, and a song may have reverb (none unless set).
+35. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
+   A cartridge is 8, 16, 32 or 64 MB: one or two chips of 8 or 32 MB,
+   each on its own select line, read as one address range, the first chip
+   then the second. The package and its seal start at offset 0 and the
+   save area is the last 512 KB of the range, in the second chip of a
+   two-chip cartridge; the 64 MB cap is unchanged. The connector has 12
+   contacts, two of them select lines. The console counts the chips by
+   their IDs, splits a read that crosses from one chip into the other,
+   and addresses a chip over 16 MB with 4 bytes. `pulli cart` makes only
+   these four sizes. The console's cartridge reader does not exist yet;
+   the emulator reads a cartridge image as the one range, which is what a
+   game sees.

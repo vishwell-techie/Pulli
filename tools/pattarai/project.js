@@ -3,15 +3,56 @@
 // against the memory a game holds at once, what is read as it starts, and
 // the Pico 2 board's flash. The biggest parts are listed, to see what to
 // make smaller.
-import { h, status } from "./app.js";
+import { h, status, api, shared, refreshBudget } from "./app.js";
 
 export function project(root) {
   const out = h("div");
+  const plan = h("div", { className: "box", style: "margin-bottom:14px" });
   const button = h("button", { className: "on", onclick: measure }, "Measure");
-  root.append(
+  root.append(plan,
     h("div", { className: "bar" }, button,
       h("span", { className: "muted" }, "Packs the game as pulli pack does (a game with a lot of music takes a while).")),
     out);
+
+  // ---- the budget: where the game goes, and what it may take ------------------
+  const KINDS = ["code", "sprites", "maps", "sound effects", "music", "other"];
+  function drawPlan() {
+    const b = shared.budget;
+    if (!b) return;
+    const st = b.settings;
+    const target = h("select", { id: "budget-target" }, ...Object.entries(b.targets).map(([k, name]) =>
+      h("option", { value: k, selected: k === st.target }, name)));
+    const strict = h("input", { type: "checkbox", id: "budget-strict", checked: st.strict });
+    const limits = Object.fromEntries(KINDS.map((k) => [k, h("input", { type: "number", min: 0, step: 0.1, id: `budget-${k.replace(" ", "-")}`,
+      value: st.limits[k] ?? "", placeholder: "none", style: "width:80px" })]));
+    const mb = (n) => (n / 1048576).toFixed(2);
+    plan.replaceChildren(
+      h("h3", {}, "Budget"),
+      h("p", { className: "muted", style: "margin:0 0 8px;max-width:72ch" },
+        "Choose where the game is meant to go. The meter at the top shows what it takes against that, and Pattarai warns " +
+        "when a save takes it past. Strict refuses those saves instead. Whatever the setting, Pattarai always refuses a " +
+        "picture, map or sound the console could not use. The setting is kept in the game's folder (.pattarai.json), " +
+        "which pack leaves out."),
+      h("div", { className: "bar" }, h("label", {}, "made for", target),
+        h("label", { title: "Refuse saves that take the game past its budget or a limit" }, strict, "strict"),
+        h("button", { onclick: () => save(target.value, strict.checked, limits) }, "Save setting")),
+      h("div", { className: "limits" }, ...KINDS.map((k) => h("label", {},
+        h("span", {}, k, " ", h("small", {}, `${mb(b.kinds[k])} MB now`)), h("span", {}, limits[k], " MB")))),
+      b.error ? h("p", { className: "err", style: "margin:8px 0 0" }, "Not measured: " + b.error)
+        : h("div", { style: "margin-top:10px" }, row(`the whole game, of ${b.target}`, b.size, b.room),
+            ...KINDS.filter((k) => st.limits[k]).map((k) => row(`${k}, of its limit`, b.kinds[k], st.limits[k] * 1048576))),
+      ...(b.over || []).map((o) => h("p", { className: "err", style: "margin:6px 0 0" }, "Over: " + o)));
+  }
+  async function save(target, strict, limits) {
+    const set = { target, strict, limits: {} };
+    for (const [k, input] of Object.entries(limits)) if (+input.value > 0) set.limits[k] = +input.value;
+    try {
+      await api.write(".pattarai.json", JSON.stringify(set, null, 1) + "\n");
+      await refreshBudget();
+      status(`Budget set: ${shared.budget.target}${strict ? ", strict" : ""}.`);
+    } catch (e) { status("Not saved: " + e.message, true); }
+  }
+  shared.listeners.push((what) => { if (what === "budget") drawPlan(); });
 
   const kb = (n) => (n < 1048576 ? `${Math.ceil(n / 1024).toLocaleString("en")} KB` : `${(n / 1048576).toFixed(2)} MB`);
 
@@ -49,8 +90,10 @@ export function project(root) {
   }
 
   function row(name, bytes, of) {
-    return h("div", { className: "sizerow" }, h("span", { className: "name" }, name),
-      h("span", { className: "track" }, h("span", { style: `width:${Math.max(1, bytes / of * 100)}%` })),
-      h("span", { className: "muted num" }, kb(bytes)));
+    const over = bytes > of;
+    return h("div", { className: "sizerow" }, h("span", { className: "name", title: name }, name),
+      h("span", { className: "track" }, h("span", { style: `width:${Math.min(100, Math.max(1, bytes / of * 100))}%` +
+        (over ? ";background:var(--bad)" : "") })),
+      h("span", { className: over ? "err num" : "muted num" }, kb(bytes)));
   }
 }

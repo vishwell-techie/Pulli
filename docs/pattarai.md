@@ -269,6 +269,20 @@ WAV files), and notes one that is out of date.
 
 ## Project
 
+**Budget.** Choose where the game is meant to go: an SD card (up to 64 MB),
+a cartridge of 8, 16, 32 or 64 MB (less the 512 KB its saves take), or the Pico 2
+board (3.5 MB beside its firmware). You can also set a limit for each kind
+of asset: code, sprites, maps, sound effects, music. The meter at the top
+of Pattarai shows what the game takes against its budget, always up to
+date, measured exactly as `pack` will make it; it turns amber past 80% and
+red past the budget, and a save that takes the game past says so.
+**Strict** refuses such saves instead, unless they make the game smaller.
+Whatever the setting, Pattarai refuses a picture, map or sound the console
+could not use: a picture past 128 KB, a map past 32,768 tiles, a sound that
+is not mono or stereo PCM, a sound past 6 MB, more than 256 sounds. Code is
+never refused. The setting is kept in the game's folder as
+`.pattarai.json`, which `pack` leaves out.
+
 **Measure** packs the game as `pulli pack` does and checks it against the
 spec: the package against 64 MB and 1,024 entries, each part against the
 6 MB a game holds in memory at once, what is read as it starts, and the

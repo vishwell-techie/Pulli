@@ -21,7 +21,7 @@ Run: python3 tests/test_pattarai.py
 The library checks need node (any recent version); they are skipped,
 loudly, without it.
 """
-import base64, http.client, json, os, re, shutil, subprocess, sys, tempfile, threading
+import base64, http.client, json, os, re, shutil, struct, subprocess, sys, tempfile, threading
 
 from harness import Suite, ROOT, pulli
 
@@ -339,6 +339,92 @@ def tamil(t):
             [en for en, ta in pairs if not re.search("[\u0b80-\u0bff]", ta)])
 
 
+def budget(t):
+    """The quick measure is the package's real size; the budget counts it
+    against the game's target; the server refuses what the console could
+    not use, and, when the game is strict, saves that go past its budget."""
+    for name in ("catch", "manickam"):
+        folder = os.path.join(ROOT, "examples", name)
+        fast = len(pulli.build_entries(sorted(pulli.gather(folder, fast=True))))
+        t.check(f"{name}: the quick measure is the real package's size, to the byte", fast == len(pulli.build(folder)),
+                (fast, len(pulli.build(folder))))
+    import wave
+
+    def wav(path, seconds, channels=1, rate=22050):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with wave.open(path, "wb") as w:
+            w.setnchannels(channels); w.setsampwidth(2); w.setframerate(rate)
+            w.writeframes(b"\1\0" * channels * int(rate * seconds))
+        return open(path, "rb").read()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        game = os.path.join(tmp, "game")
+        shutil.copytree(os.path.join(ROOT, "examples", "catch"), game)
+        b = pulli.budget(game)
+        t.check("a game with no setting is measured against an SD card, its kinds adding up",
+                b["error"] is None and b["target"] == "SD card" and b["room"] == 64 * pulli.MB and not b["over"]
+                and sum(b["kinds"].values()) < b["size"] and b["kinds"]["code"] > 0 and b["kinds"]["sound effects"] > 0, b)
+        with open(os.path.join(game, ".pattarai.json"), "w") as f:
+            json.dump({"target": "cart8", "strict": False, "limits": {"sound effects": 0.01}}, f)
+        b = pulli.budget(game)
+        t.check("a cartridge's room is its flash less the save area; a limit for a kind is counted",
+                b["room"] == 8 * pulli.MB - 512 * 1024 and len(b["over"]) == 1 and "sound effects" in b["over"][0], b["over"])
+        t.check("the setting is left out of the package", ".pattarai.json" not in dict(pulli.parse(pulli.build(game))))
+        with open(os.path.join(game, ".pattarai.json"), "w") as f:
+            f.write("not json")
+        t.check("a damaged setting reads as no setting", pulli.game_settings(game) == {"target": "sd", "strict": False, "limits": {}})
+
+        srv, token = pulli.edit_server(game, 0)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+        def ask(method, path, body=None):
+            c = http.client.HTTPConnection("127.0.0.1", srv.server_port, timeout=60)
+            c.request(method, path, body=body, headers={"Host": f"127.0.0.1:{srv.server_port}", "X-Pulli-Token": token})
+            r = c.getresponse()
+            return r.status, r.read()
+
+        try:
+            status, body = ask("GET", "/api/budget")
+            t.check("the page asks the server for the budget", status == 200 and json.loads(body)["target"] == "SD card")
+            status, _ = ask("PUT", "/api/file?path=.pattarai.json", json.dumps({"target": "board", "strict": True}).encode())
+            t.check("the page sets the game's budget; another hidden file is still refused",
+                    status == 200 and pulli.game_settings(game)["target"] == "board" and
+                    ask("PUT", "/api/file?path=.secret.json", b"{}")[0] == 403)
+            big = wav(os.path.join(tmp, "big.wav"), 90)                  # 90 s of 22,050 mono: 3.9 MB in the game
+            status, body = ask("PUT", "/api/file?path=sfx/9-big.wav", big)
+            t.check("strict: a save that takes the game past its board is refused, saying why",
+                    status == 409 and b"Pico 2 board" in body and b"strict" in body and not os.path.exists(os.path.join(game, "sfx", "9-big.wav"))
+                    and not [f for f in os.listdir(os.path.join(game, "sfx")) if f.endswith(".part")], body)
+            t.check("strict: code is saved even so", ask("PUT", "/api/file?path=main.lua",
+                    open(os.path.join(game, "main.lua"), "rb").read())[0] == 200)
+            ask("PUT", "/api/file?path=.pattarai.json", json.dumps({"target": "board", "strict": False}).encode())
+            status, _ = ask("PUT", "/api/file?path=sfx/9-big.wav", big)
+            over = json.loads(ask("GET", "/api/budget")[1])
+            t.check("not strict: the save goes through, and the budget says the game is over", status == 200 and over["over"])
+            ask("PUT", "/api/file?path=.pattarai.json", json.dumps({"target": "board", "strict": True}).encode())
+            small = wav(os.path.join(tmp, "small.wav"), 10)
+            t.check("strict, already over: a save that makes the game smaller is let through",
+                    ask("PUT", "/api/file?path=sfx/9-big.wav", small)[0] == 200)
+            ask("PUT", "/api/file?path=.pattarai.json", json.dumps({"target": "sd"}).encode())
+            bad_png = open(os.path.join(game, "sprites.png"), "rb").read()
+            bad_png = bad_png[:16] + struct.pack(">II", 1024, 1024) + bad_png[24:]
+            three = bytearray(wav(os.path.join(tmp, "three.wav"), 0.1))
+            three[22:24] = struct.pack("<H", 3)
+            huge_map = ('<?xml version="1.0"?><map orientation="orthogonal" width="200" height="200" tilewidth="8" '
+                        'tileheight="8" infinite="0"><tileset firstgid="1" source="sprites.tsx"/><layer id="1" name="a" '
+                        'width="200" height="200"><data encoding="csv">' + ",".join(["0"] * 40000) + '</data></layer></map>')
+            refusals = [ask("PUT", "/api/file?path=" + p, d) for p, d in (("big.png", bad_png), ("sfx/3.wav", bytes(three)),
+                                                                          ("huge.tmx", huge_map.encode()))]
+            t.check("never strict, still refused: a picture past 128 KB, a sound of three channels, a map past 32,768 tiles",
+                    [r[0] for r in refusals] == [409, 409, 409] and b"SPEC" in refusals[0][1] and b"channels" in refusals[1][1]
+                    and not any(os.path.exists(os.path.join(game, p)) for p in ("big.png", "sfx/3.wav", "huge.tmx")),
+                    [r[1][:90] for r in refusals])
+        finally:
+            srv.stop_game()
+            srv.shutdown()
+            srv.server_close()
+
+
 def songs(t):
     """The example songs that come with Pattarai: listed, and each one reads and plays (checked in node)."""
     d = os.path.join(HERE, "songs")
@@ -561,6 +647,7 @@ def server(t):
 def main():
     t = Suite("Pattarai, the editors")
     palette(t)
+    budget(t)
     songs_only(t)
     tamil(t)
     project(t)
