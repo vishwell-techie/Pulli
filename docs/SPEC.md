@@ -5,7 +5,8 @@ Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
 coprocessor) and ADR-002 (audio). Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
-and item 32 on 27 October 2026; a new change goes there until it is approved.
+item 32 on 27 October 2026 and items 33 to 35 on 28 October
+2026; a new change goes there until it is approved.
 This document is the contract between the runtime, the SDK, and the hardware.
 Everything else in the project is downstream of it. The ADR numbers it cites
 are decision records kept outside this repository.
@@ -965,7 +966,8 @@ Pattarai, the editors, in a web browser (§10 item 32).
 ## 10. Changes in this revision (October 2026)
 
 Made while building and testing the first runtime. Items 1 to 28 were
-approved by 18 October 2026, and item 32 on 27 October 2026; the others
+approved by 18 October 2026, item 32 on 27 October 2026 and items 33 to
+35 on 28 October 2026; the others
 await approval. Each is
 implemented and covered by `tests/`; none is frozen until spec 1.0.
 
@@ -1127,7 +1129,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    palettes inside the game's folder. Run packs the game and plays it in
    the emulator, and can start it again after each save (not hot reload:
    the game starts over). The editors' words can be shown in Tamil.
-33. **Pattarai's budget** (§2, §6), awaiting approval. A game may keep a
+33. **Pattarai's budget** (§2, §6), approved 28 October 2026. A game may keep a
    setting for Pattarai in its folder, `.pattarai.json` (hidden, so `pack`
    leaves it out): the target it is made for (an SD card, a cartridge of 8,
    16, 32 or 64 MB less its 512 KB save area, or the Pico 2 board's 3.5 MB beside
@@ -1140,7 +1142,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    refuses a picture, map or sound the console could not use (this
    section's limits), and never refuses code. Nothing in the package or the
    runtime changes.
-34. **Songs are text; their WAVs are made** (§6), awaiting approval. A song
+34. **Songs are text; their WAVs are made** (§6), approved 28 October 2026. A song
    made in Isai is a `.json` file, and its WAV is made from it, the same to
    the byte in any browser and in Node (`tools/pattarai/make-wavs.mjs`),
    because Isai's sound uses only `+ - * /` and rounding. The song notes
@@ -1148,7 +1150,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    made. `pulli pack` refuses a song or sound `.json` without its WAV and
    notes a WAV that is out of date. Isai's drum parts also play a bell, a
    conch and jalra on any kit, and a song may have reverb (none unless set).
-35. **A cartridge of one or two flash chips** (§1, §2), awaiting approval.
+35. **A cartridge of one or two flash chips** (§1, §2), approved 28 October 2026.
    A cartridge is 8, 16, 32 or 64 MB: one or two chips of 8 or 32 MB,
    each on its own select line, read as one address range, the first chip
    then the second. The package and its seal start at offset 0 and the
