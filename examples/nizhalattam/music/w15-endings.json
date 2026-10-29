@@ -1,0 +1,76 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "Db",
+ "octave": 4,
+ "a4": 440,
+ "tala": "4/4",
+ "tempo": 52,
+ "steps": 2,
+ "cycles": 8,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "horn",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": 0.1,
+   "text": "F4 , Ab4 , Ab4 , , , | F4 , Eb4 , Db4 , , , | Eb4 , F4 , Ab4 , F4 , | Eb4 , , , , , , , | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - -"
+  },
+  {
+   "name": "strings tune",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.1,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | F4 , Ab4 , Ab4 , , , | F4 , Eb4 , Db4 , , , | Eb4 , F4 , Eb4 , Db4 , | Db4 , , , , , , ,"
+  },
+  {
+   "name": "flute",
+   "instrument": "flute",
+   "octave": 1,
+   "gain": 0.25,
+   "pan": 0.3,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | Eb4 , F4 , Eb4 , Db4 , | Db4 , , , , , , ,"
+  },
+  {
+   "name": "strings low",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.35,
+   "pan": -0.3,
+   "text": "Db3 , , , , , , , | Db3 , , , , , , , | Db3 , , , , , , , | Ab2 , , , , , , , | Db3 , , , , , , , | Gb2 , , , , , , , | Ab2 , , , , , , , | Db3 , , , , , , ,"
+  },
+  {
+   "name": "strings mid",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.3,
+   "pan": 0.3,
+   "text": "Ab3 , , , , , , , | Ab3 , , , , , , , | Ab3 , , , , , , , | C4 , , , , , , , | Ab3 , , , , , , , | Bb3 , , , , , , , | Gb3 , , , , , , , | F3 , , , , , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.35,
+   "pan": 0,
+   "text": "Db2 , , , , , , , | Db2 , , , , , , , | Db2 , , , , , , , | Ab1 , , , , , , , | Db2 , , , , , , , | Gb1 , , , , , , , | Ab1 , , , , , , , | Db2 , , , , , , ,"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.6,
+ "title": "Nizhalattam: Endings, Western",
+ "about": "After Dvorak, the Largo of the New World Symphony: D-flat major, 4/4. Horn, then strings; an original arrangement."
+}

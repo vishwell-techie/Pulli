@@ -63,6 +63,21 @@ def library(t):
         "Revati": {"0": "S", "1": "R1", "5": "M1", "7": "P", "10": "N2"},
         "Kalyani": {"0": "S", "2": "R2", "4": "G3", "6": "M2", "7": "P", "9": "D2", "11": "N3"}}, r["names"])
 
+    t.check("the ragas of Nizhalattam's music have their arohanam and avarohanam", r["ragas"] == {
+        "Atana": "S R2 M1 P N3 S' / S' N3 D2 P M1 P G3 R2 S",
+        "Malayamarutam": "S R1 G3 P D2 N2 S' / S' N2 D2 P G3 R1 S",
+        "Kadanakutuhalam": "S R2 M1 D2 N3 G3 P S' / S' N3 D2 P M1 G3 R2 S",
+        "Amritavarshini": "S G3 M2 P N3 S' / S' N3 P M2 G3 S",
+        "Nattai": "S R3 G3 M1 P N3 S' / S' N3 P M1 R3 S",
+        "Arabhi": "S R2 M1 P D2 S' / S' N3 D2 P M1 G3 R2 S",
+        "Jaganmohini": "S G3 M1 P N3 S' / S' N3 P M1 G3 R1 S",
+        "Saveri": "S R1 M1 P D1 S' / S' N3 D1 P M1 G3 R1 S",
+        "Pantuvarali": "S R1 G3 M2 P D1 N3 S' / S' N3 D1 P M2 G3 R1 S",
+        "Hamsanadam": "S R2 M2 P N3 S' / S' N3 P M2 R2 S"}, r["ragas"])
+
+    t.check("a flute's or venu's breath is faint: what is above 4 kHz of a held note is 60 dB or more below it",
+            r["fluteHiss"] and all(v <= -60 for v in r["fluteHiss"].values()), r["fluteHiss"])
+
     # ---- notation ----
     notes = [(n["at"], n["len"], n["semi"], n["mark"]) for n in r["carnatic"]["notes"]]
     t.check("sargam reads: the raga's swaras, octaves, holds, rests, others named, gamakas", notes == [

@@ -30,8 +30,8 @@ local N = {
   shield = 25,
 }
 
-local sound = { N = N }
+local sound = { N = N, on = true }          -- on: the settings' sound effects
 
-function sound.play(name) sfx(N[name]) end
+function sound.play(name) if sound.on then sfx(N[name]) end end
 
 return sound

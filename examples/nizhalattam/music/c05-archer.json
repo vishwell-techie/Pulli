@@ -1,0 +1,52 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Kadanakutuhalam",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 132,
+ "steps": 4,
+ "cycles": 8,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "kanjira",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "violin",
+   "instrument": "violin",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "S , R2 , M1 , D2 , N3 , G3 , P , S' , N3 , D2 , P , M1 , G3 , R2 , S , - , | S R2 M1 D2 N3 G3 P S' N3 D2 P M1 G3 R2 S - S R2 M1 D2 N3 G3 P S' N3 D2 P M1 G3 R2 S - | S' , , , N3 , D2 , P , , , M1 , G3 , R2 , S , , , N3. , S , , , - - - - | S , R2 , M1 , D2 , N3 , G3 , P , S' , N3 , D2 , P , M1 , G3 , R2 , S , - , | S - S - R2 - M1 - D2 D2 N3 N3 G3 - P - S' - - - S' - N3 D2 P M1 G3 R2 S - - - | S R2 M1 D2 N3 G3 P S' N3 D2 P M1 G3 R2 S - S R2 M1 D2 N3 G3 P S' N3 D2 P M1 G3 R2 S - | G3 , P , S' , , , N3 , D2 , P , , , M1 , G3 , R2 , S , , , - - - - - - | S , R2 , M1 , D2 , N3 , G3 , P , S' , N3 , D2 , P , M1 , G3 , R2 , S , - ,"
+  },
+  {
+   "name": "violin 2",
+   "instrument": "violin",
+   "octave": 0,
+   "gain": 0.4,
+   "pan": -0.35,
+   "text": "S , , , , , , , , , , , , , , , P , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , M1 , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , P , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | G3 , , , , , , , , , , , , , , , S , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "kanjira",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.8,
+   "pan": 0,
+   "text": "thom - ki ki tha - ki - thom ki tha - ki ki tha ki thom - ki ki tha - ki - thom ki tha - ki ki tha ki | thom - ki ki tha - ki - thom ki tha - ki ki tha ki thom - ki ki tha - ki - thom - thom - tha nam tha tha | thom - ki ki tha - ki - thom ki tha - ki ki tha ki thom - ki ki tha - ki - thom ki tha - ki ki tha ki | thom - ki ki tha - ki - thom ki tha - ki ki tha ki thom - ki ki tha - ki - thom - thom - tha nam tha tha | thom - ki ki tha - ki - thom - thom - tha nam tha tha thom - ki ki tha - ki - thom - thom - tha nam tha tha | thom - ki ki tha - ki - thom ki tha - ki ki tha ki thom - ki ki tha - ki - thom ki tha - ki ki tha ki | thom - ki ki tha - ki - thom ki tha - ki ki tha ki thom - ki ki tha - ki - thom - thom - tha nam tha tha | thom - ki ki tha - ki - thom - thom - tha nam tha tha thom - ki ki tha - ki - thom - thom - tha nam tha tha"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.3,
+ "title": "Nizhalattam: Archer",
+ "about": "Kadanakutuhalam, Adi. Violin and kanjira. Sketch: S R2 M1 D2 | N3 G3 P S' | N3 D2 P M1 | G3 R2 S -"
+}

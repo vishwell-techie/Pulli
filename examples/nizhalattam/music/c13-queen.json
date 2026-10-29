@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Hamsanadam",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 108,
+ "steps": 4,
+ "cycles": 11,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "venu",
+   "instrument": "venu",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | S , , , R , , , M , , , P , , , N , , , S' , , , N , , , P , , , | M , , , R , , , S , , , R , , , M , , , P , , , N , , , S' , , , | S , R , M , P , N , S' , N , P , M , R , S , R , M , P , N , S' , | S , R , M , P , N , S' , N , P , M , R , S , R , M , P , N , S' , | S , , , , , , , R~ , , , , , , , M~ , , , , , , , P , , , , , , , | N~ , , , , , , , S' , , , , , , , N~ , , , , , , , P , , , , , , , | S , , , R , , , M , , , P , , , N , , , S' , , , N , , , P , , , | M , , , R , , , S , , , R , , , M , , , P , , , N , , , S' , , , | M~ , , , , , , , R~ , , , , , , , S , , , , , , , R~ , , , , , , , | M~ , , , , , , , P , , , , , , , N~ , , , , , , , S' , , , , , , ,"
+  },
+  {
+   "name": "violin",
+   "instrument": "violin",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , R , , , M , , , P , , , N , , , S' , , , N , , , P , , , | M , , , R , , , S , , , R , , , M , , , P , , , N , , , S' , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , S , , , , , , , , , , , , , , ,"
+  }
+ ],
+ "reverb": 0.4,
+ "title": "Nizhalattam: Queen",
+ "about": "Hamsanadam, Adi. Venu and violin. Sketch: S R M P | N S' N P | M R S R | M P N S'"
+}

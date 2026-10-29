@@ -12,7 +12,7 @@
  "steps": 4,
  "cycles": 6,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
  "loopCycle": 0,
@@ -74,9 +74,9 @@
  "title": "Nizhalattam: The ending",
  "about": "Madhyamavati, Adi (8). The theme follows the opening of Alakalalla, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
-  "engine": 1,
-  "wav": "810dd71ca46f8c2ffe6da3f32bb4bfa093b822bdd180b949a1089a35de2a285d",
-  "song": "a39e477612e75bdfe00ccf78a214eefb4b0d351005e6aacfbdbf9146d8616377",
+  "engine": 2,
+  "wav": "1f1365d76f240670e1ed97f32915c30585a9fde38a067b7948039460066b2a7b",
+  "song": "c44f633a41f015f3bf1a92ccee5476b3853838d73af12060deeedfbd64c95fcc",
   "current": true
  }
 }

@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Anandabhairavi",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 100,
+ "steps": 4,
+ "cycles": 11,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "venu",
+   "instrument": "venu",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | S , , , G2 , , , R2 , , , G2 , , , M1 , , , G2 , , , R2 , , , S , , , | P , , , D2 , , , P , , , M1 , , , G2 , , , R2 , , , S , , , - - - - | S , G2 , R2 , G2 , M1 , G2 , R2 , S , P , D2 , P , M1 , G2 , R2 , S , - - | S , G2 , R2 , G2 , M1 , G2 , R2 , S , P , D2 , P , M1 , G2 , R2 , S , - - | S , , , , , , , G2~ , , , , , , , R2~ , , , , , , , G2~ , , , , , , , | M1~ , , , , , , , G2~ , , , , , , , R2~ , , , , , , , S , , , , , , , | S , , , G2 , , , R2 , , , G2 , , , M1 , , , G2 , , , R2 , , , S , , , | P , , , D2 , , , P , , , M1 , , , G2 , , , R2 , , , S , , , - - - - | P , , , , , , , D2~ , , , , , , , P , , , , , , , M1~ , , , , , , , | G2~ , , , , , , , R2~ , , , , , , , S , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "veena",
+   "instrument": "veena",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , G2 , , , R2 , , , G2 , , , M1 , , , G2 , , , R2 , , , S , , , | P , , , D2 , , , P , , , M1 , , , G2 , , , R2 , , , S , , , - - - - | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , S , , , , , , , , , , , , , , ,"
+  }
+ ],
+ "reverb": 0.4,
+ "title": "Nizhalattam: Courtyard",
+ "about": "Anandabhairavi, Adi. Flute (venu) and veena. Sketch: S G2 R2 G2 | M1 G2 R2 S | P D2 P M1 | G2 R2 S -"
+}

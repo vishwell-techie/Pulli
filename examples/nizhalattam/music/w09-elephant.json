@@ -1,0 +1,60 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "2/4",
+ "tempo": 104,
+ "steps": 4,
+ "cycles": 32,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.15,
+   "text": "- , G4 , G4 , G4 , | Eb4 , , , , , , , | - , F4 , F4 , F4 , | D4 , , , , , , , | - , G4 , G4 , G4 , | Eb4 , Ab4 , Ab4 , Ab4 , | G4 , Eb5 , Eb5 , Eb5 , | C5 , , , , , , , | - , G4 , G4 , G4 , | D5 , , , , , , , | - , Ab4 , Ab4 , Ab4 , | G4 , , , F4 , , , | Eb4 , F4 , G4 , Ab4 , | G4 , , , F4 , , , | Eb4 , D4 , C4 , D4 , | G4 , , , , , , , | - , G4 , G4 , G4 , | Eb4 , , , , , , , | - , F4 , F4 , F4 , | D4 , , , , , , , | - , G4 , G4 , G4 , | Eb4 , Ab4 , Ab4 , Ab4 , | G4 , Eb5 , Eb5 , Eb5 , | C5 , , , , , , , | - , G4 , G4 , G4 , | D5 , , , , , , , | - , Ab4 , Ab4 , Ab4 , | G4 , , , F4 , , , | Eb4 , F4 , G4 , Ab4 , | G4 , , , F4 , , , | Eb4 , D4 , C4 , D4 , | G4 , , , , , , ,"
+  },
+  {
+   "name": "brass",
+   "instrument": "brass",
+   "octave": -1,
+   "gain": 0.5,
+   "pan": 0.15,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - , G4 , G4 , G4 , | Eb4 , , , , , , , | - , F4 , F4 , F4 , | D4 , , , , , , , | - , G4 , G4 , G4 , | Eb4 , Ab4 , Ab4 , Ab4 , | G4 , Eb5 , Eb5 , Eb5 , | C5 , , , , , , , | - , G4 , G4 , G4 , | D5 , , , , , , , | - , Ab4 , Ab4 , Ab4 , | G4 , , , F4 , , , | Eb4 , F4 , G4 , Ab4 , | G4 , , , F4 , , , | Eb4 , D4 , C4 , D4 , | G4 , , , , , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": 0,
+   "text": "C2 , , , C2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | Ab2 , , , Ab2 , , , | C2 , , , C2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | G2 , , , G2 , , , | F2 , , , F2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | Ab2 , , , Ab2 , , , | C2 , , , C2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | G2 , , , G2 , , , | F2 , , , F2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , , | C2 , , , C2 , , , | G2 , , , G2 , , ,"
+  },
+  {
+   "name": "timpani",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": 0,
+   "text": "tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - - | tom - - - - - - - | - - - - tom - - -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.4,
+ "title": "Nizhalattam: Elephant, Western",
+ "about": "After Beethoven, Symphony No. 5: C minor, 2/4. Strings, then the brass take the motif; an original arrangement."
+}

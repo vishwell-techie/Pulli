@@ -11,9 +11,10 @@
 --                               (the tests set it)
 --
 -- Left and right choose a slot; A plays it (a new one starts empty); X
--- twice empties it; SELECT changes the language, for every slot.
+-- twice empties it; SELECT opens the settings (settings.lua).
 
 local run   = require("run")
+local settings = require("settings")
 local rooms = require("rooms")
 local lines = require("lines")
 local text  = require("text")
@@ -49,7 +50,8 @@ function title.open()
 end
 
 function title.update(i, select_p)
-  if select_p then run.set_language(lines.lang == "ta" and "en" or "ta") end
+  if settings.shown then settings.update(i, select_p) return nil end
+  if select_p then settings.open() return nil end
   if i.left_p then at, erase = (at + 1) % 3 + 1, 0 end
   if i.right_p then at, erase = at % 3 + 1, 0 end
   if i.skill and peeks[at] then                    -- X, and X again: the slot emptied
@@ -106,6 +108,7 @@ function title.draw()
             or lines.t("title_keys", buttons.a, buttons.x, buttons.select)
   text.outline(s, 160 - text.width(s) // 2, 164, erase == 1 and C.vermil or C.glow, C.ink)
   font()
+  if settings.shown then settings.draw() end
 end
 
 return title

@@ -1,0 +1,52 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "D",
+ "octave": 4,
+ "a4": 440,
+ "tala": "4/4",
+ "tempo": 76,
+ "steps": 4,
+ "cycles": 12,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "organ",
+   "instrument": "organ",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": 0.1,
+   "text": "A5 , G5 A5 , , , , G5 F5 E5 D5 C#5 , , , | D5 , , , , , , , A4 , G4 A4 , , , , | E4 , F4 , C#4 , D4 , , , , , A3 , , , | A3 B3 C#4 D4 E4 F4 G4 A4 Bb4 A4 G4 F4 E4 F4 E4 D4 | C#4 D4 E4 C#4 A3 C#4 E4 G4 A4 G4 F4 E4 D4 E4 F4 D4 | A4 F4 D4 F4 A4 D5 F5 E5 D5 C#5 D5 A4 F4 A4 D4 , | G4 Bb4 D5 Bb4 G4 Bb4 D5 Bb4 F4 A4 D5 A4 F4 A4 D5 A4 | E4 G4 C#5 G4 E4 G4 Bb4 G4 E4 G4 A4 G4 F4 E4 D4 C#4 | D4 F4 A4 D5 F5 D5 A4 F4 E4 G4 Bb4 C#5 E5 C#5 Bb4 G4 | F4 A4 D5 F5 A5 F5 D5 A4 G4 Bb4 D5 G5 Bb5 G5 D5 Bb4 | A4 , , , C#5 , , , E5 , , , G5 , , , | F5 , E5 , D5 , C#5 , D5 , , , C#5 B4 C#5 ,"
+  },
+  {
+   "name": "organ chords",
+   "instrument": "organ",
+   "octave": 0,
+   "gain": 0.35,
+   "pan": -0.2,
+   "text": "- - - - - - - - - - - - - - - - | D4 , , , , , , , , , , , , , , , | A3 , , , , , , , , , , , , , , , | D4 , , , , , , , , , , , , , , , | A3 , , , , , , , , , , , , , , , | D4 , , , , , , , , , , , , , , , | G3 , , , , , , , F3 , , , , , , , | E3 , , , , , , , A3 , , , , , , , | D4 , , , , , , , C#4 , , , , , , , | D4 , , , , , , , G3 , , , , , , , | A3 , , , , , , , , , , , , , , , | A3 , , , , , , , E4 , , , , , , ,"
+  },
+  {
+   "name": "pedal",
+   "instrument": "organ",
+   "octave": -1,
+   "gain": 0.4,
+   "pan": 0,
+   "text": "A2 , , , , , , , , , , , , , , , | D2 , , , , , , , , , , , , , , , | A2 , , , , , , , , , , , , , , , | D2 , , , , , , , , , , , , , , , | A2 , , , , , , , , , , , , , , , | D2 , , , , , , , , , , , , , , , | G2 , , , , , , , F2 , , , , , , , | E2 , , , , , , , A2 , , , , , , , | D2 , , , , , , , C#2 , , , , , , , | D2 , , , , , , , G2 , , , , , , , | A2 , , , , , , , , , , , , , , , | A2 , , , , , , , , , , , , , , ,"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.7,
+ "title": "Nizhalattam: Queen, Western",
+ "about": "After Bach, Toccata and Fugue in D minor: 4/4. Organ alone; an original arrangement."
+}

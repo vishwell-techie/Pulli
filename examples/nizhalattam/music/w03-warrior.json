@@ -1,0 +1,68 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "B",
+ "octave": 4,
+ "a4": 440,
+ "tala": "9/8",
+ "tempo": 240,
+ "steps": 1,
+ "cycles": 16,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 16,
+ "loopCycle": 4,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "brass",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.75,
+   "pan": 0.1,
+   "text": "- - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | F#4 B4 , , B4 D5 , , , | B4 D5 , , D5 F#5 , , , | D5 F#5 , , F#5 A5 , , , | F#5 , , , , , , , , | A4 D5 , , D5 F#5 , , , | D5 F#5 , , F#5 A5 , , , | F#5 A5 , , A5 C#6 , , , | B5 , , , , , , , , | F#5 E5 , , D5 C#5 , , , | B4 , , , , , , , , | F#4 , , , A#4 , , , , | C#5 , , , , , F#4 , ,"
+  },
+  {
+   "name": "low brass",
+   "instrument": "brass",
+   "octave": -1,
+   "gain": 0.5,
+   "pan": -0.2,
+   "text": "- - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | F#3 B3 , , B3 D4 , , , | B3 D4 , , D4 F#4 , , , | D4 F#4 , , F#4 A4 , , , | F#4 , , , , , , , , | A3 D4 , , D4 F#4 , , , | D4 F#4 , , F#4 A4 , , , | F#4 A4 , , A4 C#5 , , , | B4 , , , , , , , , | B3 , , , , , , , , | B3 , , , , , , , , | F#3 , , , , , , , , | F#3 , , , , , , , ,"
+  },
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.4,
+   "pan": -0.25,
+   "text": "B3{0,12} , , , , , , , , | B3{0,12} , , , , , , , , | D4{0,12} , , , , , , , , | F#3{0,12} , , , , , , , , | B3{0,12} , , , , , , , , | B3{0,12} , , , , , , , , | D4{0,12} , , , , , , , , | F#4{0,12} , , , , , , , , | D4{0,12} , , , , , , , , | D4{0,12} , , , , , , , , | F#4{0,12} , , , , , , , , | B3{0,12} , , , , , , , , | D4{0,12} , , , , , , , , | B3{0,12} , , , , , , , , | F#3{0,12} , , , , , , , , | F#3{0,12} , , , , , , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": 0,
+   "text": "B1 , , , , , , , , | B1 , , , , , , , , | B1 , , , , , , , , | F#1 , , , , , , , , | B1 , , , , , , , , | G1 , , , , , , , , | D2 , , , , , , , , | F#1 , , , , , , , , | D2 , , , , , , , , | D2 , , , , , , , , | F#1 , , , , , , , , | B1 , , , , , , , , | G1 , , , , , , , , | B1 , , , , , , , , | F#1 , , , , , , , , | F#1 , , , , , , , ,"
+  },
+  {
+   "name": "timpani",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.8,
+   "pan": 0,
+   "text": "tom - - tom - - tom - - | tom - - tom - - tom - - | tom - - tom - - tom - - | tom tom tom tom tom tom tom tom tom | tom - - - - - tom - - | tom - - - - - tom - - | tom - - - - - tom - - | tom - - - - - oh - - | tom - - - - - tom - - | tom - - - - - tom - - | tom - - - - - tom - - | oh - - - - - tom - - | tom - - tom - - tom - - | tom - - tom - - tom - - | tom - - tom - - tom tom tom | tom tom tom tom tom tom oh - -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.45,
+ "title": "Nizhalattam: Warrior, Western",
+ "about": "After Wagner, Ride of the Valkyries: B minor, 9/8. Brass over string tremolo and timpani; an original arrangement."
+}

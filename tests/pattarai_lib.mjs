@@ -23,6 +23,21 @@ out.melaCount = melas.length;
 out.melaDistinct = new Set(melas.map((s) => s.notes.join())).size;
 out.names = Object.fromEntries(["Mayamalavagowla", "Hindolam", "Mohanam", "Shivaranjani", "Revati", "Kalyani"]
   .map((n) => [n, M.swaraNames(M.SCALES[n].notes)]));
+out.ragas = Object.fromEntries(["Atana", "Malayamarutam", "Kadanakutuhalam", "Amritavarshini", "Nattai", "Arabhi",
+  "Jaganmohini", "Saveri", "Pantuvarali", "Hamsanadam"].map((n) => {
+  const s = M.SCALES[n], name = M.swaraNames(s.notes), say = (x) => (x >= 12 ? name[x - 12] + "'" : name[x]);
+  return [n, s.up.map(say).join(" ") + " / " + s.down.map(say).join(" ")];
+}));
+// a held flute note: what is above 4 kHz (steeply: six poles) is breath, and must be faint
+out.fluteHiss = Object.fromEntries([["flute", "western", "A4 , , ,"], ["venu", "carnatic", "S , , , , , , ,"]].flatMap(([inst, sys, text]) =>
+  [44100, 22050].map((rate) => {
+    const s = { ...M.newSong(sys), rate, drone: false, drums: "none", reverb: 0, tempo: 60, steps: 1, cycles: 1,
+      tala: sys === "carnatic" ? "Adi (8)" : "4/4", parts: [{ name: "x", instrument: inst, octave: 0, gain: 0.8, pan: 0, text }] };
+    const [L] = M.render(s), a = Math.exp(-2 * Math.PI * 4000 / rate), st = [0, 0, 0, 0, 0, 0];
+    let hi = 0, all = 0;
+    for (let i = rate; i < L.length - rate / 2; i++) { let x = L[i]; for (let k = 0; k < 6; k++) { st[k] = a * st[k] + (1 - a) * x; x -= st[k]; } hi += x * x; all += L[i] * L[i]; }
+    return [`${inst} ${rate}`, Math.round(10 * Math.log10(hi / all))];
+  })));
 out.melaOf = Object.fromEntries(["Hanumatodi", "Mayamalavagowla", "Natabhairavi", "Kharaharapriya",
   "Dheerasankarabharanam", "Shanmukhapriya", "Mechakalyani"].map((n) => [n, M.SCALES[n].mela]));
 out.janyaInParent = Object.entries(M.SCALES).filter(([, s]) => s.parent)

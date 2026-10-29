@@ -1,0 +1,60 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "G",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/4",
+ "tempo": 132,
+ "steps": 2,
+ "cycles": 34,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 2,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "fiddle",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": 0.2,
+   "text": "A4 Eb5 A4 Eb5 A4 Eb5 | A4 Eb5 A4 Eb5 A4 Eb5 | D5 , , , D5 , | D5 , Eb5 , D5 , | C#5 , D5 , , , | - , Bb4 , A4 , | G4 , , , G4 , | G4 , A4 , G4 , | F#4 , G4 , , , | - , D5 , C5 , | Bb4 , , , Bb4 , | Bb4 , C5 , Bb4 , | A4 , Bb4 , , , | - , G4 , F#4 , | G4 , A4 , Bb4 , | C5 , D5 , Eb5 , | D5 , , , C5 , | A4 , , , D4 , | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - -"
+  },
+  {
+   "name": "flute",
+   "instrument": "flute",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": -0.15,
+   "text": "- - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | D5 , , , D5 , | D5 , Eb5 , D5 , | C#5 , D5 , , , | - , Bb4 , A4 , | G4 , , , G4 , | G4 , A4 , G4 , | F#4 , G4 , , , | - , D5 , C5 , | Bb4 , , , Bb4 , | Bb4 , C5 , Bb4 , | A4 , Bb4 , , , | - , G4 , F#4 , | G4 , A4 , Bb4 , | C5 , D5 , Eb5 , | D5 , , , C5 , | A4 , , , D4 ,"
+  },
+  {
+   "name": "pizzicato",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "D3 - - - - - | D3 - - - - - | G2 - G3 - G3 - | G2 - G3 - G3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | G2 - G3 - G3 - | G2 - G3 - G3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | G2 - G3 - G3 - | G2 - G3 - G3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | C2 - C3 - C3 - | C2 - C3 - C3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | G2 - G3 - G3 - | G2 - G3 - G3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | G2 - G3 - G3 - | G2 - G3 - G3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | G2 - G3 - G3 - | G2 - G3 - G3 - | D2 - D3 - D3 - | D2 - D3 - D3 - | C2 - C3 - C3 - | C2 - C3 - C3 - | D2 - D3 - D3 - | D2 - D3 - D3 -"
+  },
+  {
+   "name": "drums",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.3,
+   "pan": 0,
+   "text": "tom - - - - - | tom - - - - - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat - | tom - hat - hat -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.4,
+ "title": "Nizhalattam: Minister, Western",
+ "about": "After Saint-Saens, Danse Macabre: G minor, 3/4. A fiddle's open fifths, then a waltz; an original arrangement."
+}

@@ -1,0 +1,68 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "G",
+ "octave": 4,
+ "a4": 440,
+ "tala": "5/4",
+ "tempo": 168,
+ "steps": 2,
+ "cycles": 16,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 2,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": -0.2,
+   "text": "G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2"
+  },
+  {
+   "name": "low strings",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": 0.2,
+   "text": "G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2 | G2 G2 G2 , G2 , G2 , G2 G2"
+  },
+  {
+   "name": "brass",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.65,
+   "pan": 0.1,
+   "text": "- - - - - - - - - - | - - - - - - - - - - | D4 , , , , , , , , , | G4 , , , , , , , , , | Ab4 , , , , , , , , , | G4 , , , , , , , , , | F4 , , , , Eb4 , , , , | D4 , , , , , , , , , | G4 , , , , , , , , , | Ab4 , , , , , , , , , | Bb4 , , , , , , , , , | C5 , , , , , , , , , | Db5 , , , , C5 , , , , | Bb4 , , , , Ab4 , , , , | G4 , , , , , , , , , | D4 , , , , F4 , , , ,"
+  },
+  {
+   "name": "low brass",
+   "instrument": "brass",
+   "octave": -1,
+   "gain": 0.4,
+   "pan": -0.1,
+   "text": "- - - - - - - - - - | - - - - - - - - - - | G3 , , , , , , , , , | G3 , , , , , , , , , | G3 , , , , , , , , , | G3 , , , , , , , , , | C4 , , , , , , , , , | G3 , , , , , , , , , | G3 , , , , , , , , , | Ab3 , , , , , , , , , | G3 , , , , , , , , , | F3 , , , , , , , , , | Db4 , , , , , , , , , | C4 , , , , , , , , , | G3 , , , , , , , , , | D3 , , , , , , , , ,"
+  },
+  {
+   "name": "timpani",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": 0,
+   "text": "tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom - tom - tom - tom tom | tom tom tom tom tom tom tom tom oh -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.4,
+ "title": "Nizhalattam: Battlefield of Flags, Western",
+ "about": "After Holst, Mars from The Planets: 5/4. String ostinato under rising brass; an original arrangement."
+}

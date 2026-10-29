@@ -12,7 +12,7 @@
  "steps": 4,
  "cycles": 6,
  "longCaps": false,
- "rate": 44100,
+ "rate": 22050,
  "mono": false,
  "arpRate": 30,
  "loopCycle": 0,
@@ -82,9 +82,9 @@
  "title": "Nizhalattam: The palace",
  "about": "Hanumatodi, Adi (8). The theme follows the opening of Koluvamaregatha, Tyagaraja (a placeholder shape, to be replaced with the kriti's own notation).",
  "made": {
-  "engine": 1,
-  "wav": "f203958828a63d3049a3c7630addcc797c995ccf0943c0d52582d2a2d4a7d1c6",
-  "song": "96bdb1531dbee5b90c756d9557534156c3d7242e85b0595bb8d666f5a70ef5ca",
+  "engine": 2,
+  "wav": "bd7718785c58b305c1d788a7260d47863c8f958548c0c8e76f9e73ae209058a5",
+  "song": "b310ed020cee308d38a9fcace9bce516f9da3b91b1fb162d07cfe59dbcbe1f3f",
   "current": true
  }
 }

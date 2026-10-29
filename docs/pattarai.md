@@ -188,11 +188,13 @@ up and the total is clipped, so leave headroom.
 Music written as text, one line for each part, in a western scale or a
 Carnatic raga, played by a synthesised band.
 
-- **New Carnatic:** a raga (the 72 melakartas and common janya ragas), Sa,
+- **New Carnatic:** a raga (the 72 melakartas and common janya ragas, among
+  them Atana, Arabhi, Nattai, Saveri, Pantuvarali and Hamsanadam), Sa,
   a tala (Adi, Rupaka, Misra Chapu...), tanpura drone, mridangam, thavil
   or kanjira; nadaswaram, venu, veena, harmonium and violin.
 - **New western:** a key and scale, a time signature, piano, strings,
-  flute, bass and a drum kit.
+  flute, bass, brass and organ, and a drum kit or an orchestra's (timpani,
+  field drum, triangle and cymbal).
 - **New chiptune:** square, pulse, triangle and noise voices with noise
   drums, as old consoles had, in a small mono WAV.
 - **Example songs:** Für Elise in seven arrangements (piano, expressive
@@ -242,7 +244,7 @@ The **roll** above the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play
 each note.
 
-**Drums.** A song's kit (mridangam, thavil, kanjira, a drum kit or chip
+**Drums.** A song's kit (mridangam, thavil, kanjira, a drum kit, an orchestra's or chip
 drums) plays a pattern on its own, following the tala or time: **drum
 pattern: automatic**. For a beat of your own, **+ Drum part** writes that
 pattern out as a part to change, and sets **drum pattern: my own**, so only

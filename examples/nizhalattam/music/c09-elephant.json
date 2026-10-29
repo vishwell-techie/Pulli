@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Arabhi",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 112,
+ "steps": 4,
+ "cycles": 11,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": false,
+ "drums": "mridangam",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "nadaswaram",
+   "instrument": "nadaswaram",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | S , , , R , , , M , , , P , , , D , , , S' , , , D , , , P , , , | M , , , G , , , R , , , S , , , R , , , M , , , P , , , D , , , | S , R , M , P , D , S' , D , P , M , G , R , S , R , M , P , D , | S , R , M , P , D , S' , D , P , M , G , R , S , R , M , P , D , | S , , , , , , , R~ , , , , , , , M~ , , , , , , , P , , , , , , , | D~ , , , , , , , S' , , , , , , , D~ , , , , , , , P , , , , , , , | S , , , R , , , M , , , P , , , D , , , S' , , , D , , , P , , , | M , , , G , , , R , , , S , , , R , , , M , , , P , , , D , , , | M~ , , , , , , , G~ , , , , , , , R~ , , , , , , , S , , , , , , , | R~ , , , , , , , M~ , , , , , , , P , , , , , , , D~ , , , , , , ,"
+  },
+  {
+   "name": "nadaswaram low",
+   "instrument": "nadaswaram",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": -0.3,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , R , , , M , , , P , , , D , , , S' , , , D , , , P , , , | M , , , G , , , R , , , S , , , R , , , M , , , P , , , D , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , S , , , , , , , , , , , , , , ,"
+  }
+ ],
+ "reverb": 0.3,
+ "title": "Nizhalattam: Elephant",
+ "about": "Arabhi, Adi. Nadaswaram and mridangam. Sketch: S R M P | D S' D P | M G R S | R M P D"
+}

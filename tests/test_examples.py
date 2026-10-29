@@ -1998,17 +1998,51 @@ def main():
                     uneven[name] = langs
         t.check("nizhalattam: every story's own words are there in Tamil and in English", not uneven, uneven)
 
-        # The music: a track for the title, the Courtyard, each story, the
-        # bosses, the King and the endings; a room plays its own (a boss's
-        # room the bosses'), each coming in over the last
+        # The music: a track for each of the sixteen scenes, the title, the
+        # Courtyard, each story and each boss, the King and the endings; a
+        # room plays its own (a boss's room its boss's), each coming in over the last
         r, got = story('local function play(room, from) rooms.enter(room, from, body) return rooms.playing end '
                        'dbg("tracks", rooms.playing, play("s1.ooru", "map.ooru"), play("boss.ooru", "s7.ooru"), play("f1.ooru"), '
                        '  play("k1.ooru"), play("b1.ooru"), play("m1.ooru"), play("p1.ooru"), play("pboss.ooru"), play("p7.ooru"), '
                        '  play("tear.ooru"))', "", "", frames=3)
         r2, got2 = story("", "", 'if f == 2 then dbg("title", rooms.playing) end', frames=3, title=True)
-        t.check("nizhalattam: each place plays its track, a boss's room the bosses', the King's his own, the title its own",
-                got.get("tracks") == ["1", "2", "8", "3", "4", "5", "6", "7", "8", "9", "1"] and got2.get("title") == ["0"],
+        t.check("nizhalattam: each place plays its track, a boss's room its boss's, the King's his own, the title its own",
+                got.get("tracks") == ["12", "13", "14", "15", "17", "19", "21", "23", "24", "25", "12"] and got2.get("title") == ["11"],
                 f"{got} {got2} {r.err[-300:]} {r2.err[-300:]}")
+
+        # The settings: the music's style apart from the language, music and
+        # sound effects on or off, kept for the next time
+        r, got = story('local settings = require("settings") '
+                       'run.set_language("ta") dbg("ta", settings.style()) run.set_language("en") dbg("en", settings.style()) '
+                       'rooms.enter("s1.ooru", "map.ooru", body) '
+                       'settings.change("music_style") dbg("chosen", settings.style(), lines.lang, load("settings").style) '
+                       'run.set_language("ta") dbg("kept", settings.style(), lines.lang) '
+                       'local all, seen = true, {} for n = 0, 15 do for _, st in ipairs({"carnatic", "western"}) do '
+                       '  local c = rooms.clip(n, st) all = all and c ~= nil and not seen[c] seen[c or -1] = true end end '
+                       'dbg("scenes", tostring(all), rooms.clip(0, "carnatic"), rooms.clip(15, "carnatic"), rooms.clip(0, "western"), rooms.clip(15, "western")) '
+                       'settings.change("music_style") dbg("restyled", settings.style(), rooms.playing) '
+                       'settings.change("music_style") dbg("back", rooms.playing) '
+                       'local n = 0 local s = sfx function sfx(...) n = n + 1 return s(...) end '
+                       'settings.change("music_on") require("sound").play("jump") dbg("music off", tostring(rooms.playing), n) '
+                       'settings.change("sfx_on") require("sound").play("jump") dbg("sfx off", n, tostring(load("settings").sfx)) '
+                       'settings.change("music_on") settings.change("sfx_on") require("sound").play("jump") dbg("on again", rooms.playing, n)',
+                       "", "", frames=3)
+        t.check("nizhalattam: until one is chosen, the music's style is Carnatic in Tamil and Western in English",
+                got.get("ta") == ["carnatic"] and got.get("en") == ["western"], f"{got} {r.err[-300:]}")
+        t.check("nizhalattam: the music's style changes without the language, is kept, and stays when the language changes",
+                got.get("chosen") == ["carnatic", "en", "carnatic"] and got.get("kept") == ["carnatic", "ta"], got)
+        t.check("nizhalattam: each of the sixteen scenes has a track of its own in each style, after the first soundtrack's "
+                "eleven; a scene's Western track plays when the style is Western, at once",
+                got.get("scenes") == ["true", "11", "26", "27", "42"] and got.get("restyled") == ["western", "29"]
+                and got.get("back") == ["13"], got)
+        t.check("nizhalattam: the music and the sound effects can each be turned off, kept, and on again",
+                got.get("music off") == ["nil", "1"] and got.get("sfx off") == ["1", "false"]
+                and got.get("on again") == ["13", "2"], got)
+        with tempfile.TemporaryDirectory() as saves:
+            story('require("settings").change("music_style")', "", "", frames=2, saves=saves)
+            r, got = story("", "", 'if f == 2 then dbg("next time", require("settings").style(), lines.lang) end', frames=3, saves=saves)
+            t.check("nizhalattam: the music's style chosen is there the next time the game starts",
+                    got.get("next time") == ["western", "ta"], f"{got} {r.err[-300:]}")
 
         # Challenge rooms, behind the secret door in each story's stall room:
         # built from the run's seed and the Jester's skills. Every room can
@@ -2133,8 +2167,9 @@ def main():
         t.check("nizhalattam: jumping, landing, blows landing, tearing, dodging and a boss getting ready each have their sound",
                 {"jump", "land", "slap", "hit", "torn", "dodge", "warn"} <= heard_, f"{got} {r.err[-300:]}")
 
-        # the whole game, its music packed (once: a minute's work): eleven
-        # tracks of 44.1 kHz stereo, squeezed; a story's track and a boss's
+        # the whole game, its music packed (once: a minute's work): the first
+        # soundtrack's eleven tracks and the sixteen scenes' in each style,
+        # 22.05 kHz stereo, squeezed; a story's track and a boss's
         # coming in over it stay inside the 6 MB a game may hold
         # (the songs are in git, their WAVs are not: until they are made,
         # with Isai or tools/pattarai/make-wavs.mjs, skipped)
@@ -2157,9 +2192,9 @@ def main():
                 clips = pulli.read_bank(dict(pulli.parse(data))["music.isai"])
                 r = t.run_package(data, frames=205)
             active = {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}.get("active", ["99999", "-1"])
-            t.check("nizhalattam: its music is eleven squeezed 44.1 kHz stereo loops of 30 to 41 s, and playing it the game stays in its 6 MB, reading nothing again",
-                    len(clips) == 11 and all(c[0] == 44100 and c[1] == 2 and c[4] == 1 and 30 * 44100 <= c[2] <= 41 * 44100 for c in clips)
-                    and r.code == 0 and float(active[0]) < 6144 and active[1] == "0", f"{[(c[0], c[1], c[2] // 44100, c[4]) for c in clips]} {active} {r.err[-300:]}")
+            t.check("nizhalattam: its music is 43 squeezed 22.05 kHz stereo loops of 25 to 60 s, and playing it the game stays in its 6 MB, reading nothing again",
+                    len(clips) == 43 and all(c[0] == 22050 and c[1] == 2 and c[4] == 1 and 25 * 22050 <= c[2] <= 60 * 22050 for c in clips)
+                    and r.code == 0 and float(active[0]) < 6144 and active[1] == "0", f"{[(c[0], c[1], c[2] // 22050, c[4]) for c in clips]} {active} {r.err[-300:]}")
 
         # In the console's bytes (SPEC §10 item 31); the heap is 256 KB.
         r, got = story("", "",
@@ -2187,9 +2222,11 @@ def main():
                 float(got.get(k, ["999"])[0]) for k in ("hub", "boss", "forest", "vil", "sea", "aatta", "field", "elephant",
                                                         "market", "minister", "palace", "queen", "king", "after"))
         t.check("nizhalattam: the Lua heap stays within its budget in every story, and a story's code is let go after it",
-                hub < 143 and bossroom < 144 and forestroom < 149 and vilroom < 153 and searoom < 164 and aattaroom < 158
-                and fieldroom < 161 and elephantroom < 158 and marketroom < 158 and ministerroom < 163
-                and palaceroom < 167 and queenroom < 164 and kingroom < 171
+                # (the settings and the music's scenes: about 5 KB from the start, and the
+                # string table's growth a story sooner, about 5 KB more)
+                hub < 149 and bossroom < 150 and forestroom < 154 and vilroom < 158 and searoom < 169 and aattaroom < 163
+                and fieldroom < 172 and elephantroom < 169 and marketroom < 169 and ministerroom < 174
+                and palaceroom < 178 and queenroom < 175 and kingroom < 182
                 # back in the Courtyard, no story's code stays (Lua's string table may have grown once: a few KB)
                 and after < hub + 7, got)
 

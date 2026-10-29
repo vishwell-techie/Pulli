@@ -1,0 +1,60 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "A",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/4",
+ "tempo": 120,
+ "steps": 2,
+ "cycles": 32,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": -0.1,
+   "text": "C#5 , D5 C#5 B4 C#5 | E5 , , , A4 , | B4 , C#5 B4 A4 B4 | D5 , , , G#4 , | A4 , B4 , C#5 , | D5 , E5 , F#5 , | E5 , D5 , C#5 B4 | C#5 , , , E4 , | C#5 , D5 C#5 B4 C#5 | E5 , , , A5 , | G#5 , F#5 E5 D5 C#5 | B4 , , , E5 , | D5 , C#5 , B4 , | A4 , C#5 , E5 , | B4 , , , G#4 , | A4 , , , E4 , | C#4 , , , , , | C#4 , , , , , | G#4 , , , , , | G#4 , , , , , | C#4 , , , , , | F#4 , , , , , | C#4 , , , , , | G#4 , , , , , | C#4 , , , , , | C#4 , , , , , | G#4 , , , , , | G#4 , , , , , | F#4 , , , , , | C#4 , , , , , | G#4 , , , , , | C#4 , , , , ,"
+  },
+  {
+   "name": "flute",
+   "instrument": "flute",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": 0.2,
+   "text": "- - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | - - - - - - | C#5 , D5 C#5 B4 C#5 | E5 , , , A4 , | B4 , C#5 B4 A4 B4 | D5 , , , G#4 , | A4 , B4 , C#5 , | D5 , E5 , F#5 , | E5 , D5 , C#5 B4 | C#5 , , , E4 , | C#5 , D5 C#5 B4 C#5 | E5 , , , A5 , | G#5 , F#5 E5 D5 C#5 | B4 , , , E5 , | D5 , C#5 , B4 , | A4 , C#5 , E5 , | B4 , , , G#4 , | A4 , , , E4 ,"
+  },
+  {
+   "name": "violas",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.3,
+   "pan": 0.3,
+   "text": "E4 , , , , , | E4 , , , , , | B4 , , , , , | B4 , , , , , | E4 , , , , , | A4 , , , , , | E4 , , , , , | B4 , , , , , | E4 , , , , , | E4 , , , , , | B4 , , , , , | B4 , , , , , | A4 , , , , , | E4 , , , , , | B4 , , , , , | E4 , , , , , | E4 , , , , , | E4 , , , , , | B4 , , , , , | B4 , , , , , | E4 , , , , , | A4 , , , , , | E4 , , , , , | B4 , , , , , | E4 , , , , , | E4 , , , , , | B4 , , , , , | B4 , , , , , | A4 , , , , , | E4 , , , , , | B4 , , , , , | E4 , , , , ,"
+  },
+  {
+   "name": "pizzicato",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "A2 , E3 , C#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | E2 , B3 , G#3 , | A2 , E3 , C#3 , | D2 , A3 , F#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | A2 , E3 , C#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | E2 , B3 , G#3 , | D2 , A3 , F#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | A2 , E3 , C#3 , | A2 , E3 , C#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | E2 , B3 , G#3 , | A2 , E3 , C#3 , | D2 , A3 , F#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | A2 , E3 , C#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | E2 , B3 , G#3 , | D2 , A3 , F#3 , | A2 , E3 , C#3 , | E2 , B3 , G#3 , | A2 , E3 , C#3 ,"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.35,
+ "title": "Nizhalattam: Courtyard, Western",
+ "about": "After Boccherini, the Minuet: A major, 3/4. Strings, then the flute; an original arrangement."
+}

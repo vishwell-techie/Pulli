@@ -1,0 +1,68 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "G",
+ "octave": 4,
+ "a4": 440,
+ "tala": "2/4",
+ "tempo": 116,
+ "steps": 4,
+ "cycles": 32,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.65,
+   "pan": -0.1,
+   "text": "G4 , , , D5 , , , | D5 C5 Bb4 A4 Bb4 , G4 , | A4 , , , Eb5 , , , | D5 C5 Bb4 A4 G4 , F#4 , | G4 , , , D5 , , , | D5 C5 Bb4 A4 Bb4 , G4 , | C5 Bb4 A4 G4 F#4 , A4 , | G4 , , , D4 , , , | Bb4 C5 D5 , Bb4 C5 D5 , | Eb5 D5 C5 Bb4 A4 , , , | A4 Bb4 C5 , A4 Bb4 C5 , | D5 C5 Bb4 A4 G4 , , , | Bb4 C5 D5 , Bb4 C5 D5 , | G5 F5 Eb5 D5 C5 , , , | C5 Bb4 A4 G4 F#4 G4 A4 , | G4 , , , D4 , , , | G4 , , , D5 , , , | D5 C5 Bb4 A4 Bb4 , G4 , | A4 , , , Eb5 , , , | D5 C5 Bb4 A4 G4 , F#4 , | G4 , , , D5 , , , | D5 C5 Bb4 A4 Bb4 , G4 , | C5 Bb4 A4 G4 F#4 , A4 , | G4 , , , D4 , , , | Bb4 C5 D5 , Bb4 C5 D5 , | Eb5 D5 C5 Bb4 A4 , , , | A4 Bb4 C5 , A4 Bb4 C5 , | D5 C5 Bb4 A4 G4 , , , | Bb4 C5 D5 , Bb4 C5 D5 , | G5 F5 Eb5 D5 C5 , , , | C5 Bb4 A4 G4 F#4 G4 A4 , | G4 , , , D4 , , ,"
+  },
+  {
+   "name": "flute",
+   "instrument": "flute",
+   "octave": 1,
+   "gain": 0.3,
+   "pan": 0.3,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | G3 , , , D4 , , , | D4 C4 Bb3 A3 Bb3 , G3 , | A3 , , , Eb4 , , , | D4 C4 Bb3 A3 G3 , F#3 , | G3 , , , D4 , , , | D4 C4 Bb3 A3 Bb3 , G3 , | C4 Bb3 A3 G3 F#3 , A3 , | G3 , , , D3 , , , | Bb3 C4 D4 , Bb3 C4 D4 , | Eb4 D4 C4 Bb3 A3 , , , | A3 Bb3 C4 , A3 Bb3 C4 , | D4 C4 Bb3 A3 G3 , , , | Bb3 C4 D4 , Bb3 C4 D4 , | G4 F4 Eb4 D4 C4 , , , | C4 Bb3 A3 G3 F#3 G3 A3 , | G3 , , , D3 , , ,"
+  },
+  {
+   "name": "pizzicato",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "G2 , - - G3 , - - | G2 , - - G3 , - - | C2 , - - C3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | C2 , - - C3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | C2 , - - C3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | C2 , - - C3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | C2 , - - C3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - - | G2 , - - G3 , - - | C2 , - - C3 , - - | D2 , - - D3 , - - | G2 , - - G3 , - -"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": 0,
+   "text": "G1 , , , G1 , , , | G1 , , , G1 , , , | C1 , , , C1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | C1 , , , C1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | C1 , , , C1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | C1 , , , C1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | C1 , , , C1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , , | G1 , , , G1 , , , | C1 , , , C1 , , , | D1 , , , D1 , , , | G1 , , , G1 , , ,"
+  },
+  {
+   "name": "drums",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": 0,
+   "text": "tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat - | tom - - - hat - - - | tom - - - hat - hat -"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.35,
+ "title": "Nizhalattam: Dancer, Western",
+ "about": "After Brahms, Hungarian Dance No. 5: G minor, 2/4. Strings and flute over pizzicato; an original arrangement."
+}
