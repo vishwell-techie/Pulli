@@ -1,0 +1,60 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "G",
+ "octave": 4,
+ "a4": 440,
+ "tala": "4/4",
+ "tempo": 92,
+ "steps": 4,
+ "cycles": 12,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": -0.2,
+   "text": "G4 , - - G4 , - - G4 , - - G4 , - - | G5 F#5 F5 E5 Eb5 D5 C#5 C5 B4 Bb4 A4 Ab4 G4 , , , | G4 , - - G4 , - - G4 , - - G4 , - - | D5 C#5 C5 B4 Bb4 A4 Ab4 G4 F#4 F4 E4 Eb4 D4 , , , | G4 , - - G4 , - - G4 , - - G4 , - - | G5 F#5 F5 E5 Eb5 D5 C#5 C5 B4 Bb4 A4 Ab4 G4 , , , | G4 , - - G4 , - - G4 , - - G4 , - - | D5 C#5 C5 B4 Bb4 A4 Ab4 G4 F#4 F4 E4 Eb4 D4 , , , | G4 , - - G4 , - - G4 , - - G4 , - - | G5 F#5 F5 E5 Eb5 D5 C#5 C5 B4 Bb4 A4 Ab4 G4 , , , | G4 , - - G4 , - - G4 , - - G4 , - - | D5 C#5 C5 B4 Bb4 A4 Ab4 G4 F#4 F4 E4 Eb4 D4 , , ,"
+  },
+  {
+   "name": "brass",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": 0.15,
+   "text": "- - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - | - - - - - - - - - - - - - - - - | G4 , , , , , , , F4 , , , , , , , | Eb4 , , , , , , , D4 , , , , , , , | G4 , , , , , , , Bb4 , , , , , , , | A4 , , , , , , , D4 , , , , , , , | Bb4 , , , , , , , A4 , , , , , , , | G4 , , , , , , , F#4 , , , , , , , | G4 , , , , , , , Eb4 , , , , , , , | D4 , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": 0,
+   "text": "G1 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | D2 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | D2 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | G1 , , , , , , , , , , , , , , , | D2 , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "drums",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.85,
+   "pan": 0,
+   "text": "tom - - - oh - - - tom - - - oh - - - | tom - - - - - - - - - - - - - - - | tom - - - oh - - - tom - - - oh - - - | tom - - - - - - - tom tom tom tom tom tom tom tom | tom - - - oh - - - tom - - - oh - - - | tom - - - - - - - - - - - - - - - | tom - - - oh - - - tom - - - oh - - - | tom - - - - - - - tom tom tom tom tom tom tom tom | tom - - - oh - - - tom - - - oh - - - | tom - - - - - - - - - - - - - - - | tom - - - oh - - - tom - - - oh - - - | tom - - - - - - - tom tom tom tom tom tom tom tom"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.5,
+ "title": "Nizhalattam: King, Western",
+ "about": "After Verdi, Requiem, Dies irae: G minor, 4/4. Hammer blows, falling strings, the brass's cry; an original arrangement."
+}

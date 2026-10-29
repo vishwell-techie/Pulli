@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Pantuvarali",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Adi (8)",
+ "tempo": 104,
+ "steps": 4,
+ "cycles": 11,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "veena",
+   "instrument": "veena",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - | S , , , R , , , G , , , M , , , P , , , D , , , N , , , S' , , , | N , , , D , , , P , , , M , , , G , , , R , , , S , , , - - - - | S , R , G , M , P , D , N , S' , N , D , P , M , G , R , S , - - | S , R , G , M , P , D , N , S' , N , D , P , M , G , R , S , - - | S , , , , , , , R~ , , , , , , , G~ , , , , , , , M~ , , , , , , , | P , , , , , , , D~ , , , , , , , N~ , , , , , , , S' , , , , , , , | S , , , R , , , G , , , M , , , P , , , D , , , N , , , S' , , , | N , , , D , , , P , , , M , , , G , , , R , , , S , , , - - - - | N~ , , , , , , , D~ , , , , , , , P , , , , , , , M~ , , , , , , , | G~ , , , , , , , R~ , , , , , , , S , , , , , , , , , , , , , , ,"
+  },
+  {
+   "name": "violin",
+   "instrument": "violin",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | S , , , R , , , G , , , M , , , P , , , D , , , N , , , S' , , , | N , , , D , , , P , , , M , , , G , , , R , , , S , , , - - - - | S , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , , | P , , , , , , , , , , , , , , , S , , , , , , , , , , , , , , ,"
+  }
+ ],
+ "reverb": 0.4,
+ "title": "Nizhalattam: Lamp Palace",
+ "about": "Pantuvarali, Adi. Veena and violin. Sketch: S R G M | P D N S' | N D P M | G R S -"
+}

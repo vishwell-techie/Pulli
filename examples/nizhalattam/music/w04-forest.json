@@ -1,0 +1,60 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "E",
+ "octave": 4,
+ "a4": 440,
+ "tala": "9/8",
+ "tempo": 168,
+ "steps": 1,
+ "cycles": 16,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "flute",
+   "instrument": "flute",
+   "octave": 0,
+   "gain": 0.75,
+   "pan": 0.15,
+   "text": "C#5 , , , C5 B4 , , A#4 | A4 , , G#4 , , G4 , , | G#4 , , A4 , A#4 B4 , , | C#5 , , , , , B4 , , | C#5 , , , C5 B4 , , A#4 | A4 , , G#4 , , E4 , , | F#4 , , G#4 , , B4 , , | C#5 , , , , , G#4 A4 B4 | C#5 , , , C5 B4 , , A#4 | A4 , , G#4 , , G4 , , | G#4 , , A4 , A#4 B4 , , | C#5 , , , , , B4 , , | C#5 , , , C5 B4 , , A#4 | A4 , , G#4 , , E4 , , | F#4 , , G#4 , , B4 , , | C#5 , , , , , G#4 A4 B4"
+  },
+  {
+   "name": "harp",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.35,
+   "pan": -0.3,
+   "text": "E3 B3 E4 G#4 B4 G#4 E4 B3 G#3 | C#3 G#3 C#4 E4 G#4 E4 C#4 G#3 E3 | A2 E3 A3 C#4 E4 C#4 A3 E3 C#3 | B2 F#3 B3 D#4 F#4 D#4 B3 F#3 D#3 | E3 B3 E4 G#4 B4 G#4 E4 B3 G#3 | C#3 G#3 C#4 E4 G#4 E4 C#4 G#3 E3 | A2 E3 A3 C#4 E4 C#4 A3 E3 C#3 | B2 F#3 B3 D#4 F#4 D#4 B3 F#3 D#3 | E3 B3 E4 G#4 B4 G#4 E4 B3 G#3 | C#3 G#3 C#4 E4 G#4 E4 C#4 G#3 E3 | A2 E3 A3 C#4 E4 C#4 A3 E3 C#3 | B2 F#3 B3 D#4 F#4 D#4 B3 F#3 D#3 | E3 B3 E4 G#4 B4 G#4 E4 B3 G#3 | C#3 G#3 C#4 E4 G#4 E4 C#4 G#3 E3 | A2 E3 A3 C#4 E4 C#4 A3 E3 C#3 | B2 F#3 B3 D#4 F#4 D#4 B3 F#3 D#3"
+  },
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.3,
+   "pan": 0.3,
+   "text": "E3 , , , , , , , , | C#3 , , , , , , , , | A2 , , , , , , , , | B2 , , , , , , , , | E3 , , , , , , , , | C#3 , , , , , , , , | A2 , , , , , , , , | B2 , , , , , , , , | E3 , , , , , , , , | C#3 , , , , , , , , | A2 , , , , , , , , | B2 , , , , , , , , | E3 , , , , , , , , | C#3 , , , , , , , , | A2 , , , , , , , , | B2 , , , , , , , ,"
+  },
+  {
+   "name": "strings high",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.2,
+   "pan": -0.1,
+   "text": "- - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | - - - - - - - - - | G#4 , , , , , , , , | E4 , , , , , , , , | C#4 , , , , , , , , | D#4 , , , , , , , , | G#4 , , , , , , , , | E4 , , , , , , , , | C#4 , , , , , , , , | D#4 , , , , , , , ,"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.65,
+ "title": "Nizhalattam: Painted Forest, Western",
+ "about": "After Debussy, Prelude to the Afternoon of a Faun: 9/8. Flute over harp and soft strings; an original arrangement."
+}

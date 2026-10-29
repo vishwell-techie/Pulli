@@ -1,0 +1,68 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "B",
+ "octave": 3,
+ "a4": 440,
+ "tala": "4/4",
+ "tempo": 132,
+ "steps": 2,
+ "cycles": 20,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 4,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "pizzicato",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.7,
+   "pan": -0.2,
+   "text": "B2 C#3 D3 E3 F#3 D3 F#3 , | F3 C#3 F3 , E3 C3 E3 , | B2 C#3 D3 E3 F#3 D3 F#3 B3 | A3 F#3 D3 F#3 A3 , , , | B2 C#3 D3 E3 F#3 D3 F#3 , | F3 C#3 F3 , E3 C3 E3 , | B2 C#3 D3 E3 F#3 D3 F#3 B3 | A3 F#3 D3 F#3 A3 , , , | B2 C#3 D3 E3 F#3 D3 F#3 , | F3 C#3 F3 , E3 C3 E3 , | B2 C#3 D3 E3 F#3 D3 F#3 B3 | A3 F#3 D3 F#3 A3 , , , | B2 C#3 D3 E3 F#3 D3 F#3 , | F3 C#3 F3 , E3 C3 E3 , | B2 C#3 D3 E3 F#3 D3 F#3 B3 | A3 F#3 D3 F#3 A3 , , , | B2 C#3 D3 E3 F#3 D3 F#3 , | F3 C#3 F3 , E3 C3 E3 , | B2 C#3 D3 E3 F#3 D3 F#3 B3 | A3 F#3 D3 F#3 A3 , , ,"
+  },
+  {
+   "name": "strings",
+   "instrument": "strings",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": 0.2,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | B3 C#4 D4 E4 F#4 D4 F#4 , | F4 C#4 F4 , E4 C4 E4 , | B3 C#4 D4 E4 F#4 D4 F#4 B4 | A4 F#4 D4 F#4 A4 , , , | B3 C#4 D4 E4 F#4 D4 F#4 , | F4 C#4 F4 , E4 C4 E4 , | B3 C#4 D4 E4 F#4 D4 F#4 B4 | A4 F#4 D4 F#4 A4 , , , | B3 C#4 D4 E4 F#4 D4 F#4 , | F4 C#4 F4 , E4 C4 E4 , | B3 C#4 D4 E4 F#4 D4 F#4 B4 | A4 F#4 D4 F#4 A4 , , , | B3 C#4 D4 E4 F#4 D4 F#4 , | F4 C#4 F4 , E4 C4 E4 , | B3 C#4 D4 E4 F#4 D4 F#4 B4 | A4 F#4 D4 F#4 A4 , , ,"
+  },
+  {
+   "name": "brass",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": 0,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | B3 C#4 D4 E4 F#4 D4 F#4 , | F4 C#4 F4 , E4 C4 E4 , | B3 C#4 D4 E4 F#4 D4 F#4 B4 | A4 F#4 D4 F#4 A4 , , , | B3 C#4 D4 E4 F#4 D4 F#4 , | F4 C#4 F4 , E4 C4 E4 , | B3 C#4 D4 E4 F#4 D4 F#4 B4 | A4 F#4 D4 F#4 A4 , , , | B3 , , , F#3 , , , | B3 , , , F3 , , , | B3 , , , F#3 , , , | A3 , , , F#3 , , ,"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": 0,
+   "text": "B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , , | B1 , , , B1 , , , | F#1 , , , F#1 , , ,"
+  },
+  {
+   "name": "timpani",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.6,
+   "pan": 0,
+   "text": "- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | tom - - - tom - - - | tom - - - tom - - - | tom - - - tom - - - | tom - tom - tom tom tom tom | tom - - - tom - - - | tom - - - tom - - - | tom - - - tom - - - | tom - tom - tom tom tom tom | tom - - - tom - - - | tom - - - tom - - - | tom - - - tom - - - | tom - tom - tom tom tom tom | tom - - - tom - - - | tom - - - tom - - - | tom - - - tom - - - | tom - tom - tom tom tom tom"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.4,
+ "title": "Nizhalattam: The Screen, Western",
+ "about": "After Grieg, In the Hall of the Mountain King: B minor, 4/4. Low pizzicato, then strings and brass join; an original arrangement."
+}

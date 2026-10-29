@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Jaganmohini",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Rupaka (3)",
+ "tempo": 120,
+ "steps": 4,
+ "cycles": 21,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": false,
+ "drums": "kanjira",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "harmonium",
+   "instrument": "harmonium",
+   "octave": 0,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "- - - - - - - - - - - - | S , , , G , M , , , P , | N , , , S' , N , , , P , | M , , , G , R , , , S , | G , , , M , P , , , G , | S , G M , P N , S' N , P | M , G R , S G , M P , G | S , G M , P N , S' N , P | M , G R , S G , M P , G | S , , , , , , , G~ , , , | M~ , , , , , , , P , , , | N~ , , , , , , , S' , , , | N~ , , , , , , , P , , , | S , , , G , M , , , P , | N , , , S' , N , , , P , | M , , , G , R , , , S , | G , , , M , P , , , G , | M~ , , , , , , , G~ , , , | R~ , , , , , , , S , , , | G~ , , , , , , , M~ , , , | P , , , , , , , G~ , , ,"
+  },
+  {
+   "name": "harmonium low",
+   "instrument": "harmonium",
+   "octave": -1,
+   "gain": 0.45,
+   "pan": -0.3,
+   "text": "S , , , , , , , , , , , | S , , , , , , , , , , , | , , , , , , , , , , , , | P , , , , , , , , , , , | , , , , , , , , , , , , | S , , , , , , , , , , , | , , , , , , , , , , , , | P , , , , , , , , , , , | , , , , , , , , , , , , | S , , , , , , , , , , , | , , , , , , , , , , , , | , , , , , , , , , , , , | , , , , , , , , , , , , | S , , , G , M , , , P , | N , , , S' , N , , , P , | M , , , G , R , , , S , | G , , , M , P , , , G , | S , , , , , , , , , , , | , , , , , , , , , , , , | P , , , , , , , , , , , | S , , , , , , , , , , ,"
+  }
+ ],
+ "reverb": 0.3,
+ "title": "Nizhalattam: Market of Masks",
+ "about": "Jaganmohini, Rupaka. Harmonium and kanjira. Sketch: S G M P | N S' N P | M G R S | G M P G"
+}

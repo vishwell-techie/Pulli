@@ -1,0 +1,68 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "western",
+ "scale": "major (Ionian)",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "3/8",
+ "tempo": 168,
+ "steps": 1,
+ "cycles": 32,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 0,
+ "drone": false,
+ "drums": "orchestra",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "tune",
+   "instrument": "brass",
+   "octave": 0,
+   "gain": 0.55,
+   "pan": 0.1,
+   "text": "G3 , C4 | D4 , Eb4 | F4 , G4 | Ab4 , , | G4 , F4 | Eb4 , D4 | C4 , , | G3 , , | G3 , C4 | D4 , Eb4 | F4 , G4 | Ab4 , Bb4 | C5 , Bb4 | Ab4 , G4 | F4 , D4 | C4 , G3 | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - -"
+  },
+  {
+   "name": "flute",
+   "instrument": "flute",
+   "octave": 1,
+   "gain": 0.5,
+   "pan": -0.2,
+   "text": "- - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | - - - | G3 , C4 | D4 , Eb4 | F4 , G4 | Ab4 , , | G4 , F4 | Eb4 , D4 | C4 , , | G3 , , | G3 , C4 | D4 , Eb4 | F4 , G4 | Ab4 , Bb4 | C5 , Bb4 | Ab4 , G4 | F4 , D4 | C4 , G3"
+  },
+  {
+   "name": "pizzicato",
+   "instrument": "pluck",
+   "octave": 0,
+   "gain": 0.5,
+   "pan": -0.3,
+   "text": "C3 - C3 | C3 - C3 | F3 - F3 | F3 - F3 | C3 - C3 | G3 - G3 | C3 - C3 | G3 - G3 | C3 - C3 | C3 - C3 | F3 - F3 | F3 - F3 | Ab3 - Ab3 | F3 - F3 | G3 - G3 | C3 - C3 | C3 - C3 | C3 - C3 | F3 - F3 | F3 - F3 | C3 - C3 | G3 - G3 | C3 - C3 | G3 - G3 | C3 - C3 | C3 - C3 | F3 - F3 | F3 - F3 | Ab3 - Ab3 | F3 - F3 | G3 - G3 | C3 - C3"
+  },
+  {
+   "name": "bass",
+   "instrument": "bass",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": 0,
+   "text": "C2 , , | C2 , , | F2 , , | F2 , , | C2 , , | G2 , , | C2 , , | G2 , , | C2 , , | C2 , , | F2 , , | F2 , , | Ab2 , , | F2 , , | G2 , , | C2 , , | C2 , , | C2 , , | F2 , , | F2 , , | C2 , , | G2 , , | C2 , , | G2 , , | C2 , , | C2 , , | F2 , , | F2 , , | Ab2 , , | F2 , , | G2 , , | C2 , ,"
+  },
+  {
+   "name": "drums",
+   "instrument": "drums",
+   "octave": 0,
+   "gain": 0.4,
+   "pan": 0,
+   "text": "tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom hat hat | tom tom oh"
+  }
+ ],
+ "drumPattern": "own",
+ "reverb": 0.35,
+ "title": "Nizhalattam: Market of Masks, Western",
+ "about": "After Dukas, The Sorcerer's Apprentice: 3/8. A bassoon-like tune, then the flute; an original arrangement."
+}

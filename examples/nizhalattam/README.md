@@ -368,25 +368,51 @@ is the same sprite drawn through a dark palette.
 
 ### Music and sound
 
-The music is a Carnatic theatre band: tanpura drone, harmonium, nadaswaram or
-flute lead with gamakas, a veena answering, mridangam, thavil or kanjira on a
-tala, cymbals, temple bells and a conch. Each place has its own track, in its
-own raga; the bosses have one, the King his, the title and the endings
-theirs. Every track is a seamless loop of 30 to 40 seconds at 22.05 kHz
-stereo; a new one comes in over the old, and the next story's is read ahead
-behind its door. Three tracks at a time (one fading out, one playing, one
-read ahead) fit in the 6 MB a game may hold.
+The music comes in two styles, chosen in the settings apart from the
+language (Carnatic for Tamil and Western for English until one is chosen).
+Each of the sixteen scenes has a track in each style: the title, the
+Courtyard, each story and its boss, the King, the endings (`rooms.lua`,
+`CLIP`). The Carnatic tracks (`music/c00-...` to `c15-...`) are each in a
+raga and tala of their own, on the instruments named for them: nadaswaram and
+thavil, venu and tanpura, violin and kanjira and so on. The Western ones
+(`w00-...` to `w15-...`) are original arrangements in the manner of
+public-domain works: Grieg, Wagner, Rossini, Holst, Beethoven and others.
+The first soundtrack's eleven tracks (`00-title` to `10-ending`) are kept
+and packed, though no scene plays them now.
+
+Every track is a loop of 25 to 60 seconds at 22.05 kHz stereo, packed as
+4-bit ADPCM. Each loop's last bar leads back into its first. A track with an
+opening plays it once, then loops from where its tune comes in. A new track
+comes in over the old one, and the next story's is read ahead behind its
+door. At most three tracks are held at a time (one fading out, one playing,
+one read ahead); the largest is 1.23 MB, so they stay well inside the 6 MB a
+game may hold.
+
+| Packed | Size |
+|---|---|
+| The sixteen Carnatic tracks | 14.7 MB |
+| The sixteen Western tracks | 12.7 MB |
+| The first soundtrack's eleven | 8.5 MB |
+| Everything else | 3.2 MB |
+| The whole package | 39.2 MB, inside 64 MB with room for the saves |
 
 Twenty-six sound effects (`sfx/`, named in `sound.lua`) mark jumps,
 landings, blows, tearing paper, rolls, the shops, pickups, and a bell before
 each boss move.
 
-The music has sixteen scenes, a track for each in each style: the title,
-the Courtyard, each story and its boss, the King, the endings (`rooms.lua`,
-`CLIP`). Until a scene has a Western track of its own, Western plays the
-Carnatic one; while the new tracks are being made, the bosses share one track
-and the Queen's and the Western ones are not in yet. Prototypes of four
-scenes in both styles are in `prototype/` (not packed).
+The Carnatic tracks keep every sketch's swaras in order. Where the sketch
+was unclear or needed fitting, the choices were these:
+- **Atana:** the Warrior's sketch has R3 and D3, but the raga has R2 and D2;
+  Atana's are used.
+- **Octaves:** where a sketch falls below Sa without marking an octave, the
+  notes are played in the lower octave. These are the Warrior's last N D P,
+  the Forest's N2 and D2 P, the Flags' last N3 P M1 R3 and the Minister's
+  last D P.
+- **Talas:** in Rupaka, Misra Chapu and Khanda Chapu a group of four swaras
+  is held unevenly so that it fills the tala.
+- **Rests:** a sketch's last rest is held over into the loop.
+- **Instruments:** the Title has no drum, as its sketch names only veena and
+  violin.
 
 The songs are kept as text (`music/*.json`, made and edited in Pattarai's
 Isai); their WAVs are made from them, never committed:
@@ -474,7 +500,7 @@ files here are already in the console's form.
 | Folder | What it is |
 |---|---|
 | `sfx/` | The 26 sound effects, numbered in the order `sound.lua` names them. |
-| `music/` | The eleven tracks: the title, the Courtyard, each story, the bosses, the King, the endings. Songs as `.json`; their `.wav` files are made by `tools/pattarai/make-wavs.mjs`. |
+| `music/` | The sixteen scenes' tracks in each style (`c00-`... Carnatic, `w00-`... Western), and the first soundtrack's eleven. Songs as `.json`; their `.wav` files are made by `tools/pattarai/make-wavs.mjs`. |
 
 The pictures, the rooms and the sound are made by scripts kept with the
 project's private material; the files here are what they make. `pulli pack`

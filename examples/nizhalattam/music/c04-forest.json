@@ -1,0 +1,43 @@
+{
+ "format": "isai-song",
+ "version": 1,
+ "system": "carnatic",
+ "scale": "Malayamarutam",
+ "sa": 138.6,
+ "key": "C",
+ "octave": 4,
+ "a4": 440,
+ "tala": "Rupaka (3)",
+ "tempo": 84,
+ "steps": 4,
+ "cycles": 21,
+ "longCaps": false,
+ "rate": 22050,
+ "mono": false,
+ "arpRate": 30,
+ "loopCycle": 1,
+ "drone": true,
+ "drums": "none",
+ "swing": 0,
+ "parts": [
+  {
+   "name": "venu",
+   "instrument": "venu",
+   "octave": 1,
+   "gain": 0.85,
+   "pan": 0.12,
+   "text": "- - - - - - - - - - - - | S , , , R1 , G3 , , , P , | G3 , , , R1 , S , , , N2. , | D2. , , , P. , G3 , , , R1 , | S , , , - - N2. , , , S , | S , R1 G3 , P G3 , R1 S , N2. | D2. , P. G3 , R1 S , - N2. , S | S , R1 G3 , P G3 , R1 S , N2. | D2. , P. G3 , R1 S , - N2. , S | S , , , , , , , R1~ , , , | G3~ , , , , , , , P , , , | G3~ , , , , , , , R1~ , , , | S , , , , , , , N2.~ , , , | S , , , R1 , G3 , , , P , | G3 , , , R1 , S , , , N2. , | D2. , , , P. , G3 , , , R1 , | S , , , - - N2. , , , S , | D2.~ , , , , , , , P. , , , | G3~ , , , , , , , R1~ , , , | S , , , , , , , - - - - | N2.~ , , , , , , , S , , ,"
+  },
+  {
+   "name": "venu low",
+   "instrument": "venu",
+   "octave": 0,
+   "gain": 0.45,
+   "pan": -0.3,
+   "text": "S , , , , , , , , , , , | S , , , , , , , , , , , | , , , , , , , , , , , , | P , , , , , , , , , , , | , , , , , , , , , , , , | S , , , , , , , , , , , | , , , , , , , , , , , , | P , , , , , , , , , , , | , , , , , , , , , , , , | S , , , , , , , , , , , | , , , , , , , , , , , , | , , , , , , , , , , , , | , , , , , , , , , , , , | S , , , R1 , G3 , , , P , | G3 , , , R1 , S , , , N2. , | D2. , , , P. , G3 , , , R1 , | S , , , - - N2. , , , S , | S , , , , , , , , , , , | , , , , , , , , , , , , | P , , , , , , , , , , , | S , , , , , , , , , , ,"
+  }
+ ],
+ "reverb": 0.5,
+ "title": "Nizhalattam: Painted Forest",
+ "about": "Malayamarutam, Rupaka. Venu and tanpura. Sketch: S R1 G3 P | G3 R1 S N2. | D2. P. G3 R1 | S - N2. S"
+}

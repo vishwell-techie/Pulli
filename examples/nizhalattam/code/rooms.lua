@@ -140,10 +140,10 @@ local MORE = { soldier = true, ink = true, scrap = true, vine = true, moth = tru
 local SCENE = { title = 0, court = 1, screen = 2, veeran = 3, forest = 4, vil = 5, sea = 6, aattakkaari = 7,
                 flags = 8, yaanai = 9, masks = 10, mandhiri = 11, palace = 12, rani = 13, king = 14, ending = 15 }
 rooms.SCENE = SCENE
-local CLIP = {
-  carnatic = { [0] = 0, 1, 2, 8, 3, 8, 4, 8, 5, 8, 6, 8, 7, 8, 9, 10 },
-  western = {},
-}
+local CLIP = { carnatic = {}, western = {} }
+for scene = 0, 15 do                            -- 00-title... (the first soundtrack), then c00-..., then w00-...
+  CLIP.carnatic[scene], CLIP.western[scene] = 11 + scene, 27 + scene
+end
 rooms.CLIP = CLIP
 rooms.TITLE, rooms.ENDING = SCENE.title, SCENE.ending
 local playing, wanted                           -- the track playing, if any; the scene asked for
