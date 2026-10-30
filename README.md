@@ -300,6 +300,12 @@ Nothing is pushed to `main`. Work goes on a feature branch and reaches
   enforces rulesets only on public repositories or paid plans; until then
   these rules are followed by agreement, not enforced.
 
+## Contributing
+
+Contributions of code, art, music and documentation are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md), the [code of conduct](CODE_OF_CONDUCT.md)
+and, for security problems, [SECURITY.md](SECURITY.md).
+
 ## Licence
 
 The software is licensed under the Apache License 2.0 (`LICENSE`, with
@@ -310,6 +316,13 @@ One part is not: the Tamil font (`runtime/font_ta.txt` and the generated
 Font License 1.1 (`third_party/noto-sans-tamil/OFL.txt`). It may be used,
 changed and shipped inside Pulli and its firmware, but not sold on its own.
 Games that print Tamil are not affected by it.
+
+The example games' art, music and sound (the pictures, maps, songs and
+sound effects under `examples/`) are licensed under Creative Commons
+Attribution 4.0 ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)):
+they may be reused, changed and shipped in any game, commercial or not, with
+credit to their authors as `NOTICE` gives them. The examples' code is under
+the Apache License like the rest.
 
 Hardware designs will be released under CERN-OHL-S v2 when they are added;
 there are none in this repository yet. The names Pulli, Vaasal and the rest

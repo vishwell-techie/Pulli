@@ -1,8 +1,8 @@
 # Pulli Platform Specification — v0.1 (DRAFT, for review)
 
 Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
-64-colour palette, named Pulli). Architecture revised per ADR-001 (GPU
-coprocessor) and ADR-002 (audio). Remainder awaiting approval.
+64-colour palette, named Pulli). Architecture revised for the GPU
+coprocessor and for audio. Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
 item 32 on 27 October 2026 and items 33 to 38 on 28 October
@@ -19,7 +19,7 @@ These constraints hold for the whole design. A feature that violates one of
 them does not ship.
 
 1. **Two chips, one part number: RP2350B** (QFN-80, 48 GPIO, A4 stepping or
-   later) as both CPU and GPU. See ADR-001 — the coprocessor exists to afford a
+   later) as both CPU and GPU. The coprocessor exists to afford a
    parallel display bus and to move 153.6 KB of framebuffer off the CPU, not
    to make rasterizing faster.
 2. **The emulator is the platform.** Hardware is one backend among several.
@@ -43,18 +43,18 @@ them does not ship.
 | Framebuffer format | 8-bit indexed | 76,800 B/buffer vs 153,600 for RGB565 |
 | Palette | **64 entries, RGB565 (locked)** | 32 hues + a shadow ramp 32 apart, so `pal(c,c+32)` darkens anything |
 | Buffers | 2 (double-buffered) | 153,600 B total |
-| Target frame rate | **60 Hz logic and full-frame redraw** | 8080 parallel bus: 5.1 ms/frame vs 19.7 ms over SPI (ADR-001) |
+| Target frame rate | **60 Hz logic and full-frame redraw** | 8080 parallel bus: 5.1 ms/frame vs 19.7 ms over SPI |
 | Sprite budget | 128 sprites/frame @ 16x16 | Soft limit; profiler warns past it |
 | Display interface | ST7789 8080 8-bit parallel, driven by GPU via PIO | The whole reason the coprocessor pays for itself |
-| CPU<->GPU link | 8-bit parallel + CLK over PIO, DMA both ends, ~25-40 MB/s | Commands only, never pixels (ADR-001) |
+| CPU<->GPU link | 8-bit parallel + CLK over PIO, DMA both ends, ~25-40 MB/s | Commands only, never pixels |
 | MCUs | 2x RP2350B (48 GPIO each), A4+ | Pin budget is full on the CPU, 8 spare on the GPU |
 | CPU chip storage | 16 MB QSPI flash; 8 MB QSPI PSRAM on the same bus | Flash: firmware and the launcher. PSRAM: the game being played (§2, "Size, and the parts in memory") |
 | GPU chip storage | 4 MB QSPI flash | Its own firmware only; sprite sheets and maps arrive over the link |
 | Game package | **up to 64 MB, of which at most 6 MB is in memory at once** | Read from the SD card or a cartridge into PSRAM as the game uses it (§2) |
 | Cartridge slot | Quad-SPI flash, one or two chips, read by PIO; saves in the last 512 KB of that flash | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
-| Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable (ADR-008) |
+| Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable |
 | Tile layers | 2 scrolling + 1 sprite + 1 UI | |
-| Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core (ADR-002) |
+| Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core |
 | Input | 12 buttons: dpad, A B X Y, L R, START SELECT | |
 | Lua | 5.4, with 32-bit integers and 32-bit floats; one pinned build for host and device | The RP2350's FPU is single precision; see §4 |
 
@@ -449,7 +449,7 @@ palette(c, r, g, b)                -- give colour c new RGB; palette(c) reads it
 
 **Arguments.** Every coordinate and size may be a float; it is rounded down
 to a whole pixel and held to the range -32768..32767 (the range the GPU
-command format carries, ADR-001). Colour indices wrap at 64, so `c` and
+command format carries). Colour indices wrap at 64, so `c` and
 `c + 64` are the same colour; that holds for sprite pixels too. `pal()` and
 `palt()` with no arguments restore the defaults. `fade` sets a level and
 does not accumulate: `fade(0.5)` every frame holds half brightness, and
@@ -948,10 +948,10 @@ Pattarai, the editors, in a web browser (§10 item 32).
 
 | Earlier plan | Now | Why |
 |---|---|---|
-| RP2040 as GPU over SPI command stream | **Second RP2350 as GPU over PIO parallel** | Same idea, better part: 2x SRAM, one part number, shared source (ADR-001) |
+| RP2040 as GPU over SPI command stream | **Second RP2350 as GPU over PIO parallel** | Same idea, better part: 2x SRAM, one part number, shared source |
 | SPI display | **8080 8-bit parallel** | The actual unlock for 60 FPS; only affordable because a dedicated chip can spend the pins |
 | RGB565 framebuffer | 8-bit indexed + palette | Halves RAM, enables free fades/flashes |
-| 44.1 kHz stereo on device | **44.1 kHz stereo retained** | Core 1 is free once the display moves off-CPU (ADR-002) |
+| 44.1 kHz stereo on device | **44.1 kHz stereo retained** | Core 1 is free once the display moves off-CPU |
 | `.pulli` = folder/zip | Flat XIP-friendly archive | No zlib on MCU; a package in memory is read in place |
 | Cartridges in v1 | **Cartridge slot in the first generation** | Read like the SD card, over quad-SPI, into memory; saves in the cartridge's own flash (§2) |
 | Package size set by memory | **64 MB package, 6 MB in memory at once** | Parts are read as the game uses them, so a big game needs no more memory (§2) |
@@ -989,8 +989,8 @@ Pattarai, the editors, in a web browser (§10 item 32).
   can pause for a fraction of a second when a large sound or map is first
   used. The emulator must imitate SD and cartridge read speeds so this
   shows up on a desktop.
-- **Audio can still sound cheap at 44.1 kHz stereo.** ADR-002 settled the
-  sample rate; what people hear is the analog stage and the speaker's back
+- **Audio can still sound cheap at 44.1 kHz stereo.** The sample rate is
+  settled; what people hear is the analog stage and the speaker's back
   volume. Needs a listening test early, not late.
 
 ---
@@ -1052,7 +1052,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `stat("fps")` and `stat("cpu")`, from a port-supplied clock.
 17. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
-   ADR-002. §3 now says what the runtime does: `dt` is 1/60 on every
+   the audio decision. §3 now says what the runtime does: `dt` is 1/60 on every
    machine, `time()` counts from the start of the game, and `palette` is in
    the graphics list; §2 gives every manifest default; §4 no longer
    describes a variable-step flag as existing, nor §9 a `lowlatency` flag;
