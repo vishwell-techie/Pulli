@@ -906,7 +906,7 @@ def main():
         # Step 4: the first playable. A game starts in the Courtyard; `story`
         # runs it from there, `setup` on frame 1 (entering a room with
         # rooms.enter, say).
-        def story(setup, read, report, frames=300, pre="", saves=None, title=False):
+        def story(setup, read, report, frames=300, pre="", saves=None, title=False, tap=None):
             extra = pre + ('' if title else 'require("title").skip = 1\n') + (      # (straight to slot 1, no title)
                            'local body, shadows, fight, rooms = require("body"), require("shadows"), require("fight"), require("rooms")\n'
                            'local run, lines = require("run"), require("lines")\n'
@@ -919,7 +919,7 @@ def main():
                 shutil.copytree(os.path.join(ROOT, "examples", "nizhalattam"), folder, ignore=NO_MUSIC)
                 with open(os.path.join(folder, "code", "main.lua"), "a") as f:
                     f.write("\n" + extra)
-                r = t.run_package(pulli.build(folder), frames=frames, saves=saves)
+                r = t.run_package(pulli.build(folder), frames=frames, saves=saves, tap=tap)
             return r, {l.split("\t")[0]: l.split("\t")[1:] for l in r.lines if "\t" in l}
 
         r, got = story("at(34, 208)", "if f == 10 then i.door = true end",
@@ -2043,6 +2043,69 @@ def main():
             r, got = story("", "", 'if f == 2 then dbg("next time", require("settings").style(), lines.lang) end', frames=3, saves=saves)
             t.check("nizhalattam: the music's style chosen is there the next time the game starts",
                     got.get("next time") == ["western", "ta"], f"{got} {r.err[-300:]}")
+
+        # Every line of text stays inside its panel (or the screen), and no two
+        # lines are drawn over each other, in English and in Tamil: the pause
+        # (with three roles, three charms and a seed), the settings, the box,
+        # a stall, a role lent, the title and its settings; and every line the
+        # panels take whole is measured against its room.
+        text_watch = (
+            'local P_, RF_, R_ = print, rectfill, rect\n'
+            'local panels, texts, lastf, seen, overs = {}, {}, -1, {}, {}\n'
+            'local function fresh() local f = stat("frame") if f ~= lastf then panels, texts, lastf = {}, {}, f end end\n'
+            'local function big(w, h) return w >= 60 and h >= 24 and not (w >= 320 and h >= 240) end\n'
+            'local function over(...) local s = table.concat({ ... }, " ") if not seen[s] then seen[s] = true overs[#overs + 1] = s end end\n'
+            'function OVERS() return #overs == 0 and "none" or table.concat(overs, " | ") end\n'
+            'function rect(x, y, w, h, ...) fresh() if big(w, h) then panels[#panels + 1] = { x, y, w, h } end return R_(x, y, w, h, ...) end\n'
+            'function rectfill(x, y, w, h, ...) fresh()\n'
+            '  if big(w, h) then panels[#panels + 1] = { x, y, w, h }\n'
+            '    for n = #texts, 1, -1 do local o = texts[n] if o[2] >= x and o[3] >= y and o[2] < x + w and o[3] < y + h then table.remove(texts, n) end end end\n'
+            '  return RF_(x, y, w, h, ...) end\n'
+            'function print(s, x, y, ...) fresh() s = tostring(s) local w, h = text_size(s)\n'
+            '  local px, py, pw, ph = 0, 0, 320, 240\n'
+            '  for n = #panels, 1, -1 do local p = panels[n] if x >= p[1] and x < p[1] + p[3] and y >= p[2] and y < p[2] + p[4] then px, py, pw, ph = p[1], p[2], p[3], p[4] break end end\n'
+            '  if x < px + 2 or x + w > px + pw - 2 or y + h > py + ph - 1 then over("out:", s) end\n'
+            '  for _, o in ipairs(texts) do if o[1] ~= s and x < o[2] + o[4] - 1 and o[2] < x + w - 1 and y < o[3] + o[5] - 1 and o[3] < y + h - 1 then over("on:", s, "/", o[1]) end end\n'
+            '  texts[#texts + 1] = { s, x, y, w, h } return P_(s, x, y, ...) end\n')
+        room = (
+            'local text, B = require("text"), buttons '
+            'local function fits(s, room, small) font(small and "small" or nil) if text.width(s) > room then over("long:", s) end font() end '
+            'for _, k in ipairs({ "box", "stall", "r_seed" }) do fits(lines.t(k), 190, true) end '
+            'for _, k in ipairs({ "pick_box", "pick_tear", "pick_free" }) do fits(lines.t(k), 228, true) end '
+            'fits(lines.t("pick_lend", lines.role("Yaanai")), 232, true) fits(lines.t("page_n", 12, 12), 228, true) '
+            'fits(lines.t("title_keys", B.a, B.x, B.select), 314, true) fits(lines.t("erase_q", B.x), 314, true) '
+            'fits(lines.t("paused"), 280) fits(lines.t("settings"), 272) fits(lines.t("new_slot"), 88, true) '
+            'fits(lines.t("resume", B.start, B.select), 280, true) fits(lines.t("to_title", B.b), 280, true) '
+            'fits(lines.t("settings_keys", B.a, B.select, B.b), 272, true) fits(lines.t("kept_keys", B.a, B.b), 298, true) '
+            'font("small") '
+            'for row, vs in pairs({ language = { "தமிழ்", "English" }, music_style = { lines.t("carnatic"), lines.t("western") }, '
+            '  music_on = { lines.t("on"), lines.t("off") }, sfx_on = { lines.t("on"), lines.t("off") } }) do '
+            '  for _, v in ipairs(vs) do if text.width(lines.t(row)) + 8 + text.width("< " .. v .. " >") > 240 then over("row:", row, v) end end end '
+            'for _, r in ipairs({ "Komali", "Veeran", "Vil", "Aattakkaari", "Yaanai", "Mandhiri", "Rani", "King" }) do '
+            '  if text.width(lines.role(r)) > 136 then over("hud:", r) end end '
+            'local pages = require("pages") for n = 1, pages.COUNT do if #text.wrap(pages.text(n), 28) > 6 then over("page:", n) end end '
+            'for _, it in ipairs(require("box").ITEMS) do if #text.wrap(lines.t(it.key), 28) > 2 then over("item:", it.key) end end '
+            'for k, v in pairs(require("ending").WORDS[lines.lang]) do local ls = text.wrap(v, 38) '
+            '  if (text.height(ls[1]) + 2) * #ls > 58 then over("ending:", k) end end '
+            'font() ')
+        stress = ('for _, n in ipairs({ "aattakkaari", "mandhiri" }) do fight.carried[#fight.carried + 1] = fight.ROLES[n] end '
+                  'run.charms = { "bell", "spool", "soot" } run.seed = 12345 fight.mai = 9999 run.data.oil = 99999 ')
+        right = "if f > 10 and f % 6 == 0 then i.right_p = true end"
+        screens = [("pause", stress + room, "if f == 20 then i.pause = true end", 40, None, False),
+                   ("settings", "", "if f == 20 then i.pause = true end", 50, "select@30", False),
+                   ("box", 'require("box").open() rooms.shop = require("box")', right, 90, None, False),
+                   ("stall", 'local s = require("stall") s.open() rooms.shop = s', right, 70, None, False),
+                   ("lend", 'local p = require("pick") p.open("lend", "yaanai") rooms.pick = p', right, 50, None, False),
+                   ("title", "", "", 50, "select@30", True)]
+        spilled = {}
+        for name, setup, read, frames, tap, title in screens:
+            for lang in ("en", "ta"):
+                r, got = story(f'run.set_language("{lang}") {setup}', read, f'if f == {frames - 1} then dbg("overs", OVERS()) end',
+                               frames=frames, pre=text_watch, title=title, tap=tap)
+                if got.get("overs") != ["none"]:
+                    spilled[f"{name}/{lang}"] = got.get("overs") or r.err[-300:]
+        t.check("nizhalattam: every line of text stays inside its panel and off the others, in English and in Tamil",
+                not spilled, spilled)
 
         # Challenge rooms, behind the secret door in each story's stall room:
         # built from the run's seed and the Jester's skills. Every room can

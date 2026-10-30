@@ -41,8 +41,9 @@ function shelf.dots(x, y, done, of)
   for s = 1, of do circfill(x + s * 6 - of * 3 - 3, y, 2, s <= done and C.marigold or C.wood) end
 end
 
+-- text wrapped inside the panel's frame (48 to 276)
 function shelf.say(s, y, c)
-  for _, l in ipairs(text.wrap(s, 32)) do print(l, 48, y, c) y = y + 15 end
+  for _, l in ipairs(text.wrap(s, 28)) do print(l, 48, y, c) y = y + 15 end
   return y
 end
 

@@ -31,20 +31,20 @@ local function value(row)
 end
 
 function panel.draw()
-  rectfill(50, 50, 220, 140, C.deep)
-  rect(50, 50, 220, 140, C.marigold)
-  rect(52, 52, 216, 136, C.wood)
+  rectfill(20, 50, 280, 140, C.deep)        -- wide enough for a Tamil row and its value
+  rect(20, 50, 280, 140, C.marigold)
+  rect(22, 52, 276, 136, C.wood)
   font()
   text.center(lines.t("settings"), 58, C.lamp)
   font("small")
   for n, row in ipairs(ROWS) do
     local y, lit = 82 + (n - 1) * 20, n == at
-    if lit then rectfill(60, y - 3, 200, 15, C.wood) end
-    print(lines.t(row), 70, y, lit and C.lamp or C.tan)
+    if lit then rectfill(30, y - 3, 260, 15, C.wood) end
+    print(lines.t(row), 40, y, lit and C.lamp or C.tan)
     local v = value(row)
-    print((lit and "< " or "") .. v .. (lit and " >" or ""), 250 - text.width(v) - (lit and 18 or 0), y, lit and C.glow or C.cloth)
+    print((lit and "< " or "") .. v .. (lit and " >" or ""), 280 - text.width(v) - (lit and 18 or 0), y, lit and C.glow or C.cloth)
   end
-  text.center(lines.t("settings_keys", buttons.a, buttons.select, buttons.b), 172, C.tan)
+  text.center(lines.t("settings_keys", buttons.a, buttons.select, buttons.b), 168, C.tan)
   font()
 end
 

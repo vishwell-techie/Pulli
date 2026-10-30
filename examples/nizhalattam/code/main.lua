@@ -413,8 +413,9 @@ local function hud()
   spr(790, 232, 5)
   print(fight.mai, 243, 4, C.cloth)
   if rooms.name == "map.ooru" then
-    spr(791, 278, 5)
-    print(run.data.oil, 289, 4, C.lamp)
+    local ox = 318 - text.width(tostring(run.data.oil))     -- kept to the right edge, however many digits
+    spr(791, math.min(278, ox - 11), 5)
+    print(run.data.oil, math.min(289, ox), 4, C.lamp)
   end
   -- the boss's health, along the bottom
   local b = shadows.boss
@@ -444,33 +445,48 @@ local function overlay()
     if hint2 then say_at(hint2, y + 2, C.cloth) end
   end
   if toast_t > 0 then say_at(toast, toast:find("\n") and 184 or 196, C.lamp) end
-  if mode == "pause" then
-    rectfill(30, 30, 260, 180, C.deep)
-    rect(30, 30, 260, 180, C.marigold)
-    rect(32, 32, 256, 176, C.wood)
+  if mode == "pause" and settings.shown then settings.draw()       -- the settings alone, over the game
+  elseif mode == "pause" then
+    rectfill(14, 26, 292, 190, C.deep)            -- as wide as the screen allows: Tamil is wide
+    rect(14, 26, 292, 190, C.marigold)
+    rect(16, 28, 288, 186, C.wood)
     font()
-    text.center(lines.t("paused"), 42, C.lamp)
+    text.center(lines.t("paused"), 34, C.lamp)
+    local y = 34 + text.height(lines.t("paused")) + 6
     font("small")
-    if run.hard() then print(lines.t("hard"), 276 - text.width(lines.t("hard")), 40, C.vermil) end
-    local y = 64
-    local names = ""
-    for n, r in ipairs(fight.carried) do names = names .. (n > 1 and ", " or "") .. lines.role(r.name) end
-    print(lines.t("roles") .. ": " .. names, 44, y, C.cloth)
-    y = y + 20
-    local cs = ""
-    for n, c in ipairs(run.charms) do cs = cs .. (n > 1 and ", " or "") .. lines.t(c) end
-    print(lines.t("charms") .. ": " .. (cs == "" and "-" or cs), 44, y, C.cloth)
-    y = y + 20
-    print(lines.t("mai") .. ": " .. fight.mai .. "    " .. lines.t("oil_k") .. ": " .. run.data.oil
-          .. "    " .. lines.t("pages_k") .. ": " .. #run.data.pages, 44, y, C.cloth)
-    if run.seed then
-      y = y + 20
-      print(summary(), 44, y, C.cloth)
-      if run.typed then print(lines.t("seeded"), 44, y + 16, C.vermil) end
+    if run.hard() then print(lines.t("hard"), 296 - text.width(lines.t("hard")), 34, C.vermil) end
+    -- each line packed to fit inside the frame (24 to 296), a word or a
+    -- name never cut; the keys kept at the foot
+    local function block(items, sep, c)
+      local l = ""
+      for _, it in ipairs(items) do
+        local with = l == "" and it or l .. sep .. it
+        if l ~= "" and text.width(with) > 272 then
+          print(l, 24, y, c) y = y + text.height(l) + 2 l = it
+        else l = with end
+      end
+      for _, part in ipairs(text.wrap(l, 34)) do print(part, 24, y, c) y = y + text.height(part) + 2 end
+      y = y + 3
     end
-    text.center(lines.t("resume", buttons.start, buttons.select), 182, C.tan)
-    text.center(lines.t("to_title", buttons.b), 196, C.tan)
-    if settings.shown then settings.draw() end
+    local names = { lines.t("roles") .. ":" }
+    for _, r in ipairs(fight.carried) do names[#names + 1] = lines.role(r.name) end
+    block(names, " ", C.cloth)
+    local cs = { lines.t("charms") .. ":" }
+    for _, c in ipairs(run.charms) do cs[#cs + 1] = lines.t(c) end
+    if #cs == 1 then cs[2] = "-" end
+    block(cs, " ", C.cloth)
+    -- mai and oil as the HUD shows them, a coin and a lamp; then the pages
+    local x = 24
+    spr(790, x, y + 1) x = print(fight.mai, x + 11, y, C.cloth) + 12
+    spr(791, x, y + 1) x = print(run.data.oil, x + 11, y, C.lamp) + 12
+    print(lines.t("pages_k") .. ": " .. #run.data.pages, x, y, C.cloth)
+    y = y + text.height(lines.t("pages_k")) + 5
+    if run.seed then
+      block({ summary() }, " ", C.cloth)
+      if run.typed then block({ lines.t("seeded") }, " ", C.vermil) end
+    end
+    text.center(lines.t("resume", buttons.start, buttons.select), 178, C.tan)
+    text.center(lines.t("to_title", buttons.b), 195, C.tan)
   end
   if mode == "ask" then asking.draw(say_at) end
   if mode == "card" then
