@@ -76,7 +76,7 @@ static int l_spr(lua_State *L) {
 static int l_sspr(lua_State *L) {
     pulli_sspr(&E->ctx.g, arg_i(L,1,0),arg_i(L,2,0),arg_i(L,3,0),arg_i(L,4,0),
                arg_i(L,5,0),arg_i(L,6,0),
-               arg_i(L,7,arg_i(L,3,0)), arg_i(L,8,arg_i(L,4,0)));
+               arg_i(L,7,arg_i(L,3,0)), arg_i(L,8,arg_i(L,4,0)), arg_b(L,9,false), arg_b(L,10,false));
     return 0;
 }
 /* print(text, x, y, c) draws UTF-8 text with its top at y and returns where

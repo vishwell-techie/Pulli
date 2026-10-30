@@ -16,8 +16,9 @@
 #define PULLI_SCREEN_W        320
 #define PULLI_SCREEN_H        240
 #define PULLI_FB_BYTES        (PULLI_SCREEN_W * PULLI_SCREEN_H)  /* 8-bit indexed: 76800 */
-#define PULLI_PALETTE_LEN     64   /* locked. A power of two: colour indices wrap with a mask */
+#define PULLI_PALETTE_LEN     256  /* the hard cap: a pixel is a byte. Colour indices wrap with a mask */
 #define PULLI_COLOR_MASK      (PULLI_PALETTE_LEN - 1)
+#define PULLI_LUT_SKIP        0x100u /* sprite_lut: a pixel not drawn (every byte is a colour) */
 #define PULLI_SPRITE_CELL     8    /* base cell, see SPEC §8.1 */
 #define PULLI_TICK_HZ         60
 #define PULLI_REPEAT_DELAY    24   /* frames a button is held before btnp() repeats */
@@ -68,7 +69,7 @@ typedef struct {
     uint16_t shown[PULLI_PALETTE_LEN];     /* palette with fade applied       */
     uint8_t  pal_map[PULLI_PALETTE_LEN];   /* draw-time index remap (pal())   */
     bool     transparent[PULLI_PALETTE_LEN];
-    uint8_t  sprite_lut[PULLI_PALETTE_LEN]; /* a sprite pixel's colour on screen, or 0xFF if not drawn: pal_map and transparent together, kept by pal() and palt() */
+    uint16_t sprite_lut[PULLI_PALETTE_LEN]; /* a sprite pixel's colour on screen, or PULLI_LUT_SKIP if not drawn: pal_map and transparent together, kept by pal() and palt() */
     int      fade_k;                       /* 32 = full brightness, 0 = black */
     int      cam_x, cam_y;
     int      clip_x, clip_y, clip_w, clip_h;
@@ -151,7 +152,7 @@ void    pulli_shade    (pulli_gfx *g, int c, const int *lights, int n, int edge)
 void    pulli_spr      (pulli_gfx *g, int n, int x, int y, int cw, int ch,
                         bool flip_x, bool flip_y);
 void    pulli_sspr     (pulli_gfx *g, int sx, int sy, int sw, int sh,
-                        int dx, int dy, int dw, int dh);
+                        int dx, int dy, int dw, int dh, bool flip_x, bool flip_y);
 /* Text is UTF-8: English from the 8x8 font, Tamil laid out as SPEC §3
  * "Text" says. Returns where the next letter would go on the last line. */
 int     pulli_print    (pulli_gfx *g, const char *s, size_t len, int x, int y, int c);

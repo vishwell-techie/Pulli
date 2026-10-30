@@ -3,14 +3,16 @@
 // against the memory a game holds at once, what is read as it starts, and
 // the Pico 2 board's flash. The biggest parts are listed, to see what to
 // make smaller.
-import { h, status, api, shared, refreshBudget, help } from "./app.js";
+import { h, status, api, shared, refreshBudget, refreshFiles, help } from "./app.js";
+import { BUILTIN, SIZES, sizeFor, css, readPaletteFile, paletteOfPixels, fitPalette, writePalette } from "./lib/palette.js";
 
 export function project(root) {
   const out = h("div");
   const plan = h("div", { className: "box", style: "margin-bottom:14px" });
   const ran = h("div", { className: "box", style: "margin-bottom:14px" });
+  const colours = h("div", { className: "box", style: "margin-bottom:14px" });
   const button = h("button", { className: "on", onclick: measure }, "Measure");
-  root.append(plan, ran,
+  root.append(plan, colours, ran,
     h("div", { className: "bar" }, button,
       help("Packs the game as pulli pack does, and checks it against the spec's limits: the package, what is held at once, " +
         "what is read as it starts, and the Pico 2 board's flash. A game with a lot of music takes a while.")),
@@ -55,6 +57,69 @@ export function project(root) {
     } catch (e) { status("Not saved: " + e.message, true); }
   }
   shared.listeners.push((what) => { if (what === "budget") drawPlan(); });
+
+  // ---- the palette: the game's 64, 128 or 256 colours, and one brought in to take their place ----
+  let offered = null, offeredFrom = "", offeredSize = 256;
+  const picker = h("input", { type: "file", accept: ".hex,.gpl,.pal,.txt,.png", style: "display:none",
+    onchange: () => { bring(picker.files[0]); picker.value = ""; } });
+  const strip = (pal) => h("div", { className: "palette-strip" }, ...pal.map((c, i) =>
+    h("span", { title: `${i}: ${css(c)}`, style: `background:${css(c)}` })));
+  function drawColours() {
+    const own = shared.files.find((f) => f === "palette.hex" || f === "palette.gpl" || f === "palette.pal");
+    colours.replaceChildren(
+      h("div", { className: "bar", style: "margin-bottom:6px" }, h("h3", { style: "margin:0" }, "Palette"),
+        help("The game's colours: it chooses 64, 128 or 256, and pictures are put in those. Every picture keeps its " +
+          "colour numbers, so a new palette shows the same pictures in the new colours: colour 0 stays see-through " +
+          "in sprites. Load palette brings in a palette from your computer (.hex or .png from Lospec, .gpl from " +
+          "GIMP, Aseprite or Krita, .pal, or paint.net's .txt); its colours take the first places and the rest " +
+          "stay. It is kept as palette.hex in the game's folder.")),
+      h("div", { className: "muted", style: "margin-bottom:4px" }, own ? `In use: ${own}` : "In use: Pulli's own colours"),
+      strip(shared.palette.slice(0, shared.colours)),
+      h("div", { className: "bar", style: "margin-top:6px" }, h("span", { className: "muted" }, "Colours:"),
+        ...SIZES.map((n) => h("button", { className: n === shared.colours ? "on" : "",
+          onclick: () => n !== shared.colours && use(shared.palette, `${n} colours`, n) }, String(n)))),
+      offered ? h("div", { style: "margin-top:10px" },
+        h("div", { className: "muted", style: "margin-bottom:4px" }, `From ${offeredFrom}:`), strip(offered.slice(0, offeredSize)),
+        h("div", { className: "bar", style: "margin-top:6px" },
+          h("button", { className: "on", onclick: () => use(offered, offeredFrom, offeredSize) }, "Use this palette"),
+          h("button", { onclick: () => { offered = null; drawColours(); } }, "Cancel"))) : "",
+      h("div", { className: "bar", style: "margin-top:8px" },
+        h("button", { onclick: () => picker.click() }, "Load palette…"),
+        h("button", { onclick: () => { offered = BUILTIN; offeredFrom = "Pulli's own colours"; offeredSize = shared.colours; drawColours(); } }, "Pulli's own colours"),
+        picker));
+  }
+  async function bring(file) {
+    if (!file) return;
+    try {
+      let list;
+      if (/\.png$/i.test(file.name)) {
+        const bitmap = await createImageBitmap(file);
+        const c = new OffscreenCanvas(bitmap.width, bitmap.height), g = c.getContext("2d");
+        g.drawImage(bitmap, 0, 0);
+        list = paletteOfPixels(g.getImageData(0, 0, c.width, c.height).data);
+      } else list = readPaletteFile(file.name, await file.arrayBuffer());
+      offered = fitPalette(list, shared.palette);
+      offeredSize = sizeFor(list.length);
+      offeredFrom = `${file.name} (${list.length} colour${list.length === 1 ? "" : "s"})`;
+      drawColours();
+      status(`${file.name}: ${list.length} colours. Use this palette to make it the game's.`);
+    } catch (e) { status(`${file.name}: ${e.message}`, true); }
+  }
+  async function use(pal, from, size) {
+    const gpl = shared.files.includes("palette.gpl");
+    if (shared.files.includes("palette.pal")) return status("The game keeps a ready-made palette.pal: replace it by hand.", true);
+    try {
+      await api.write(gpl ? "palette.gpl" : "palette.hex", writePalette(pal.slice(0, size), gpl));
+      shared.palette = pal;
+      shared.colours = size;
+      offered = null;
+      await refreshFiles();
+      shared.changed("palette");
+      drawColours();
+      status(`The game's palette is now ${from}; saved as ${gpl ? "palette.gpl" : "palette.hex"}.`);
+    } catch (e) { status("Not saved: " + e.message, true); }
+  }
+  shared.listeners.push((what) => { if (what === "files" || what === "palette") drawColours(); });
 
   // ---- memory, as the game last ran: the Lua heap and the active set ----------
   const ACTIVE_MAX = 6 * 1048576;                   // SPEC §2

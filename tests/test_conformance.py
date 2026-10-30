@@ -62,8 +62,6 @@ def make_atlas():
     for cell in range(8):
         cx, cy = (cell % 4) * CELL, (cell // 4) * CELL
         color = 8 + cell
-        if cell == 6:
-            color += 64                    # past the palette: must wrap to 14
         for y in range(CELL):
             for x in range(CELL):
                 # cell 7 has a transparent (index 0) top-left quadrant
@@ -89,6 +87,8 @@ def build_scene():
     op("spr", 1, 160, 80, 1, 1, True, True)
     op("spr", 7, 200, 80)                      # transparency test
     op("sspr", 0, 0, 8, 8, 240, 60, 32, 32)
+    op("sspr", 0, 8, 16, 8, 240, 96, 24, 12, True)      # mirrored, and both ways
+    op("sspr", 0, 8, 16, 8, 270, 96, 24, 12, True, True)
 
     # clip + camera interaction
     op("clip", 200, 120, 80, 60)
@@ -134,8 +134,8 @@ def build_scene():
     op("pset", -0.5, -0.5, 7)
     op("camera")
 
-    # colour indices wrap at 64
-    op("rectfill", 100, 150, 10, 6, 64 + 11)
+    # colour indices wrap at 256
+    op("rectfill", 100, 150, 10, 6, 256 + 11)
     op("pset", 98, 150, -1)
 
     # numbers far outside the screen are held to the 16-bit range
@@ -213,12 +213,12 @@ def random_scene(seed, count=600):
                 op("clip")
         elif k == 2:
             if r(4):
-                op("pal", r(64), r(64))
+                op("pal", r(256), r(256))
             else:
                 op("pal")
         elif k == 3:
             if r(4):
-                op("palt", r(64), bool(r(2)))
+                op("palt", r(256), bool(r(2)))
             else:
                 op("palt")
         elif k in (4, 5, 6):
@@ -226,19 +226,19 @@ def random_scene(seed, count=600):
         elif k == 7:
             op("sspr", r(-8, 40), r(-8, 24), r(-2, 40), r(-2, 30), r(-40, 330), r(-40, 250), r(-2, 120), r(-2, 90))
         elif k == 8:
-            op("rectfill", r(-40, 330), r(-40, 250), r(-10, 150), r(-10, 120), r(70))
+            op("rectfill", r(-40, 330), r(-40, 250), r(-10, 150), r(-10, 120), r(140))
         elif k == 9:
-            op("circfill", r(-30, 350), r(-30, 270), r(-3, 50), r(70))
+            op("circfill", r(-30, 350), r(-30, 270), r(-3, 50), r(140))
         elif k == 10:
-            op("circ", r(-30, 350), r(-30, 270), r(-3, 50), r(70))
+            op("circ", r(-30, 350), r(-30, 270), r(-3, 50), r(140))
         elif k == 11:
-            op("line", r(-30, 350), r(-30, 270), r(-30, 350), r(-30, 270), r(70))
+            op("line", r(-30, 350), r(-30, 270), r(-30, 350), r(-30, 270), r(140))
         elif k == 12:
-            op("shade", r(70), random_lights(rng), r(-2, 40))
+            op("shade", r(140), random_lights(rng), r(-2, 40))
         elif k in (13, 14):
             if r(3) == 0:
                 op("font", rng.choice(("normal", "small")))
-            op("print", rng.choice(TEXTS), r(-60, 330), r(-30, 250), r(70))
+            op("print", rng.choice(TEXTS), r(-60, 330), r(-30, 250), r(140))
         else:
             continue
     op("font")
@@ -256,7 +256,7 @@ TEXTS = ["Hello, Pulli!", "தாமரைக் குளம்", "Score 120 �
 
 def random_lights(rng):
     """Lights for shade(): overlapping, touching, off the screen, of radius
-    0 and below, now and then more than the 64 it takes, and a float or two."""
+    0 and below, now and then more than the 256 it takes, and a float or two."""
     out = []
     for _ in range(rng.choice((0, 1, 3, 8, 24, 70))):
         out += [rng.randrange(-60, 380), rng.randrange(-60, 300), rng.randrange(-2, 90)]
@@ -275,13 +275,13 @@ def shade_scene(seed):
     r = rng.randrange
     op("cls", 1)
     for _ in range(40):
-        op("rectfill", r(-20, 320), r(-20, 240), r(1, 80), r(1, 60), r(64))
+        op("rectfill", r(-20, 320), r(-20, 240), r(1, 80), r(1, 60), r(256))
     op("camera", r(-50, 51), r(-50, 51))
     if r(2):
         op("clip", r(-20, 200), r(-20, 150), r(20, 300), r(20, 200))
     if r(2):
-        op("pal", r(64), r(64))
-    op("shade", r(64), random_lights(rng), r(-2, 40))
+        op("pal", r(256), r(256))
+    op("shade", r(256), random_lights(rng), r(-2, 40))
     op("camera", 0, 0)
     op("clip")
     op("pal")
@@ -350,9 +350,8 @@ def main():
             and fb[85 * W + 233] == 0 and fb[90 * W + 238] == 15)
 
     t.check("pal() remaps at draw time", fb[205 * W + 150] == 8)
-    t.check("all indices within palette range", max(fb) < 64)
-    t.check("sprite pixels past the palette wrap", fb[62 * W + 182] == 14)
-    t.check("colour arguments wrap at 64", fb[152 * W + 105] == 11 and fb[150 * W + 98] == 63)
+    t.check("a sprite pixel draws its own colour", fb[62 * W + 182] == 14)
+    t.check("colour arguments wrap at 256", fb[152 * W + 105] == 11 and fb[150 * W + 98] == 255)
     t.check("fractional coordinates round down", fb[140 * W + 100] == 9 and fb[146 * W + 100] != 9
             and fb[140 * W + 110] != 9 and fb[100 * W + 150] == 7)
     t.check("text draws", fb[16 * W + 13] == 7 and fb[108 * W + 102] == 10)

@@ -83,8 +83,17 @@ number, when more are added. Vidhi shows the number of every sound.
 
 ## Vidhi: the code
 
-The game's Lua, coloured, with line numbers. Beside it are the game's
-assets, and a click puts one into the code as the call that uses it:
+The game's Lua, coloured, with line numbers.
+
+On the left, **Files** lists the whole game folder, folder by folder (click a
+folder to fold it); type in **find a file** to narrow it. A Lua file opens in
+a tab of its own, and several can be open at once: a tab shows • while it has
+changes not saved, ✕ (or a middle click) closes it, and each keeps its place.
+Any other file opens in its own editor: a map in Ooru, a sprite sheet in
+Kolam, a backdrop in Thirai, a sound in Oli, a song in Isai.
+
+On the right are the game's assets, and a click puts one into the code as
+the call that uses it:
 
 - **Sprites:** click a sprite for `spr(n, x, y)`; drag across cells for a
   bigger one, `spr(n, x, y, 2, 2)`.
@@ -108,21 +117,39 @@ any error; click one to go to its line.
 
 ## Kolam: sprites
 
-Draws on a sprite sheet in the game's 64 colours. Colour 0 is see-through.
+Draws on a sprite sheet in the game's colours. Colour 0 is see-through.
 
-- Work on a sprite of 8, 16, 32 or 64 pixels square; the sheet beside it
-  shows where it is and which `spr(n)` it is. Arrow keys move to the next.
+- Work on a sprite of any size in multiples of 8, square or not: 16 × 24,
+  48 × 56, 96 × 128 and others are listed, and **other…** takes any. The
+  sheet beside it shows where it is and which `spr(n)` it is. Arrow keys
+  move to the next sprite of that size.
 - Pen, fill, line, box, pick and erase; **Move** slides the sprite's
   pixels inside it. Flip, turn, copy, paste and clear work on the sprite.
+- **Limb**, **Shape** and **Oval** draw a part as a shape: a limb dragged
+  from end to end (its width where it starts and ends set beside it), a
+  shape by clicking its corners (Enter or a double-click fills it, Esc
+  drops it), an oval by dragging its box. Each fills itself with the
+  **material** chosen, shaded for light from the upper left: lit on that
+  side with no line, a band of shadow inside the other side, and that side
+  edged in the material's own darkest colour, not black. Draw a figure part
+  by part, back to front, and each part stays readable against the next.
+- A **material** is four colours, edge, shadow, base and lit, and some have
+  a printed pattern of dots. Kolam comes with skin, red silk, gold, saffron,
+  white cloth, blue, green, steel, leather and hair. To make one, click
+  four colours in that order and press **New material…**; the game's own
+  materials are kept in `art/materials.json`, which the game leaves out.
 - **Mirror** draws on both sides at once, left-right, up-down or both.
-- **Animation** plays the sprite and the ones after it, as many frames
-  and as fast as you ask. **Onion skin** shows the frame before, faintly.
-- Keys: P pen, F fill, L line, R box, K pick, E erase, M move, Ctrl+Z
-  undo, Ctrl+S save.
+- **Animation** plays the sprite and the ones after it, along the row and
+  on to the next, as many frames and as fast as you ask. **Onion skin**
+  shows the frame before, faintly. Turning a quarter works on a square
+  sprite only.
+- Keys: P pen, F fill, L line, R box, K pick, E erase, M move, B limb,
+  S shape, O oval, Ctrl+Z undo, Ctrl+S save.
 
 A sheet holds at most 128 KB of pixels (512 × 256), with sides that are
 multiples of 8. Pictures made elsewhere open too; pixels not in the 64
-colours take the nearest one.
+colours take the nearest one. A sheet kept as a `.kolam` (as the console
+reads it) opens and saves as one.
 
 ## Ooru: maps
 
@@ -145,8 +172,13 @@ tile 0 is empty. A map saved here keeps everything else Tiled put in it.
   layers, named as the game asks for them (`map.objects("spawns")`).
 - The frame on the map is one screen, 40 × 30 tiles.
 
-The tiles are the picture open in Kolam. A map holds at most 32,768 tiles
-over its layers.
+**Tiles from** is the sheet the map's tiles come from. Pattarai finds it in
+the game's code: the `sheet = "forest.kolam"` given to the map's room (as
+Nizhalattam's room tables have it), else the tileset's picture, else
+`sprites`. Choose another and it is remembered for that map. **Show
+backdrop** draws the room's backdrop (its `bg = "..."`) behind the tiles,
+once for each screen, as the game shows them. A map holds at most 32,768
+tiles over its layers.
 
 ## Thirai: backdrops
 
@@ -160,7 +192,11 @@ Whole-screen pictures, exactly 320 × 240, that `backdrop(name)` sets and
 - **Import picture** brings in a picture from your computer, scaled to
   cover the screen, cropped, and put in the game's colours.
 - **Map over it** draws one of the game's maps on top, as the game would,
-  to see the two together.
+  to see the two together, with the tiles of the map's own sheet.
+
+A backdrop is kept as a `.png`, or as a `.kolam` as the console reads it;
+both open and save. The game names either by its `.kolam`, so one name may
+not be used for both.
 
 ## Oli: sound effects
 
@@ -244,6 +280,11 @@ The **roll** above the parts shows the part in hand: click to place a note,
 drag right to hold it, click a note to remove it. The scale's keys play
 each note.
 
+**▶ Play** plays the song, looping as the game will. Each part has its own
+▶, to hear it alone (■ stops it), and 🔈 to mute it: a muted part is left
+out of what you hear, not out of the WAV. A change made while the song
+plays is heard at once, from where it was.
+
 **Drums.** A song's kit (mridangam, thavil, kanjira, a drum kit, an orchestra's or chip
 drums) plays a pattern on its own, following the tala or time: **drum
 pattern: automatic**. For a beat of your own, **+ Drum part** writes that
@@ -296,6 +337,19 @@ could not use: a picture past 128 KB, a map past 32,768 tiles, a sound that
 is not mono or stereo PCM, a sound past 6 MB, more than 256 sounds. Code is
 never refused. The setting is kept in the game's folder as
 `.pattarai.json`, which `pack` leaves out.
+
+**Palette** shows the game's colours. **Colours: 64, 128, 256** chooses
+how many are its own (the rest stay built in), and pictures brought in are
+put in those. **Load palette…** brings in one
+from your computer: a `.hex` or `.png` from Lospec, a `.gpl` from GIMP,
+Aseprite or Krita, a JASC `.pal`, or paint.net's `.txt`. It is shown beside
+the one in use, and **Use this palette** makes it the game's, kept as
+`palette.hex` (or `palette.gpl`, if the game has one). A palette brought in
+takes the first places and the rest stay; the game then has the fewest of
+64, 128 or 256 that hold it. Pictures keep
+their colour numbers, so every editor shows them at once in the new
+colours; colour 0 stays see-through in sprites. **Pulli's own colours**
+goes back to the built-in colours.
 
 **Measure** packs the game as `pulli pack` does and checks it against the
 spec: the package against 64 MB and 1,024 entries, each part against the

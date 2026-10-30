@@ -309,6 +309,8 @@ def library(t):
                 r["solid"] == [{"2": 1}, {"2": 6}], r["solid"])
     oli(t, r)
     backdrops(t, r)
+    pictures(t, r)
+    palettes(t, r)
     vidhi(t, r)
 
 
@@ -333,13 +335,82 @@ def oli(t, r):
 
 
 def backdrops(t, r):
-    t.check("a picture already in the 64 colours keeps them, dithered or not; see-through is colour 0",
-            r["exact"] == list(range(64)) and r["exactDithered"] == list(range(64)), (r["exact"], r["exactDithered"]))
+    # (a shadow of black is black: colour 32 and 96 are the same as 0, so they come out as the first)
+    first = {c: i for i, c in reversed(list(enumerate(refgfx.DEFAULT_PALETTE)))}
+    want = [0] + [first[c] or 32 for c in refgfx.DEFAULT_PALETTE[1:]]
+    t.check("a picture already in the 128 colours keeps them, dithered or not; see-through is colour 0",
+            r["exact"] == want and r["exactDithered"] == want, (r["exact"], r["exactDithered"]))
     colours = [pulli.palette()[i] for i in range(64)]
     t.check("a shade between two colours is one colour plain, and a mix of colours dithered",
             len(r["plain"]) == 1 and len(r["dithered"]) >= 2, (r["plain"], r["dithered"]))
     t.check("backdrop(name) under the cursor names its picture",
             r["backdropCall"] == {"fn": "backdrop", "arg": "bg_easy.kolam"}, r["backdropCall"])
+
+
+def pictures(t, r):
+    import struct
+    pixels = bytes(i % 64 for i in range(128))
+    # ---- Kolam's shapes: shaded as tests/plates_ref.py shades plates ----
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import plates_ref as plates                                              # noqa: E402
+    mats = {m[0]: m for m in r["materials"]}
+
+    def plate(inside, name):
+        _, e, s_, b, l, dots = mats[name]
+        p = plates.Pic(24, 20)
+        p.plate(inside, (e, s_, b, l), dots=tuple(dots) if dots else None)
+        return [c for row in p.g for c in row]
+    t.check("Kolam's limb, polygon and oval are shaded pixel for pixel as the game's figures are",
+            r["shapeLimb"] == plate(plates.capsule(3.2, 4.5, 19.7, 15.1, 4, 2.5), "red, gold dots")
+            and r["shapePoly"] == plate(plates.poly([(2, 2), (20, 3), (18, 17), (5, 15)]), "gold")
+            and r["shapeOval"] == plate(lambda x, y: ((x - 12) / 9) ** 2 + ((y - 10) / 6) ** 2 < 1, "skin")
+            and len(set(r["shapeLimb"])) >= 5)
+    t.check("Kolam's built-in materials are four colours 1-63 each, all named apart",
+            all(0 < c < 64 for m in r["materials"] for c in m[1:5]) and len({m[0] for m in r["materials"]}) == len(r["materials"]),
+            r["materials"])
+    t.check("frames need not be square: 48x56 run along the row and on to the next, back again, and 96x128 too",
+            r["frames48"] == [[0, 0], [48, 0], [336, 0], [0, 56], [48, 56], [336, 168], None]
+            and r["framesBack"] == [[336, 0], None]
+            and r["frames96"] == [[0, 0], [384, 0], [0, 128], [384, 128], None], (r["frames48"], r["framesBack"], r["frames96"]))
+    t.check("a material kept in the game's folder is refused unless it is four colours 1-63, a name, and dots of three",
+            r["matChecks"][0] is None and all(isinstance(x, str) for x in r["matChecks"][1:]), r["matChecks"])
+    t.check("a .kolam is written byte for byte as pack writes one, and read back",
+            bytes(r["kolamBytes"]) == pulli.kolam(8, 16, pixels) and r["kolamBack"] == [8, 16, True], r["kolamBack"])
+    t.check("what is not a .kolam, or is cut short, is refused", r["kolamBad"] == ["refused", "refused"], r["kolamBad"])
+    t.check("sprite sheets and backdrops are .png or .kolam, in their folders",
+            r["sheets"] == ["sprite.png", "sprites/a.kolam", "sprites/b.png"]
+            and r["backdropsOf"] == ["backdrops/bg.kolam", "backdrops/c.png"], (r["sheets"], r["backdropsOf"]))
+    t.check("a picture is named in the game as its .kolam", r["entries"] == ["b.kolam", "bg.kolam"], r["entries"])
+    t.check("each file opens in its editor from Vidhi's explorer", r["editors"] == {
+        "code/main.lua": "vidhi", "manifest.lua": "vidhi", "sprites/a.kolam": "kolam", "sprites/b.png": "kolam",
+        "sprite.png": "kolam", "backdrops/bg.kolam": "backdrop", "backdrops/c.png": "backdrop", "maps/m.tmx": "ooru",
+        "sfx/hit.json": "oli", "sfx/hit.wav": None, "music/s.json": "isai", "palette.hex": None}, r["editors"])
+    t.check("a map's sheet and backdrop are found in the code: its own, else the defaults above it",
+            r["named"] == ["forest", "bg_forest", "own", "bg_own", "forest", None], r["named"])
+
+
+def palettes(t, r):
+    f = r["palFiles"]
+    t.check("palettes are read from .hex, .gpl, JASC .pal, Pulli's PAL1 and paint.net's .txt", f == {
+        "hex": [0x1a1c2c, 0x5d275d, 0xb13e53], "gpl": [0x1a1c2c, 0xffffff], "jasc": [0x1a1c2c, 0xff0000],
+        "pal1": [0x1a1c2c, 0x0000ff], "paintnet": [0x1a1c2c, 0xffffff]}, f)
+    t.check("a file with no colours is refused", r["palEmpty"] == "refused")
+    t.check("a palette picture's colours are read once each, in order, see-through left out",
+            r["palPixels"] == [0xff0000, 0x00ff00], r["palPixels"])
+    builtin = [((a << 16) | (b << 8) | c) for a, b, c in pulli.palette()]
+    t.check("colours brought in take the first places, the rest kept; more than 256 are refused",
+            r["palFit"] == [1, 2, 3, builtin[3], builtin[4], 256] and r["palTooMany"] == "refused", r["palFit"])
+    t.check("a palette.hex of 64 reads as those, then the built-in 64-255; counts other than 64, 128 or 256 are refused",
+            r["palOld"] == [256, 0x102030, True, True] and r["palWrong"] == "refused", (r["palOld"], r["palWrong"]))
+    t.check("a game chooses 64, 128 or 256 colours: the fewest that hold those brought in, and a palette.hex says which",
+            r["palSizes"] == [64, 64, 128, 256, 256, 128], r["palSizes"])
+    t.check("a palette is written as palette.hex or palette.gpl and read back the same", r["palRound"] == [True, True])
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "palette.hex"), "w") as fh:
+            fh.write(r["palHex"])
+        got = pulli.game_palette(tmp)
+    t.check("pack reads the palette.hex Pattarai writes",
+            got[0] is not None and got[1] == 64 and len(got[0]) == 256 and [tuple(c) for c in got[0]][:2] == [(0x1a, 0x1c, 0x2c), (255, 0, 0)], got[1])
 
 
 def vidhi(t, r):
@@ -576,7 +647,7 @@ def songs_only(t):
 def palette(t):
     text = open(os.path.join(HERE, "lib", "palette.js")).read()
     colours = [int(v, 16) for v in re.findall(r"0x([0-9a-f]{6})", text.split("export function")[0])]
-    t.check("the editors' 64 colours are the runtime's", colours == list(refgfx.DEFAULT_PALETTE))
+    t.check("the editors' 128 colours are the runtime's", colours == list(refgfx.DEFAULT_PALETTE))
 
 
 def server(t):
@@ -632,6 +703,10 @@ def server(t):
                     [(0, "sfx/a.wav", 2, 8000, 1.0), (1, "sfx/b.wav", 1, 22050, 1.0), (2, "sfx/c.wav", None, None, None)]
                     and "error" in got["sfx"][2] and got["sfx"][1]["packed"] == 44100, got)
             t.check("the sounds cannot be listed without the key", ask("GET", "/api/sounds", key=None)[0] == 403)
+            with wave.open(os.path.join(game, "sfx", "b.wav"), "wb") as w:      # changed: read again, not kept from before
+                w.setnchannels(1); w.setsampwidth(2); w.setframerate(22050); w.writeframes(b"\0\0" * 11025)
+            got = json.loads(ask("GET", "/api/sounds")[1])
+            t.check("a sound changed is measured again", got["sfx"][1]["seconds"] == 0.5, got["sfx"][1])
             shutil.rmtree(os.path.join(game, "sfx"))
             t.check("a file outside the game is not read",
                     ask("GET", "/api/file?path=../secret.png")[0] == 404 and
@@ -639,6 +714,11 @@ def server(t):
             t.check("a song is written, its folder made", ask("PUT", "/api/file?path=music/new/b.json", b"{1}")[0] == 200
                     and open(os.path.join(game, "music", "new", "b.json")).read() == "{1}")
             t.check("Lua is written", ask("PUT", "/api/file?path=main.lua", b"function draw() end\n")[0] == 200)
+            sheet = pulli.kolam(8, 8, bytes(range(64)))
+            t.check("a picture kept as a .kolam is written, listed and read",
+                    ask("PUT", "/api/file?path=backdrops/bg.kolam", sheet)[0] == 200
+                    and "backdrops/bg.kolam" in json.loads(ask("GET", "/api/files")[1])["files"]
+                    and ask("GET", "/api/file?path=backdrops/bg.kolam") == (200, sheet))
             t.check("other kinds, hidden files and places outside the game are never written",
                     ask("PUT", "/api/file?path=run.py", b"evil")[0] == 403 and
                     ask("PUT", "/api/file?path=x.lua.sh", b"evil")[0] == 403 and

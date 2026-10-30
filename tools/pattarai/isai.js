@@ -11,9 +11,13 @@ const SRUTI = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 export function isai(root) {
   let song = M.newSong("carnatic"), path = "", dirty = false, partIndex = 0;
-  let audio = null, source = null, playStart = 0, playLen = 0, raf = 0;
+  let audio = null, source = null, playStart = 0, playLen = 0, loopAt = 0, raf = 0;
+  // What is playing: the whole song (null) or one part; a newer play, or a
+  // stop, makes an older render that comes back late be thrown away.
+  let playing = null, playSeq = 0, player = null, again = 0;
+  const muted = new WeakSet();                             // parts left out of what is heard (not of the WAV)
 
-  const files = h("select", { title: "Songs in the game's music folder", "data-empty": "no songs yet: New… or an example" });
+  const files = h("select", { title: "Songs in the game's music folder", "data-empty": "no songs yet: New… or an example", onchange: () => open() });
   const examples = h("select", { title: "Example songs that come with Pattarai" }, h("option", { value: "" }, "Example songs…"));
   fetch(new URL("./songs/index.json", import.meta.url)).then((r) => r.json()).then((list) => {
     examples.append(...list.map((x) => h("option", { value: x.file, title: x.about }, x.title)));
@@ -21,7 +25,8 @@ export function isai(root) {
   const head = h("div");
   const scaleBox = h("div", { className: "box" });
   const partsBox = h("div");
-  const roll = h("canvas", { style: "cursor:crosshair" });
+  const roll = h("canvas", { style: "cursor:crosshair;display:block" });
+  const cursor = h("canvas", { style: "position:absolute;left:0;top:0;pointer-events:none" });   // the playhead, drawn alone
   const rollName = h("span", { style: "text-transform:none;color:var(--accent)" });
   const rollTitle = h("h3", { style: "margin:0;display:flex;gap:8px" }, h("span", {}, "Roll"), rollName);
   const playBtn = h("button", { className: "", onclick: togglePlay }, "▶ Play");
@@ -43,7 +48,7 @@ export function isai(root) {
     h("div", { className: "box", style: "max-width:100%;margin-bottom:10px" },
       h("div", { className: "bar", style: "margin-bottom:6px" }, rollTitle,
         help("Click to place a note (drag right to hold it), click a note to remove it. On a drum part, click a lane to add or remove a stroke.")),
-      h("div", { className: "scroll", style: "max-height:300px" }, roll)),
+      h("div", { className: "scroll", style: "max-height:300px" }, h("div", { style: "position:relative;display:inline-block" }, roll, cursor))),
     h("div", { className: "cols" },
       h("div", { className: "wide" }, partsBox,
         h("div", { className: "bar" }, h("button", { onclick: addPart }, "+ Part"),
@@ -56,7 +61,10 @@ export function isai(root) {
   function changed() {
     const was = dirty;
     dirty = true;
-    stop();
+    if (source || player) {                         // playing: heard again with the change, from where it was
+      clearTimeout(again);
+      again = setTimeout(() => play(playing, true), 500);
+    }
     if (!was) drawHead();
   }
 
@@ -253,7 +261,11 @@ export function isai(root) {
           h("input", { value: p.name, style: "width:110px", onchange: (e) => { p.name = e.target.value; changed(); } }),
           inst, field("octave", knob("octave", -3, 3, 1)), field("volume", knob("gain", 0, 1.5, 0.05)),
           field("pan", knob("pan", -1, 1, 0.1)),
-          h("button", { title: "Hear this part alone", onclick: (e) => { e.stopPropagation(); play(i); } }, "▶"),
+          h("button", { className: playing === i && (source || player) ? "on" : "", title: "Hear this part alone (again: stop)",
+            onclick: (e) => { e.stopPropagation(); playing === i && (source || player) ? stop() : play(i); } }, playing === i && (source || player) ? "■" : "▶"),
+          h("button", { className: muted.has(p) ? "on" : "", title: "Mute: leave this part out of what you hear (the WAV keeps it)",
+            onclick: (e) => { e.stopPropagation(); muted.has(p) ? muted.delete(p) : muted.add(p); drawParts();
+              if (source || player) { clearTimeout(again); play(playing, true); } } }, muted.has(p) ? "🔇" : "🔈"),
           h("button", { title: "Remove the part", onclick: (e) => {
             e.stopPropagation();
             if (song.parts.length > 1 && confirm(`Remove the part "${p.name}"?`)) {
@@ -343,10 +355,7 @@ export function isai(root) {
       g.fillStyle = "#4fb3a9"; g.fillRect(x - 1, 0, 3, roll.height);
       g.font = "10px sans-serif"; g.fillText("loop ↺", x + 4, 10);
     }
-    if (source) {
-      const x = LABEL + ((audio.currentTime - playStart) % playLen) / playLen * M.songSteps(song) * CW;
-      g.fillStyle = "#fff"; g.fillRect(x, 0, 2, roll.height);
-    }
+    cursor.width = roll.width; cursor.height = roll.height; playhead();
   }
   // A drum part's roll: a lane for each kind of stroke; click to add or remove
   function drawDrumRoll(p) {
@@ -376,10 +385,7 @@ export function isai(root) {
       g.beginPath(); g.arc(LABEL + x.at * CW + CW / 2, r * rh + rh / 2, CW * 0.36, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
     }
-    if (source) {
-      const xx = LABEL + ((audio.currentTime - playStart) % playLen) / playLen * M.songSteps(song) * CW;
-      g.fillStyle = "#fff"; g.fillRect(xx, 0, 2, roll.height);
-    }
+    cursor.width = roll.width; cursor.height = roll.height; playhead();
   }
   function clickDrumRoll(p, e) {
     let parsed;
@@ -435,9 +441,10 @@ export function isai(root) {
     audio = audio || new AudioContext({ sampleRate: M.RATE });   // plays a song at any rate
     return audio;
   }
-  function renderAsync(s) {
+  function renderAsync(s, keep) {
     return new Promise((resolve, reject) => {
       const w = new Worker(new URL("./render-worker.js", import.meta.url), { type: "module" });
+      if (keep) keep(w);
       w.onmessage = (e) => { w.terminate(); e.data.error ? reject(new Error(e.data.error)) : resolve(e.data.channels); };
       w.onerror = (e) => { w.terminate(); reject(new Error(e.message)); };
       w.postMessage(s);
@@ -456,29 +463,57 @@ export function isai(root) {
     b.copyToChannel(L.subarray(0, n), 0); b.copyToChannel(R.subarray(0, n), 1);
     const src = a.createBufferSource(); src.buffer = b; src.connect(a.destination); src.start();
   }
-  async function play(only = null) {
-    stop();
-    const s = only === null ? song : { ...song, parts: [song.parts[only]], drone: false, drums: "none" };
+  // Plays the song (or part `only`), looping as the game will. `resume`:
+  // it is playing already, and goes on from where it is, changed.
+  async function play(only = null, resume = false) {
+    const at = resume && source ? position() : 0;
+    if (!resume) halt();
+    if (only !== null && !song.parts[only]) return stop();   // the part is gone
+    const seq = ++playSeq;
+    if (player) { player.terminate(); player = null; }
+    playing = only;
+    const parts = (only === null ? song.parts : [song.parts[only]]).filter((p) => only !== null || !muted.has(p));
+    const s = only === null ? { ...song, parts } : { ...song, parts, drone: false, drums: "none" };
     try {
-      status("Rendering the song to play it…");
-      playBtn.textContent = "… rendering"; playBtn.disabled = true;
-      const [L, R] = mix(await renderAsync(JSON.parse(JSON.stringify(s))));
+      if (!resume) { status("Rendering the song to play it…"); playBtn.textContent = "… rendering"; drawParts(); }
+      const rendered = await renderAsync(JSON.parse(JSON.stringify(s)), (w) => { player = w; });
+      if (seq !== playSeq) return;                     // stopped, or played again, while it was rendering
+      player = null;
+      const [L, R] = mix(rendered);
       const a = ctx();
       await a.resume();
       const rate = song.rate || M.RATE;
       const b = a.createBuffer(2, L.length, rate);
       b.copyToChannel(L, 0); b.copyToChannel(R, 1);
+      if (source) { source.stop(); source = null; }
       source = a.createBufferSource();
       source.buffer = b; source.loop = true; source.connect(a.destination);
-      if (only === null) source.loopStart = M.loopFrame(song) / rate;     // as the game will loop it
-      playBtn.disabled = false;
-      playStart = a.currentTime; playLen = L.length / rate;
-      source.start();
+      loopAt = only === null ? M.loopFrame(song) / rate : 0;   // as the game will loop it
+      source.loopStart = loopAt;
+      playLen = L.length / rate;
+      const from = Math.min(at, playLen - 0.01);
+      playStart = a.currentTime - from;
+      source.start(0, from);
       playBtn.textContent = "■ Stop"; playBtn.classList.add("on");
-      status(`Playing ${path || "the new song"}: ${playLen.toFixed(1)} s, looping.`);
-      const tick = () => { drawRoll(); raf = requestAnimationFrame(tick); };
+      if (!resume) { status(`Playing ${only === null ? path || "the new song" : `the part "${song.parts[only].name}"`}: ${playLen.toFixed(1)} s, looping.`); drawParts(); }
+      cancelAnimationFrame(raf);
+      const tick = () => { playhead(); raf = requestAnimationFrame(tick); };
       tick();
-    } catch (e) { playBtn.disabled = false; playBtn.textContent = "▶ Play"; status(e.message, true); }
+    } catch (e) { if (seq === playSeq) { halt(); status(e.message, true); } }
+  }
+  // where in the song the sound is now, in seconds: once through, then round the loop
+  function position() {
+    const t = audio.currentTime - playStart;
+    return t < playLen ? t : loopAt + (t - playLen) % Math.max(0.001, playLen - loopAt);
+  }
+  function playhead() {
+    const g = cursor.getContext("2d");
+    g.clearRect(0, 0, cursor.width, cursor.height);
+    if (!source || !playLen) return;
+    const x = LABEL + position() / playLen * M.songSteps(song) * CW;
+    g.fillStyle = "#fff"; g.fillRect(x, 0, 2, cursor.height);
+    const box = cursor.parentElement.parentElement;           // keep it in sight
+    if (x < box.scrollLeft + LABEL || x > box.scrollLeft + box.clientWidth - 40) box.scrollLeft = Math.max(0, x - LABEL - 40);
   }
   // a mono song is heard as it will be: both sides the same
   function mix([L, R]) {
@@ -487,12 +522,17 @@ export function isai(root) {
     for (let i = 0; i < m.length; i++) m[i] = (L[i] + R[i]) / 2;
     return [m, m];
   }
-  function stop() {
+  function halt() {
+    playSeq++;
+    clearTimeout(again);
+    if (player) { player.terminate(); player = null; }
     if (source) { source.stop(); source = null; }
     cancelAnimationFrame(raf);
     playBtn.textContent = "▶ Play"; playBtn.classList.remove("on");
+    playhead();
   }
-  function togglePlay() { if (!playBtn.disabled) source ? stop() : play(); }
+  function stop() { const was = playing !== null; halt(); playing = null; if (was) drawParts(); status("Stopped."); }
+  function togglePlay() { source || player ? stop() : play(); }
 
   // ---- files -------------------------------------------------------------------
   const wavOf = (p) => p.replace(/\.json$/, ".wav");

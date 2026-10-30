@@ -13,7 +13,7 @@ import math, os, struct, zlib
 
 W, H = 320, 240
 CELL = 8
-COLORS = 64          # palette length; colour indices wrap modulo this
+COLORS = 256         # palette length, the hard cap (a pixel is a byte); colour indices wrap modulo this
 SHADE_LIGHTS = 64    # shade() takes this many lights; the rest are left out
 SHADE_EDGE = 32      # and dots no more than this many pixels of each edge
 
@@ -381,15 +381,15 @@ class RefGfx:
                     continue
                 self._put(x + i, y + j, c)
 
-    def sspr(self, sx, sy, sw, sh, dx, dy, dw, dh):
+    def sspr(self, sx, sy, sw, sh, dx, dy, dw, dh, flip_x=False, flip_y=False):
         if not self.atlas or sw <= 0 or sh <= 0 or dw <= 0 or dh <= 0:
             return
         for j in range(dh):
-            ty = sy + (j * sh) // dh
+            ty = sy + ((dh - 1 - j if flip_y else j) * sh) // dh
             if not (0 <= ty < self.atlas_h):
                 continue
             for i in range(dw):
-                tx = sx + (i * sw) // dw
+                tx = sx + sw - 1 - (i * sw) // dw if flip_x else sx + (i * sw) // dw
                 if not (0 <= tx < self.atlas_w):
                     continue
                 c = self.atlas[ty * self.atlas_w + tx] % COLORS
@@ -533,15 +533,36 @@ def write_png(path, rgb565, w, h, scale=1):
         f.write(png)
 
 
-# The 64-colour Pulli palette (spec v0.1): 32 base hues plus a shadow ramp of
-# the same hues at 9/16 brightness. Shadow pairs sit exactly 32 apart, so
+# The Pulli palette: four blocks of 64, each 32 base hues and then the same
+# hues at 9/16 brightness. Shadow pairs sit exactly 32 apart, so
 # `pal(c, c+32)` darkens any sprite in one call and a whole scene can be
-# dimmed without touching a pixel.
+# dimmed without touching a pixel. The first block is the original 64; the
+# second adds skin and earth, brass, maroons, greens, blues, purples, greys;
+# the third saffron, teal, indigo, rose and olive ramps; the fourth sand,
+# wood, moss, sea, sky, crimson, gold and cool greys.
 _BASE = [
     0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
     0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436, 0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA,
     0x291814, 0x111D35, 0x422136, 0x125359, 0x742F29, 0x49333B, 0xA28879, 0xF3EF7D,
     0xBE1250, 0xFF6C24, 0xA8E72E, 0x00B543, 0x065AB5, 0x754665, 0xFF6E59, 0xFF9D81,
+]
+_BASE2 = [
+    0xF6D2B5, 0xE8B08A, 0xD08C5E, 0xB06E44, 0x8C5232, 0x6A3C24, 0x4C2A1A, 0x2E1A10,
+    0xFFE7A0, 0xF2C14E, 0xC8962A, 0x9A6B1C, 0xE84A3C, 0xB0202E, 0x7A1028, 0x4E0A1E,
+    0x9ED36A, 0x5FA845, 0x2F7A3A, 0x14492A, 0x8FD3FF, 0x4A8FE0, 0x2E4BB0, 0x1E2470,
+    0xC27BE0, 0x8A3FB0, 0xF4A6C8, 0xD0607A, 0xF4F4F0, 0xB8B4AC, 0x7A7670, 0x3E3A38,
+]
+_BASE3 = [
+    0xFFD27A, 0xFFB03A, 0xE58A12, 0xB8640A, 0x9CF0E0, 0x3CC8B4, 0x1A8C84, 0x0E5458,
+    0xB4B8FF, 0x7078E8, 0x4040B8, 0x24207A, 0xFFC4D0, 0xF0889C, 0xC84868, 0x8A2444,
+    0xE4E89A, 0xB8C055, 0x868C30, 0x565A1C, 0xFFF4D8, 0xE0D4B8, 0xA89C88, 0x6C6458,
+    0xE8C8F8, 0xB890E0, 0x7C58B0, 0x4A2C78, 0xFFE8C0, 0xF8C890, 0xE0A070, 0xB87850,
+]
+_BASE4 = [
+    0xF0DCA8, 0xD8BC80, 0xB89A5C, 0x8C7040, 0xC08858, 0x985E34, 0x6E3E20, 0x4A2814,
+    0xBCE08C, 0x84B858, 0x5A8C38, 0x3A6024, 0x7CE0F0, 0x38A8D0, 0x1C70A8, 0x10447A,
+    0xD8F0FF, 0xA8D4F8, 0xFF4040, 0xC8102C, 0xFFE060, 0xE0B020, 0xDCE4EC, 0x9CA8B8,
+    0x707C8C, 0x404858, 0xF8F0B0, 0xD8C870, 0x60C0A0, 0x2E8A6C, 0xA03018, 0x601808,
 ]
 
 
@@ -550,7 +571,7 @@ def _shade(c, num=9, den=16):
     return ((r * num // den) << 16) | ((g * num // den) << 8) | (b * num // den)
 
 
-DEFAULT_PALETTE = _BASE + [_shade(c) for c in _BASE]
+DEFAULT_PALETTE = [c for b in (_BASE, _BASE2, _BASE3, _BASE4) for c in b + [_shade(x) for x in b]]
 
 
 def rgb565(c):

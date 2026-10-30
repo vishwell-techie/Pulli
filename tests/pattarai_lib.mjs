@@ -7,10 +7,13 @@ import { encodePNG } from "../tools/pattarai/lib/png.js";
 import { encodeWAV, decodeWAV } from "../tools/pattarai/lib/wav.js";
 import { readFileSync } from "fs";
 import * as O from "../tools/pattarai/lib/sfx.js";
-import { BUILTIN, quantiseTo } from "../tools/pattarai/lib/palette.js";
+import { BUILTIN, quantiseTo, parsePalette, readPaletteFile, paletteOfPixels, fitPalette, writePalette, sizeFor, ownColours } from "../tools/pattarai/lib/palette.js";
 import { songWav, madeNote, refreshNote, needsWav, songDigest } from "../tools/pattarai/lib/make.js";
 import { say, sayTitle, TA } from "../tools/pattarai/lib/i18n.js";
 import { API, SIGS, highlight, callAt, numbered, complete, callHint, wordBefore } from "../tools/pattarai/lib/lua.js";
+import { readKolam, writeKolam } from "../tools/pattarai/lib/kolam.js";
+import { sheets, backdrops, editorOf, pictureNamedIn, entry } from "../tools/pattarai/lib/layout.js";
+import { MATERIALS, limb, polygon, ellipse, mask, shade, frameAt, checkMaterial } from "../tools/pattarai/lib/shapes.js";
 
 const [, , village, ...exampleSongs] = process.argv;
 const b64 = (u8) => Buffer.from(u8).toString("base64");
@@ -320,16 +323,16 @@ out.oliInRange = Object.keys(O.PRESETS).every((n) => O.KNOBS.every(([k, min, max
   const v = O.mutate(O.preset(n, 5), 6)[k]; return v >= min - 1e-9 && v <= max + 1e-9; }));
 out.oliWav = b64(encodeWAV([O.render(O.preset("jump", 1))], O.RATE));
 
-// backdrops: pictures put in the 64 colours
-const px64 = new Uint8Array(64 * 4);
+// backdrops: pictures put in the 256 colours
+const px64 = new Uint8Array(BUILTIN.length * 4);
 BUILTIN.forEach((c, i) => px64.set([c >> 16, (c >> 8) & 255, c & 255, i ? 255 : 0], i * 4));
-out.exact = [...quantiseTo(px64, 64, 1, BUILTIN).pixels];
+out.exact = [...quantiseTo(px64, BUILTIN.length, 1, BUILTIN).pixels];
 const a = BUILTIN[1], b = BUILTIN[12];
 const mid = new Uint8Array(16 * 16 * 4);
 for (let i = 0; i < 256; i++) mid.set([((a >> 16) + (b >> 16)) >> 1, (((a >> 8) & 255) + ((b >> 8) & 255)) >> 1, ((a & 255) + (b & 255)) >> 1, 255], i * 4);
 out.plain = [...new Set(quantiseTo(mid, 16, 16, BUILTIN).pixels)];
 out.dithered = [...new Set(quantiseTo(mid, 16, 16, BUILTIN, true).pixels)].sort((x, y) => x - y);
-out.exactDithered = [...quantiseTo(px64, 64, 1, BUILTIN, true).pixels];
+out.exactDithered = [...quantiseTo(px64, BUILTIN.length, 1, BUILTIN, true).pixels];
 out.backdropCall = callAt('backdrop("bg_easy.kolam")', 3);
 
 // Vidhi
@@ -345,4 +348,54 @@ out.calls = ["  spr(12, x, y)", "sfx(3) music(1, 500)", 'map.load("hall.ooru")',
 out.callFar = callAt("sfx(3) music(1, 500)", 9);
 out.lit = highlight('local s = "a" -- c\nspr(1) x = 0x1f\n');
 out.numbered = numbered(["sfx/b.wav", "sfx/a.WAV", "sfx/n.json", "sfx/x/y.wav", "music/z.wav", "sfx/10.wav"], "sfx");
+
+// Pictures kept as .kolam, where a game's files go, and a map's sheet
+const pic = { width: 8, height: 16, pixels: Uint8Array.from({ length: 128 }, (_, i) => i % 64) };
+out.kolamBytes = [...writeKolam(pic)];
+const kback = readKolam(writeKolam(pic));
+out.kolamBack = [kback.width, kback.height, [...kback.pixels].join(",") === [...pic.pixels].join(",")];
+out.kolamBad = ["KLM0", "short"].map((k) => { try { readKolam(k === "short" ? writeKolam(pic).slice(0, 20) : new Uint8Array([75, 76, 77, 48, 0, 0, 0, 0])); return "read"; } catch (e) { return "refused"; } });
+const tree = ["code/main.lua", "manifest.lua", "sprites/a.kolam", "sprites/b.png", "sprite.png", "backdrops/bg.kolam", "backdrops/c.png",
+  "maps/m.tmx", "sfx/hit.json", "sfx/hit.wav", "music/s.json", "palette.hex"];
+out.sheets = sheets(tree);
+out.backdropsOf = backdrops(tree);
+out.editors = Object.fromEntries(tree.map((f) => [f, editorOf(f)]));
+out.entries = ["sprites/b.png", "backdrops/bg.kolam"].map(entry);
+const rooms = 'local F = { __index = { sheet = "forest.kolam", bg = "bg_forest.kolam" } }\n' +
+  'local R = {\n  ["f1.ooru"] = F{ doors = { "f2.ooru" } },\n  ["own.ooru"] = F{ sheet = "own.png", bg = "bg_own.kolam" },\n}\n';
+out.named = [["f1", "sheet"], ["f1", "bg"], ["own", "sheet"], ["own", "bg"], ["f2", "sheet"], ["gone", "sheet"]].map(([m, k]) => pictureNamedIn(rooms, m, k));
+
+// Palettes brought in from elsewhere, and written back
+const enc = (s) => new TextEncoder().encode(s);
+out.palFiles = {
+  hex: readPaletteFile("a.hex", enc("1a1c2c\r\n5d275d\n\nb13e53\n")),
+  gpl: readPaletteFile("a.gpl", enc("GIMP Palette\nName: x\nColumns: 4\n#\n 26  28  44\tdark\n255 255 255 white\n")),
+  jasc: readPaletteFile("a.pal", enc("JASC-PAL\n0100\n2\n26 28 44\n255 0 0\n")),
+  pal1: readPaletteFile("a.pal", new Uint8Array([80, 65, 76, 49, 26, 28, 44, 0, 0, 255])),
+  paintnet: readPaletteFile("a.txt", enc("; paint.net\nFF1A1C2C\nFFFFFFFF\n")),
+};
+out.palEmpty = (() => { try { readPaletteFile("x.hex", enc("hello\n")); return "read"; } catch (e) { return "refused"; } })();
+out.palPixels = paletteOfPixels(new Uint8Array([255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 0, 0, 255, 0, 255]));
+out.palFit = fitPalette([1, 2, 3], BUILTIN).slice(0, 5).concat([fitPalette([1, 2, 3], BUILTIN).length]);
+out.palTooMany = (() => { try { fitPalette(Array(257).fill(1), BUILTIN); return "taken"; } catch (e) { return "refused"; } })();
+const some = fitPalette([0x1a1c2c, 0xff0000], BUILTIN);
+out.palRound = [parsePalette(writePalette(some)).join() === some.join(), parsePalette(writePalette(some, true)).join() === some.join()];
+out.palHex = writePalette(some.slice(0, sizeFor(2)));
+out.palSizes = [sizeFor(2), sizeFor(64), sizeFor(65), sizeFor(129), sizeFor(256), ownColours(writePalette(some.slice(0, 128)))];
+out.palOld = (() => { const old = parsePalette(writePalette(BUILTIN.slice(0, 64).map((c, i) => i ? 0x102030 : 0))); return [old.length, old[1], old[100] === BUILTIN[100], old[200] === BUILTIN[200]]; })();
+out.palWrong = (() => { try { parsePalette(writePalette(BUILTIN.slice(0, 100))); return "read"; } catch (e) { return "refused"; } })();
+// Kolam's shapes, shaded (checked against tests/plates_ref.py)
+{
+  const W = 24, H = 20, flat = (pairs) => { const g = Array(W * H).fill(0); for (const [i, c] of pairs) g[i] = c; return g; };
+  const mat = (n) => MATERIALS.find((m) => m.name === n);
+  out.shapeLimb = flat(shade(mask(limb(3.2, 4.5, 19.7, 15.1, 4, 2.5), W, H), W, H, mat("red, gold dots")));
+  out.shapePoly = flat(shade(mask(polygon([[2, 2], [20, 3], [18, 17], [5, 15]]), W, H), W, H, mat("gold")));
+  out.shapeOval = flat(shade(mask(ellipse(12, 10, 9, 6), W, H), W, H, mat("skin")));
+  out.materials = MATERIALS.map((m) => [m.name, m.edge, m.shade, m.base, m.lit, m.dots || null]);
+  out.frames48 = [0, 1, 7, 8, 9, 31, 32].map((k) => frameAt(384, 224, 0, 0, 48, 56, k));
+  out.framesBack = [frameAt(384, 224, 0, 56, 48, 56, -1), frameAt(384, 224, 0, 0, 48, 56, -1)];
+  out.frames96 = [0, 4, 5, 9, 10].map((k) => frameAt(480, 256, 0, 0, 96, 128, k));
+  out.matChecks = [checkMaterial(MATERIALS[2]), checkMaterial({ name: "x", edge: 0, shade: 1, base: 2, lit: 3 }),
+                   checkMaterial({ name: "y", edge: 1, shade: 2, base: 3, lit: 4, dots: [5, 0, 2] }), checkMaterial({})];
+}
 console.log(JSON.stringify(out));

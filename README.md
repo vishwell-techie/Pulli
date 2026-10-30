@@ -6,7 +6,7 @@ An open-source game platform where every game is written in Lua, with a
 handheld console to run them on and reference hardware anyone can build.
 Pulli (புள்ளி) is Tamil for "dot": a pixel is a dot.
 
-320×240, 64 colours, 8×8 sprite cells, 60 frames a second. Games are single
+320×240, up to 256 colours, 8×8 sprite cells, 60 frames a second. Games are single
 `.pulli` files. The desktop runtime and the console run the same engine, so
 a game behaves the same on a laptop and in the hand.
 
@@ -27,7 +27,7 @@ Software first; hardware comes last.
 | 16.16 fixed point (`fix`) | optional for games; built and tested |
 | Link between two consoles | works between two emulator windows; no hardware link yet |
 | Text | English and Tamil from built-in pixel fonts; Tamil syllables drawn whole, from Noto Sans Tamil |
-| Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed; a game may bring its own 64 colours |
+| Sprites and maps | PNG sprite sheets and Tiled maps are imported when a game is packed; a game may bring its own 64, 128 or 256 colours |
 | SDK helpers | 17, from tween and dialog to pathfind and menus; plain Lua, supplied when a game requires them |
 | Game developer's guide | getting started, a tutorial, art and sound, helpers, reference: `docs/guide` |
 | Examples | hello, pong, manickam, talk, catch, nizhalattam; all use the SDK helpers |
@@ -172,7 +172,7 @@ the same files.
 
 For pictures, draw an 8x8 grid of sprites in any paint program and save it
 as `sprites/sprites.png` in the game's folder: `spr(n)` draws the n-th one.
-`python3 tools/pulli.py palette pulli.gpl` writes the 64 colours for the
+`python3 tools/pulli.py palette pulli.gpl` writes the 256 colours for the
 paint program to load. For a map, make one in [Tiled](https://www.mapeditor.org)
 with 8x8 tiles and `sprites.png` as its tileset, and save it as `maps/map.tmx`. `examples/manickam` does both, and is the fullest example: a
 whole adventure in Tamil and English, with an opening cut-scene, six

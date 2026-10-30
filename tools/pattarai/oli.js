@@ -11,7 +11,7 @@ export function oli(root) {
   let sfx = S.preset("jump", 1), path = "", dirty = false, auto = true, seed = 1;
   let audio = null;
 
-  const files = h("select", { title: "Sound effects made in Oli (sfx/*.json)", "data-empty": "no sounds yet: start from a kind" });
+  const files = h("select", { title: "Sound effects made in Oli (sfx/*.json)", "data-empty": "no sounds yet: start from a kind", onchange: () => open() });
   const wave = h("canvas", { width: 640, height: 140 });
   const knobs = h("div", { className: "knobs" });
   const waveSel = h("select", { onchange: (e) => { sfx.wave = e.target.value; touched(); } },

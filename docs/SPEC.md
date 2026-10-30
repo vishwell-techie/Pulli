@@ -41,7 +41,7 @@ them does not ship.
 |---|---|---|
 | Logical resolution | **320 x 240 (locked, never changes)** | Third-party games depend on it from here on |
 | Framebuffer format | 8-bit indexed | 76,800 B/buffer vs 153,600 for RGB565 |
-| Palette | **64 entries, RGB565 (locked)** | 32 hues + a shadow ramp 32 apart, so `pal(c,c+32)` darkens anything |
+| Palette | **up to 256 entries, RGB565** | a game chooses 64, 128 or 256 of its own; four blocks of 64, each 32 hues + a shadow ramp 32 apart, so `pal(c,c+32)` darkens anything |
 | Buffers | 2 (double-buffered) | 153,600 B total |
 | Target frame rate | **60 Hz logic and full-frame redraw** | 8080 parallel bus: 5.1 ms/frame vs 19.7 ms over SPI |
 | Sprite budget | 128 sprites/frame @ 16x16 | Soft limit; profiler warns past it |
@@ -329,15 +329,17 @@ layers are not imported.
 
 ### palette.pal (draft)
 
-A game's own 64 colours, replacing the built-in palette (§8.3) for that
-game: the magic `"PAL1"` then 64 colours of 3 bytes each, red, green and
-blue, 8 bits each; 196 bytes in all. The runtime turns each into RGB565, as
-for the built-in palette. Any other length or magic stops the game from
-starting. `pulli pack` builds it from a `palette.hex` (one `rrggbb` a line)
+A game's own colours, replacing the first of the built-in palette (§8.3)
+for that game. The game chooses how many: 64, 128 or 256. The magic
+`"PAL1"` then that many colours of 3 bytes each, red, green and blue, 8 bits
+each; 196, 388 or 772 bytes in all. Past the game's own, the built-in colours
+stay. The runtime turns each into RGB565, as for the built-in palette. Any
+other length or magic stops the game from starting. `pulli pack` builds it from a `palette.hex` (one `rrggbb` a line)
 or `palette.gpl` (GIMP, Aseprite and Krita's format) in the game's folder,
 or takes a ready-made `palette.pal` as it is,
-and then matches the game's PNG pictures to those colours instead of the
-built-in ones. The conventions of §8.3, such as the shadow ramp 32 apart,
+and then matches the game's PNG pictures to those colours (only its own
+64, 128 or 256) instead of the built-in ones. The number of colours in the
+`palette.hex` or `palette.gpl` is the choice. The conventions of §8.3, such as the shadow ramp 32 apart,
 are the game's to keep or not.
 
 ### sfx.oli and music.isai (draft)
@@ -434,7 +436,7 @@ rect(x,y,w,h,c) rectfill(x,y,w,h,c)
 circ(x,y,r,c)   circfill(x,y,r,c)
 shade(c, lights, edge)             -- darkness with lights cut out of it
 spr(n, x, y, w, h, flip_x, flip_y) -- n = sprite index; w,h in 8px cells
-sspr(sx,sy,sw,sh, dx,dy, dw,dh)    -- stretched blit
+sspr(sx,sy,sw,sh, dx,dy, dw,dh, flip_x, flip_y) -- stretched blit, mirrored if asked
 print(text, x, y, c)               -- UTF-8, English and Tamil; returns the x after it
 text_size(text)                    -- width of the widest line and height of all, in pixels
 font(size)                         -- "normal" or "small": the size Tamil is drawn at
@@ -449,8 +451,9 @@ palette(c, r, g, b)                -- give colour c new RGB; palette(c) reads it
 
 **Arguments.** Every coordinate and size may be a float; it is rounded down
 to a whole pixel and held to the range -32768..32767 (the range the GPU
-command format carries). Colour indices wrap at 64, so `c` and
-`c + 64` are the same colour; that holds for sprite pixels too. `pal()` and
+command format carries). Colour indices wrap at 256, so `c` and
+`c + 256` are the same colour; a sprite pixel, being a byte, is always one
+of the 256. `pal()` and
 `palt()` with no arguments restore the defaults. `fade` sets a level and
 does not accumulate: `fade(0.5)` every frame holds half brightness, and
 `fade(0)` restores the picture. Shapes may cross the screen edge freely.
@@ -895,13 +898,13 @@ exact digits may differ between desktop and device.
 
 - Origin top-left, +y down, integer pixel centers.
 - Palette index 0 is transparent for sprites by default (`palt` overridable).
-- The default 64-colour palette (§8.3) is built into the runtime. Games
-  may supply their own 64 colours with a `palette.pal` (§2), and change
+- The default 256-colour palette (§8.3) is built into the runtime. Games
+  may supply their own 64, 128 or 256 colours with a `palette.pal` (§2), and change
   any colour while running with `palette(c, r, g, b)`, red, green and blue
   from 0 to 255; `palette(c)` returns colour c's red, green and blue as they
   are kept (5 bits of red and blue, 6 of green, widened back to 0..255 by
   repeating their top bits); `palette()` puts the game's colours back.
-  Colour numbers wrap at 64, and `fade` applies to the new colours as to the
+  Colour numbers wrap at 256, and `fade` applies to the new colours as to the
   old. `tools/refgfx.py` models all of this and the tests hold the runtime to it.
 
 ---
@@ -963,8 +966,15 @@ Pattarai, the editors, in a web browser (§10 item 32).
 1. **Sprite cell size: 8x8**, composed via `w,h` multipliers.
 2. **Resolution: 320x240 logical, locked.** Not revisitable once third-party
    games exist.
-3. **Palette: 64 entries.** 32 base hues + a shadow ramp at the same indices
-   +32, so `pal(c, c+32)` darkens any sprite and dimming a scene is free.
+3. **Palette: up to 256 entries, the hard cap** (a pixel is one byte; more
+   would double the framebuffers). Four blocks of 64, each 32 base hues + a
+   shadow ramp at the same indices +32, so `pal(c, c+32)` darkens any sprite
+   and dimming a scene is free. The first block is the original 64-colour
+   palette; the others add skin and earth, brass, maroons, greens, blues,
+   purples, greys, saffron, teal, indigo, rose, olive, sand, wood, moss, sea,
+   sky, crimson and gold ramps. A game chooses 64, 128 or 256 colours of its
+   own (§2 `palette.pal`); the rest stay built in. Each costs the same to
+   draw: a pixel is a byte whatever the palette's length.
 4. **Name: Pulli** (புள்ளி, "dot").
 
 ---
@@ -1010,7 +1020,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
 3. **Determinism rules** (§4): fixed random seed, fixed hash seed, no fused
    multiply-add.
 4. **Argument conventions** (§3): fractions round down, coordinates are held
-   to 16 bits, colour indices wrap at 64, `pal()`/`palt()` reset, `fade`
+   to 16 bits, colour indices wrap at 256 (64 before the palette grew), `pal()`/`palt()` reset, `fade`
    sets a level instead of accumulating.
 5. **Package limits** (§2): 64 entries (1024 since item 29), name rules, what the checksum
    covers, and the first asset format, `sprites.kolam`.
@@ -1230,3 +1240,35 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    were; two files of one name in different folders are refused, and files
    at the top are still taken. `pulli new` and `pulli add` write into
    `code/`, and Pattarai saves each kind of file in its folder.
+40. **A stretched sprite mirrored** (§3), awaiting approval. `sspr` takes
+   `flip_x` and `flip_y` after its size, as `spr` does: the same source
+   pixels, read from the right or the bottom. A game drawn larger than its
+   sprites (Nizhalattam's world at twice the size) needs its characters
+   facing both ways.
+41. **The GPU keeps the sprites it is sent** (§1, two-chip console),
+   awaiting approval. The GPU chip holds one 128 KB sprite atlas, so as
+   written a `sheet.load` there means sending a whole sheet over the link,
+   3-5 ms at 25-40 MB/s; a frame that draws from four sheets (a world's, a
+   boss's, the characters', the effects') would spend most of its time
+   sending. Instead the CPU sends a sprite's pixels the first time it is
+   drawn and the GPU keeps them in its atlas memory as a cache of cells,
+   keyed by sheet and cell, letting go the least recently drawn when it is
+   full; a draw command names the cell, and only cells not yet held are
+   sent (a 48 x 56 frame is under 3 KB). `sheet.load` and `spr` are
+   unchanged for games. The one-chip console is unaffected: there a sheet
+   is used where it lies and a change of sheet costs nothing. Until then
+   games keep changes of sheet few: each sheet drawn from at most once a
+   frame.
+42. **A palette of up to 256 colours** (§1, §2, §3, §5, §8.3), approved 30
+   October 2026. The palette grows from 64 colours to 256, the hard cap: a
+   pixel is one byte, and more would double both framebuffers past what the
+   GPU chip holds. A game chooses 64, 128 or 256 colours of its own by the
+   length of its `palette.pal`; past them the built-in colours stay, and
+   `pulli pack` matches pictures to the game's own only. A 64-colour palette
+   made before keeps working. Colour numbers wrap at 256 instead of 64. The
+   built-in 256 are the original 64 then three more blocks laid out the same
+   way, so `pal(c, c+32)` still darkens. Drawing costs the same: the
+   framebuffer, the sheets and the backdrop are unchanged; the palette
+   tables grow by under 2 KB. The table sprites draw through holds 16 bits
+   an entry, since every byte is now a colour and none is left to mean "not
+   drawn".

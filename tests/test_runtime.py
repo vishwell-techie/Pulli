@@ -149,7 +149,7 @@ def main():
 
     # ---- drawing arguments --------------------------------------------
     r = t.run_game("""
-        pset(10.9, 20.9, 7)  pset(1, 1, 64 + 9)  pset(-5, 500, 3)
+        pset(10.9, 20.9, 7)  pset(1, 1, 256 + 9)  pset(-5, 500, 3)
         dbg(pget(10, 20), pget(11, 21), pget(1, 1), pget(-5, 500), pget(0, 0))
         dbg(pcall(circfill, 'not a number', nil, {}, false))
         cls(5) shade(0, "no lights") dbg(pget(160, 120))
@@ -397,7 +397,7 @@ def main():
     def rgb(r, g, b):
         return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
     r = t.run_game("""
-        palette(5, 255, 128, 0) palette(6, 300, -20, 17) palette(71, 1, 2, 3)
+        palette(5, 255, 128, 0) palette(6, 300, -20, 17) palette(263, 1, 2, 3)
         function draw() cls(5) rectfill(0, 0, 10, 10, 6) rectfill(20, 0, 10, 10, 7) end
     """)
     px = lambda res, x, y: int.from_bytes(res.rgb[2 * (y * 320 + x):2 * (y * 320 + x) + 2], "little")

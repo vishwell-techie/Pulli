@@ -1,8 +1,8 @@
 // Ooru: the map editor. Opens and saves Tiled maps (.tmx), which `pulli
 // pack` turns into .ooru; their tiles are the game's sprite sheet, so tile
 // n is spr(n), and tile 0 is empty. Two layers, as the console draws.
-import { FOLDERS, place, inFolder } from "./lib/layout.js";
-import { api, h, shared, status, refreshFiles } from "./app.js";
+import { FOLDERS, place, inFolder, sheets } from "./lib/layout.js";
+import { api, h, shared, status, refreshFiles, guessSheet, guessBackdrop, sheetPicture, rememberSheet } from "./app.js";
 import { parseTMX, writeTMX, newTMX, newTSX, parseTSX, setTileFlags, parseObjects, writeObjects, objectTop } from "./lib/tmx.js";
 
 export function ooru(root) {
@@ -11,11 +11,19 @@ export function ooru(root) {
   const shown = [true, true];
   const undo = [], redo = [];
   let tiles = null;                                        // the sheet drawn once, see-through kept
+  let sheet = null;                                        // the sheet this map's tiles come from
+  let bg = null, showBg = true;                            // the backdrop the game draws behind it, as a picture
+  const S = () => (sheet && shared.sheet && sheet.path === shared.sheet.path ? shared.sheet : sheet) || shared.sheet;
   let tsx = null, tsxPath = "", tsxDirty = false, showFlags = false;   // the tileset: each tile's flags
   // objects, on object layers: what map.objects() gives the game
   let groups = [], group = 0, chosen = null, showObjects = true, snap = true;
 
-  const files = h("select", { title: "Maps in the game folder", "data-empty": "no maps yet: New…" });
+  const files = h("select", { title: "Maps in the game folder", "data-empty": "no maps yet: New…", onchange: () => open() });
+  const sheetSel = h("select", { title: "The sprite sheet this map's tiles come from", onchange: async () => {
+    try { sheet = await sheetPicture(sheetSel.value); } catch (e) { return status(`${sheetSel.value}: ${e.message}`, true); }
+    if (path) rememberSheet(path, sheetSel.value);
+    buildTiles(); drawPicker(); draw();
+  } });
   const canvas = h("canvas");
   const picker = h("canvas");
   const info = h("span", { className: "muted" });
@@ -34,6 +42,8 @@ export function ooru(root) {
   const objectBox = h("div");
   const objectsEye = h("label", {}, h("input", { type: "checkbox", checked: true,
     onchange: (e) => { showObjects = e.target.checked; draw(); } }), "show objects");
+  const bgEye = h("label", { title: "The backdrop the game draws behind this map, repeated each screen (320 × 240)" },
+    h("input", { type: "checkbox", checked: true, onchange: (e) => { showBg = e.target.checked; draw(); } }), "show backdrop");
   const flagsEye = h("label", {}, h("input", { type: "checkbox", onchange: (e) => { showFlags = e.target.checked; draw(); } }), "show flags");
   const zoomSel = h("select", { onchange: () => { zoom = +zoomSel.value; draw(); } },
     ...[1, 2, 3, 4, 6].map((n) => h("option", { value: n, selected: n === zoom }, `${n}×`)));
@@ -48,12 +58,13 @@ export function ooru(root) {
       h("span", { className: "sep" }),
       h("button", { title: "Undo (Ctrl+Z)", onclick: () => step(undo, redo) }, "↶"),
       h("button", { title: "Redo (Ctrl+Y)", onclick: () => step(redo, undo) }, "↷"),
-      h("label", {}, "zoom", zoomSel), flagsEye, objectsEye, info),
+      h("label", {}, "zoom", zoomSel), bgEye, flagsEye, objectsEye, info),
     h("div", { className: "cols", style: "flex-wrap:nowrap" },
       h("div", { className: "box wide", style: "min-width:0" }, h("h3", {}, "Map"), h("div", { className: "scroll" }, canvas)),
       h("div", { className: "box", style: "width:420px;flex:none" }, h("h3", {}, "Tiles"),
         h("p", { className: "muted", style: "margin:0 0 6px;max-width:400px" },
-          "The tiles are the picture open in Kolam: tile n is spr(n). Drag across tiles to paint with a block of them."),
+          "Tile n is spr(n) of the sheet the game loads for this map. Drag across tiles to paint with a block of them."),
+        h("label", {}, "tiles from ", sheetSel),
         h("div", { className: "scroll", style: "max-height:calc(100vh - 360px)" }, picker), flagBox, objectBox)));
 
   function bar() {
@@ -67,7 +78,7 @@ export function ooru(root) {
 
   // ---- the tiles: the sheet as an image --------------------------------------
   function buildTiles() {
-    const s = shared.sheet;
+    const s = S();
     if (!s) { tiles = null; return; }
     const img = new ImageData(s.width, s.height);
     for (let i = 0; i < s.pixels.length; i++) {
@@ -79,13 +90,13 @@ export function ooru(root) {
     tiles = new OffscreenCanvas(s.width, s.height);
     tiles.getContext("2d").putImageData(img, 0, 0);
   }
-  const cols = () => shared.sheet.width / 8;
+  const cols = () => S().width / 8;
 
   function drawTile(g, cell, x, y, z) {
     const n = cell & 0x3fff;
     if (!n || !tiles) return;
     const sx = (n % cols()) * 8, sy = Math.floor(n / cols()) * 8;
-    if (sy >= shared.sheet.height) return;
+    if (sy >= S().height) return;
     g.save();
     g.translate(x + (cell & 0x8000 ? 8 * z : 0), y + (cell & 0x4000 ? 8 * z : 0));
     g.scale(cell & 0x8000 ? -1 : 1, cell & 0x4000 ? -1 : 1);
@@ -100,6 +111,9 @@ export function ooru(root) {
     g.imageSmoothingEnabled = false;
     g.fillStyle = "#1b1c24";
     g.fillRect(0, 0, canvas.width, canvas.height);
+    if (bg && showBg)
+      for (let y = 0; y < canvas.height; y += 240 * zoom) for (let x = 0; x < canvas.width; x += 320 * zoom)
+        g.drawImage(bg, x, y, bg.width * zoom, bg.height * zoom);
     map.layers.forEach((l, i) => {
       if (!shown[i]) return;
       g.globalAlpha = i === layer || map.layers.length === 1 ? 1 : 0.55;
@@ -147,7 +161,7 @@ export function ooru(root) {
   }
 
   function drawPicker() {
-    const s = shared.sheet;
+    const s = S();
     if (!s) return;
     const z = 3;
     picker.width = s.width * z; picker.height = s.height * z;
@@ -187,7 +201,7 @@ export function ooru(root) {
 
   let pickFrom = null;
   const pickCell = (e) => [Math.floor(e.offsetX / 24), Math.floor(e.offsetY / 24)];
-  picker.addEventListener("mousedown", (e) => { if (!shared.sheet) return; pickFrom = pickCell(e); pickTo(e); });
+  picker.addEventListener("mousedown", (e) => { if (!S()) return; pickFrom = pickCell(e); pickTo(e); });
   picker.addEventListener("mousemove", (e) => { if (pickFrom) pickTo(e); });
   addEventListener("mouseup", () => { pickFrom = null; });
   function pickTo(e) {
@@ -506,6 +520,7 @@ export function ooru(root) {
       groups = parseObjects(map.text); group = 0; chosen = null;
       path = files.value;
       await loadTileset();
+      await chooseSheet();
       dirty = false;
       undo.length = redo.length = 0;
       layer = 0;
@@ -529,6 +544,26 @@ export function ooru(root) {
     drawFlags();
   }
 
+  async function chooseSheet() {
+    const want = await guessSheet(path, tsx && tsx.text);
+    try { sheet = await sheetPicture(want); } catch (e) { sheet = null; status(`${want}: ${e.message}`, true); }
+    if (want) sheetSel.value = want;
+    buildTiles(); drawPicker();
+    bg = null;
+    try {
+      const p = await sheetPicture(await guessBackdrop(path));
+      if (p) {
+        const img = new ImageData(p.width, p.height);
+        for (let i = 0; i < p.pixels.length; i++) {
+          const c = shared.palette[p.pixels[i]];
+          if (p.pixels[i]) img.data.set([c >> 16, (c >> 8) & 255, c & 255, 255], i * 4);
+        }
+        bg = new OffscreenCanvas(p.width, p.height);
+        bg.getContext("2d").putImageData(img, 0, 0);
+      }
+    } catch { bg = null; }
+  }
+
   async function create() {
     let name = prompt("File name for the new map (kept in maps/)", "map.tmx");
     if (!name) return;
@@ -543,11 +578,12 @@ export function ooru(root) {
     dirty = true;
     undo.length = redo.length = 0;
     const tileset = place(FOLDERS.maps, "sprites.tsx");
-    if (!shared.files.includes(tileset) && shared.sheet) {
-      await api.write(tileset, newTSX(shared.sheet.width, shared.sheet.height, "../" + shared.sheet.path));
+    if (!shared.files.includes(tileset) && S()) {
+      await api.write(tileset, newTSX(S().width, S().height, "../" + S().path));
       await refreshFiles();
     }
     await loadTileset();
+    await chooseSheet();
     await save();
   }
   async function save() {
@@ -574,8 +610,12 @@ export function ooru(root) {
       const was = files.value;
       files.replaceChildren(...inFolder(shared.files, FOLDERS.maps, ".tmx").map((f) => h("option", { value: f }, f)));
       if (was) files.value = was;
+      const ws = sheetSel.value;
+      sheetSel.replaceChildren(...sheets(shared.files).map((f) => h("option", { value: f }, f)));
+      if (ws) sheetSel.value = ws;
     }
     if (what === "sheet" || what === "pixels") { buildTiles(); drawPicker(); draw(); }
+    if (what === "palette" && path) chooseSheet().then(draw);   // the tiles and backdrop drawn again in the new colours
   });
   shared.dirtyChecks.push(() => dirty || tsxDirty);
   draw();

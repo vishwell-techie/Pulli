@@ -1,7 +1,8 @@
 // Pattarai's shell: the tabs, the game folder (through `pulli edit`), the
 // palette and the sprite sheet the editors share.
-import { named } from "./lib/layout.js";
-import { BUILTIN, parsePalette, quantiseTo } from "./lib/palette.js";
+import { named, editorOf, pictureNamedIn } from "./lib/layout.js";
+import { readKolam, writeKolam } from "./lib/kolam.js";
+import { BUILTIN, parsePalette, ownColours, quantiseTo } from "./lib/palette.js";
 import { encodePNG } from "./lib/png.js";
 import { kolam } from "./kolam.js";
 import { ooru } from "./ooru.js";
@@ -86,7 +87,7 @@ export const h = (tag, props = {}, ...kids) => {
 // palette indices (colour 0 is see-through), which Kolam draws and Ooru
 // builds its tiles from.
 export const shared = {
-  files: [], palette: BUILTIN, sheet: null, listeners: [], dirtyChecks: [],
+  files: [], palette: BUILTIN, colours: 256, sheet: null, listeners: [], dirtyChecks: [],
   changed(what) {
     for (const f of this.listeners) f(what);
     if (what === "files") emptyLists();
@@ -107,7 +108,7 @@ function emptyLists() {
 
 // A picture in the game's colours: palette indices, 0 where it is less
 // than half opaque, the rest the nearest colour (as pack does). `moved`
-// counts the pixels whose colour was not one of the 64.
+// counts the pixels whose colour was not one of the palette's.
 export async function decodePicture(bytes) {
   const bitmap = await createImageBitmap(new Blob([bytes]), { premultiplyAlpha: "none", colorSpaceConversion: "none" });
   const c = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -116,7 +117,7 @@ export async function decodePicture(bytes) {
   return quantise(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
 }
 
-export const quantise = (rgba, width, height, dither = false) => quantiseTo(rgba, width, height, shared.palette, dither);
+export const quantise = (rgba, width, height, dither = false) => quantiseTo(rgba, width, height, shared.palette.slice(0, shared.colours), dither);
 
 export async function encodePicture(pic) {
   const rgba = new Uint8Array(pic.width * pic.height * 4);
@@ -129,8 +130,71 @@ export async function encodePicture(pic) {
   return encodePNG(pic.width, pic.height, rgba);
 }
 
+// A picture kept as a .kolam is read and written as it is; any other as a PNG.
+export const isKolam = (path) => path.endsWith(".kolam");
+export async function readPicture(path) {
+  const bytes = await api.read(path);
+  return isKolam(path) ? readKolam(bytes) : decodePicture(bytes);
+}
+export async function writePicture(path, pic) {
+  await api.write(path, isKolam(path) ? writeKolam(pic) : await encodePicture(pic));
+}
+
+// The editor a file opens in, from Vidhi's explorer: the tab is shown and
+// the file chosen in its list (each editor opens what is chosen there).
+export { editorOf };
+export function openIn(f) {
+  const tab = editorOf(f);
+  if (!tab || tab === "vidhi") return false;
+  document.querySelector(`[data-tab=${tab}]`).click();
+  const sel = document.querySelector(`#${tab} select`);
+  if (![...sel.options].some((o) => o.value === f)) return false;
+  sel.value = f;
+  sel.dispatchEvent(new Event("change"));
+  return true;
+}
+
+// The sheet a map's tiles come from. A map may name it through its Tiled
+// tileset; a game that loads its sheets itself names it in its code, as
+// sheet = "forest.kolam" at or above the line naming "f1.ooru". The one
+// chosen in Ooru is remembered for the map. The sheet open in Kolam is
+// used as it is (so its unsaved changes show).
+const pictures = new Map();
+const remembered = () => { try { return JSON.parse(localStorage.getItem("pattarai.sheets." + gameName()) || "{}"); } catch { return {}; } };
+const gameName = () => document.getElementById("game")?.textContent || "";
+export function rememberSheet(map, sheet) {
+  try { const r = remembered(); r[map] = sheet; localStorage.setItem("pattarai.sheets." + gameName(), JSON.stringify(r)); } catch { /* not kept */ }
+}
+export const guessSheet = (map, tsxText) => guessPicture(map, "sheet", tsxText);
+export const guessBackdrop = (map) => guessPicture(map, "bg");
+async function guessPicture(map, key, tsxText) {
+  const r = remembered()[key === "sheet" ? map : key + ":" + map];
+  if (r && shared.files.includes(r)) return r;
+  const image = tsxText && tsxText.match(/<image\b[^>]*source="([^"]+)"/);
+  if (image) { const f = named(shared.files, image[1].slice(image[1].lastIndexOf("/") + 1)); if (f) return f; }
+  const stem = map.slice(map.lastIndexOf("/") + 1).replace(/\.tmx$/, "");
+  for (const f of shared.files.filter((f) => f.endsWith(".lua"))) {
+    let text;
+    try { text = await api.readText(f); } catch { continue; }
+    const stemNamed = pictureNamedIn(text, stem, key);
+    if (stemNamed) {
+      const f2 = named(shared.files, stemNamed + ".kolam") || named(shared.files, stemNamed + ".png");
+      if (f2) return f2;
+    }
+  }
+  if (key !== "sheet") return null;
+  return shared.sheet?.path || named(shared.files, "sprites.png") || named(shared.files, "sprites.kolam") || null;
+}
+export async function sheetPicture(path) {
+  if (!path) return null;
+  if (shared.sheet && shared.sheet.path === path) return shared.sheet;
+  if (!pictures.has(path)) pictures.set(path, { path, ...(await readPicture(path)) });
+  return pictures.get(path);
+}
+
 export async function loadSheet(path) {
-  const pic = await decodePicture(await api.read(path));
+  const pic = await readPicture(path);
+  pictures.delete(path);
   shared.sheet = { path, width: pic.width, height: pic.height, pixels: pic.pixels, dirty: false };
   shared.changed("sheet");
   return pic.moved;
@@ -138,7 +202,7 @@ export async function loadSheet(path) {
 
 export async function saveSheet() {
   const s = shared.sheet;
-  await api.write(s.path, await encodePicture(s));
+  await writePicture(s.path, s);
   s.dirty = false;
 }
 
@@ -167,9 +231,9 @@ export async function refreshFiles() {
   const r = await api.files();
   shared.files = r.files;
   refreshBudget();
-  try { shared.sounds = await api.sounds(); } catch (e) { shared.sounds = null; }
   document.getElementById("game").textContent = r.game;
   shared.changed("files");
+  api.sounds().then((x) => { shared.sounds = x; shared.changed("files"); }, () => { shared.sounds = null; });   // not waited for
 }
 
 async function start() {
@@ -207,7 +271,11 @@ async function start() {
   try {
     await refreshFiles();
     const pal = shared.files.find((f) => f === "palette.hex" || f === "palette.gpl");
-    if (pal) shared.palette = parsePalette(await api.readText(pal));
+    if (pal) {
+      const text = await api.readText(pal);
+      shared.palette = parsePalette(text);
+      shared.colours = ownColours(text);
+    }
     vidhi(document.getElementById("vidhi"));
     kolam(document.getElementById("kolam"));
     ooru(document.getElementById("ooru"));
@@ -216,7 +284,7 @@ async function start() {
     isai(document.getElementById("isai"));
     project(document.getElementById("project"));
     shared.changed("files");                       // the editors were made after the files were listed
-    const sheet = named(shared.files, "sprites.png");
+    const sheet = named(shared.files, "sprites.png") || named(shared.files, "sprites.kolam");
     if (sheet) await loadSheet(sheet);
     if (ta) useTamil(document.body);
     status(`Editing ${document.getElementById("game").textContent}: ${shared.files.length} files the editors can open.`);
