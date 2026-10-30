@@ -1,10 +1,10 @@
 // Thirai (திரை, "curtain" or "screen"): backdrops, whole-screen pictures, 320 x 240, that backdrop("name.kolam")
 // sets and cls() starts each frame from (SPEC §3). Paint one in the game's
 // colours, fill a sky with a dithered gradient, or bring in a picture made
-// elsewhere, fitted to the screen and put in the 64 colours. A map can be
+// elsewhere, fitted to the screen and put in the game's colours. A map can be
 // shown over it, as the game would draw it, to see the two together.
-import { FOLDERS, base, place, inFolder, backdrops } from "./lib/layout.js";
-import { api, h, shared, status, refreshFiles, decodePicture, encodePicture, quantise } from "./app.js";
+import { FOLDERS, place, inFolder, backdrops, entry } from "./lib/layout.js";
+import { api, h, shared, status, refreshFiles, readPicture, writePicture, quantise, guessSheet, sheetPicture } from "./app.js";
 import { css } from "./lib/palette.js";
 import { parseTMX } from "./lib/tmx.js";
 
@@ -12,10 +12,10 @@ const W = 320, H = 240;
 
 export function backdrop(root) {
   let pic = null, path = "", dirty = false, colour = 12, colour2 = 1, tool = "pen", zoom = 3;
-  let overlay = null, overlayLayer = -1;
+  let overlay = null, overlayLayer = -1, overlaySheet = null;
   const undo = [], redo = [];
 
-  const files = h("select", { title: "Pictures in the game folder", "data-empty": "no pictures yet: New…" });
+  const files = h("select", { title: "Pictures in the game folder", "data-empty": "no pictures yet: New…", onchange: () => open() });
   const canvas = h("canvas", { style: "cursor:crosshair" });
   const info = h("span", { className: "muted" });
   const swatches = h("div", { className: "swatches" });
@@ -60,7 +60,7 @@ export function backdrop(root) {
   bar();
 
   function paintSwatches() {
-    swatches.replaceChildren(...shared.palette.map((c, i) => h("div", {
+    swatches.replaceChildren(...shared.palette.slice(0, shared.colours).map((c, i) => h("div", {
       className: (i === colour ? " on" : ""), title: `colour ${i}`, style: `background:${css(c)}` + (i === colour2 ? ";box-shadow:inset 0 0 0 3px #4fb3a9" : ""),
       onclick: () => { colour = i; paintSwatches(); },
       oncontextmenu: (e) => { e.preventDefault(); colour2 = i; paintSwatches(); } })));
@@ -82,12 +82,12 @@ export function backdrop(root) {
     const tmp = new OffscreenCanvas(W, H);
     tmp.getContext("2d").putImageData(image, 0, 0);
     g.drawImage(tmp, 0, 0, canvas.width, canvas.height);
-    if (overlay && shared.sheet) drawOverlay(g);
+    if (overlay && overlaySheet) drawOverlay(g);
     info.textContent = `${path || "(not saved)"}${dirty ? " •" : ""}`;
   }
 
   function drawOverlay(g) {
-    const s = shared.sheet, cols = s.width / 8;
+    const s = overlaySheet.path === shared.sheet?.path ? shared.sheet : overlaySheet, cols = s.width / 8;
     const tiles = new OffscreenCanvas(s.width, s.height), img = new ImageData(s.width, s.height);
     for (let i = 0; i < s.pixels.length; i++) if (s.pixels[i]) {
       const c = shared.palette[s.pixels[i]];
@@ -111,9 +111,11 @@ export function backdrop(root) {
   async function loadOverlay() {
     overlay = null;
     if (mapSel.value) {
-      try { overlay = parseTMX(await api.readText(mapSel.value)); }
-      catch (e) { status(`${mapSel.value}: ${e.message}`, true); }
-      if (!shared.sheet) status("Open the map's sprite sheet in Kolam to see its tiles.", true);
+      try {
+        overlay = parseTMX(await api.readText(mapSel.value));
+        overlaySheet = await sheetPicture(await guessSheet(mapSel.value));
+      } catch (e) { status(`${mapSel.value}: ${e.message}`, true); }
+      if (!overlaySheet) status("No sprite sheet found for this map's tiles.", true);
     }
     draw();
   }
@@ -221,12 +223,12 @@ export function backdrop(root) {
     if (!files.value) return;
     if (dirty && !confirm(`${path} has changes that are not saved. Open another anyway?`)) return;
     try {
-      const p = await decodePicture(await api.read(files.value));
+      const p = await readPicture(files.value);
       if (p.width !== W || p.height !== H)
         return status(`${files.value} is ${p.width}×${p.height}: a backdrop is exactly ${W}×${H}. Import it to fit it.`, true);
       pic = p; path = files.value; dirty = false; undo.length = redo.length = 0;
       draw();
-      status(p.moved ? `${path}: ${p.moved} pixels took the nearest of the 64 colours.` : `Opened ${path}.`);
+      status(p.moved ? `${path}: ${p.moved} pixels took the nearest of the ${shared.colours} colours.` : `Opened ${path}.`);
     } catch (e) { status(`${files.value}: ${e.message}`, true); }
   }
   async function create() {
@@ -241,7 +243,9 @@ export function backdrop(root) {
   function askName(suggest) {
     const name = prompt("File name for the backdrop (the game loads it as backdrop(\"<name>.kolam\"))", suggest);
     if (!name) return null;
-    if (!/^[\w-]+\.png$/.test(name)) { status("A backdrop's name ends in .png; it is kept in backdrops/.", true); return null; }
+    if (!/^[\w-]+\.(png|kolam)$/.test(name)) { status("A backdrop's name ends in .png or .kolam; it is kept in backdrops/.", true); return null; }
+    const other = place(FOLDERS.backdrops, name.endsWith(".png") ? name.replace(/\.png$/, ".kolam") : name.replace(/\.kolam$/, ".png"));
+    if (shared.files.includes(other)) { status(`${other} is already there: the game would have two pictures named ${entry(name)}.`, true); return null; }
     if (name === "sprites.png") { status("sprites.png is the sprite sheet; give the backdrop another name.", true); return null; }
     const path = place(FOLDERS.backdrops, name);
     if (shared.files.includes(path) && !confirm(`${path} exists. Replace it?`)) return null;
@@ -272,12 +276,12 @@ export function backdrop(root) {
     if (!pic) return;
     if (!path) { path = askName("bg.png"); if (!path) return; }
     try {
-      await api.write(path, await encodePicture(pic));
+      await writePicture(path, pic);
       dirty = false;
       await refreshFiles();
       files.value = path;
       draw();
-      status(`Saved ${path}: the game sets it with backdrop("${base(path).replace(/\.png$/, ".kolam")}").`);
+      status(`Saved ${path}: the game sets it with backdrop("${entry(path)}").`);
     } catch (e) { status("Not saved: " + e.message, true); }
   }
 
@@ -292,6 +296,7 @@ export function backdrop(root) {
       mapSel.value = m;
     }
     if ((what === "sheet" || what === "pixels") && overlay) draw();
+    if (what === "palette") { overlaySheet = overlaySheet && { ...overlaySheet }; paintSwatches(); draw(); }
   });
   shared.dirtyChecks.push(() => dirty);
   paintSwatches();

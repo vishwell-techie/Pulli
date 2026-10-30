@@ -396,9 +396,11 @@ bool pulli_boot(pulli_engine *e, const void *data, size_t len, const pulli_backe
         uint32_t n;
         const uint8_t *pal = pulli_entry_use(e, "palette.pal", false, &n);
         if (!pal) return boot_fail(e, "%s%s", e->part_error, "");
-        if (n != 4 + 3 * PULLI_PALETTE_LEN || memcmp(pal, "PAL1", 4) != 0)
-            return boot_fail(e, "palette.pal: not a palette of %s colours%s", "64", "");
-        for (int i = 0; i < PULLI_PALETTE_LEN; i++) {
+        /* The game chooses 64, 128 or 256 colours; past its own, the
+         * built-in ones stay */
+        if ((n != 4 + 3 * 256 && n != 4 + 3 * 128 && n != 4 + 3 * 64) || memcmp(pal, "PAL1", 4) != 0)
+            return boot_fail(e, "palette.pal: not a palette of %s colours%s", "64, 128 or 256", "");
+        for (int i = 0; i < (int)(n - 4) / 3; i++) {
             const uint8_t *c = pal + 4 + 3 * i;
             e->base_palette[i] = (uint16_t)(((c[0] >> 3) << 11) | ((c[1] >> 2) << 5) | (c[2] >> 3));
         }

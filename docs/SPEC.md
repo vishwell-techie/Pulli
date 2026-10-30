@@ -1,8 +1,8 @@
 # Pulli Platform Specification — v0.1 (DRAFT, for review)
 
 Status: **§8 questions resolved and locked** (8x8 cells, 320x240 locked,
-64-colour palette, named Pulli). Architecture revised per ADR-001 (GPU
-coprocessor) and ADR-002 (audio). Remainder awaiting approval.
+64-colour palette, named Pulli). Architecture revised for the GPU
+coprocessor and for audio. Remainder awaiting approval.
 Revised October 2026 while the runtime was first built and tested: §10 lists
 what was added or changed. Items 1 to 28 were approved by 18 October 2026
 item 32 on 27 October 2026 and items 33 to 38 on 28 October
@@ -19,7 +19,7 @@ These constraints hold for the whole design. A feature that violates one of
 them does not ship.
 
 1. **Two chips, one part number: RP2350B** (QFN-80, 48 GPIO, A4 stepping or
-   later) as both CPU and GPU. See ADR-001 — the coprocessor exists to afford a
+   later) as both CPU and GPU. The coprocessor exists to afford a
    parallel display bus and to move 153.6 KB of framebuffer off the CPU, not
    to make rasterizing faster.
 2. **The emulator is the platform.** Hardware is one backend among several.
@@ -41,20 +41,20 @@ them does not ship.
 |---|---|---|
 | Logical resolution | **320 x 240 (locked, never changes)** | Third-party games depend on it from here on |
 | Framebuffer format | 8-bit indexed | 76,800 B/buffer vs 153,600 for RGB565 |
-| Palette | **64 entries, RGB565 (locked)** | 32 hues + a shadow ramp 32 apart, so `pal(c,c+32)` darkens anything |
+| Palette | **up to 256 entries, RGB565** | a game chooses 64, 128 or 256 of its own; four blocks of 64, each 32 hues + a shadow ramp 32 apart, so `pal(c,c+32)` darkens anything |
 | Buffers | 2 (double-buffered) | 153,600 B total |
-| Target frame rate | **60 Hz logic and full-frame redraw** | 8080 parallel bus: 5.1 ms/frame vs 19.7 ms over SPI (ADR-001) |
+| Target frame rate | **60 Hz logic and full-frame redraw** | 8080 parallel bus: 5.1 ms/frame vs 19.7 ms over SPI |
 | Sprite budget | 128 sprites/frame @ 16x16 | Soft limit; profiler warns past it |
 | Display interface | ST7789 8080 8-bit parallel, driven by GPU via PIO | The whole reason the coprocessor pays for itself |
-| CPU<->GPU link | 8-bit parallel + CLK over PIO, DMA both ends, ~25-40 MB/s | Commands only, never pixels (ADR-001) |
+| CPU<->GPU link | 8-bit parallel + CLK over PIO, DMA both ends, ~25-40 MB/s | Commands only, never pixels |
 | MCUs | 2x RP2350B (48 GPIO each), A4+ | Pin budget is full on the CPU, 8 spare on the GPU |
 | CPU chip storage | 16 MB QSPI flash; 8 MB QSPI PSRAM on the same bus | Flash: firmware and the launcher. PSRAM: the game being played (§2, "Size, and the parts in memory") |
 | GPU chip storage | 4 MB QSPI flash | Its own firmware only; sprite sheets and maps arrive over the link |
 | Game package | **up to 64 MB, of which at most 6 MB is in memory at once** | Read from the SD card or a cartridge into PSRAM as the game uses it (§2) |
 | Cartridge slot | Quad-SPI flash, one or two chips, read by PIO; saves in the last 512 KB of that flash | A cartridge is read like the SD card, not in place (§2, "Cartridges") |
-| Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable (ADR-008) |
+| Connector | USB-C, 24-pin receptacle, 5 V, no PD, SBU1/SBU2 routed to GPIO | Charging, flashing, Pulli Link; SBU reserved for a future link cable |
 | Tile layers | 2 scrolling + 1 sprite + 1 UI | |
-| Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core (ADR-002) |
+| Audio | **8 channels, 44.1 kHz stereo, host and device identical** | Core 1 is free now the display moved off-CPU; costs ~6% of one core |
 | Input | 12 buttons: dpad, A B X Y, L R, START SELECT | |
 | Lua | 5.4, with 32-bit integers and 32-bit floats; one pinned build for host and device | The RP2350's FPU is single precision; see §4 |
 
@@ -329,15 +329,17 @@ layers are not imported.
 
 ### palette.pal (draft)
 
-A game's own 64 colours, replacing the built-in palette (§8.3) for that
-game: the magic `"PAL1"` then 64 colours of 3 bytes each, red, green and
-blue, 8 bits each; 196 bytes in all. The runtime turns each into RGB565, as
-for the built-in palette. Any other length or magic stops the game from
-starting. `pulli pack` builds it from a `palette.hex` (one `rrggbb` a line)
+A game's own colours, replacing the first of the built-in palette (§8.3)
+for that game. The game chooses how many: 64, 128 or 256. The magic
+`"PAL1"` then that many colours of 3 bytes each, red, green and blue, 8 bits
+each; 196, 388 or 772 bytes in all. Past the game's own, the built-in colours
+stay. The runtime turns each into RGB565, as for the built-in palette. Any
+other length or magic stops the game from starting. `pulli pack` builds it from a `palette.hex` (one `rrggbb` a line)
 or `palette.gpl` (GIMP, Aseprite and Krita's format) in the game's folder,
 or takes a ready-made `palette.pal` as it is,
-and then matches the game's PNG pictures to those colours instead of the
-built-in ones. The conventions of §8.3, such as the shadow ramp 32 apart,
+and then matches the game's PNG pictures to those colours (only its own
+64, 128 or 256) instead of the built-in ones. The number of colours in the
+`palette.hex` or `palette.gpl` is the choice. The conventions of §8.3, such as the shadow ramp 32 apart,
 are the game's to keep or not.
 
 ### sfx.oli and music.isai (draft)
@@ -434,7 +436,7 @@ rect(x,y,w,h,c) rectfill(x,y,w,h,c)
 circ(x,y,r,c)   circfill(x,y,r,c)
 shade(c, lights, edge)             -- darkness with lights cut out of it
 spr(n, x, y, w, h, flip_x, flip_y) -- n = sprite index; w,h in 8px cells
-sspr(sx,sy,sw,sh, dx,dy, dw,dh)    -- stretched blit
+sspr(sx,sy,sw,sh, dx,dy, dw,dh, flip_x, flip_y) -- stretched blit, mirrored if asked
 print(text, x, y, c)               -- UTF-8, English and Tamil; returns the x after it
 text_size(text)                    -- width of the widest line and height of all, in pixels
 font(size)                         -- "normal" or "small": the size Tamil is drawn at
@@ -449,8 +451,9 @@ palette(c, r, g, b)                -- give colour c new RGB; palette(c) reads it
 
 **Arguments.** Every coordinate and size may be a float; it is rounded down
 to a whole pixel and held to the range -32768..32767 (the range the GPU
-command format carries, ADR-001). Colour indices wrap at 64, so `c` and
-`c + 64` are the same colour; that holds for sprite pixels too. `pal()` and
+command format carries). Colour indices wrap at 256, so `c` and
+`c + 256` are the same colour; a sprite pixel, being a byte, is always one
+of the 256. `pal()` and
 `palt()` with no arguments restore the defaults. `fade` sets a level and
 does not accumulate: `fade(0.5)` every frame holds half brightness, and
 `fade(0)` restores the picture. Shapes may cross the screen edge freely.
@@ -895,13 +898,13 @@ exact digits may differ between desktop and device.
 
 - Origin top-left, +y down, integer pixel centers.
 - Palette index 0 is transparent for sprites by default (`palt` overridable).
-- The default 64-colour palette (§8.3) is built into the runtime. Games
-  may supply their own 64 colours with a `palette.pal` (§2), and change
+- The default 256-colour palette (§8.3) is built into the runtime. Games
+  may supply their own 64, 128 or 256 colours with a `palette.pal` (§2), and change
   any colour while running with `palette(c, r, g, b)`, red, green and blue
   from 0 to 255; `palette(c)` returns colour c's red, green and blue as they
   are kept (5 bits of red and blue, 6 of green, widened back to 0..255 by
   repeating their top bits); `palette()` puts the game's colours back.
-  Colour numbers wrap at 64, and `fade` applies to the new colours as to the
+  Colour numbers wrap at 256, and `fade` applies to the new colours as to the
   old. `tools/refgfx.py` models all of this and the tests hold the runtime to it.
 
 ---
@@ -948,10 +951,10 @@ Pattarai, the editors, in a web browser (§10 item 32).
 
 | Earlier plan | Now | Why |
 |---|---|---|
-| RP2040 as GPU over SPI command stream | **Second RP2350 as GPU over PIO parallel** | Same idea, better part: 2x SRAM, one part number, shared source (ADR-001) |
+| RP2040 as GPU over SPI command stream | **Second RP2350 as GPU over PIO parallel** | Same idea, better part: 2x SRAM, one part number, shared source |
 | SPI display | **8080 8-bit parallel** | The actual unlock for 60 FPS; only affordable because a dedicated chip can spend the pins |
 | RGB565 framebuffer | 8-bit indexed + palette | Halves RAM, enables free fades/flashes |
-| 44.1 kHz stereo on device | **44.1 kHz stereo retained** | Core 1 is free once the display moves off-CPU (ADR-002) |
+| 44.1 kHz stereo on device | **44.1 kHz stereo retained** | Core 1 is free once the display moves off-CPU |
 | `.pulli` = folder/zip | Flat XIP-friendly archive | No zlib on MCU; a package in memory is read in place |
 | Cartridges in v1 | **Cartridge slot in the first generation** | Read like the SD card, over quad-SPI, into memory; saves in the cartridge's own flash (§2) |
 | Package size set by memory | **64 MB package, 6 MB in memory at once** | Parts are read as the game uses them, so a big game needs no more memory (§2) |
@@ -963,8 +966,15 @@ Pattarai, the editors, in a web browser (§10 item 32).
 1. **Sprite cell size: 8x8**, composed via `w,h` multipliers.
 2. **Resolution: 320x240 logical, locked.** Not revisitable once third-party
    games exist.
-3. **Palette: 64 entries.** 32 base hues + a shadow ramp at the same indices
-   +32, so `pal(c, c+32)` darkens any sprite and dimming a scene is free.
+3. **Palette: up to 256 entries, the hard cap** (a pixel is one byte; more
+   would double the framebuffers). Four blocks of 64, each 32 base hues + a
+   shadow ramp at the same indices +32, so `pal(c, c+32)` darkens any sprite
+   and dimming a scene is free. The first block is the original 64-colour
+   palette; the others add skin and earth, brass, maroons, greens, blues,
+   purples, greys, saffron, teal, indigo, rose, olive, sand, wood, moss, sea,
+   sky, crimson and gold ramps. A game chooses 64, 128 or 256 colours of its
+   own (§2 `palette.pal`); the rest stay built in. Each costs the same to
+   draw: a pixel is a byte whatever the palette's length.
 4. **Name: Pulli** (புள்ளி, "dot").
 
 ---
@@ -989,8 +999,8 @@ Pattarai, the editors, in a web browser (§10 item 32).
   can pause for a fraction of a second when a large sound or map is first
   used. The emulator must imitate SD and cartridge read speeds so this
   shows up on a desktop.
-- **Audio can still sound cheap at 44.1 kHz stereo.** ADR-002 settled the
-  sample rate; what people hear is the analog stage and the speaker's back
+- **Audio can still sound cheap at 44.1 kHz stereo.** The sample rate is
+  settled; what people hear is the analog stage and the speaker's back
   volume. Needs a listening test early, not late.
 
 ---
@@ -1010,7 +1020,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
 3. **Determinism rules** (§4): fixed random seed, fixed hash seed, no fused
    multiply-add.
 4. **Argument conventions** (§3): fractions round down, coordinates are held
-   to 16 bits, colour indices wrap at 64, `pal()`/`palt()` reset, `fade`
+   to 16 bits, colour indices wrap at 256 (64 before the palette grew), `pal()`/`palt()` reset, `fade`
    sets a level instead of accumulating.
 5. **Package limits** (§2): 64 entries (1024 since item 29), name rules, what the checksum
    covers, and the first asset format, `sprites.kolam`.
@@ -1052,7 +1062,7 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    `stat("fps")` and `stat("cpu")`, from a port-supplied clock.
 17. **Corrections**: §5 no longer mentions a 256-entry palette, and §9 no
    longer lists 22.05 kHz mono audio as a risk; both predated §8.3 and
-   ADR-002. §3 now says what the runtime does: `dt` is 1/60 on every
+   the audio decision. §3 now says what the runtime does: `dt` is 1/60 on every
    machine, `time()` counts from the start of the game, and `palette` is in
    the graphics list; §2 gives every manifest default; §4 no longer
    describes a variable-step flag as existing, nor §9 a `lowlatency` flag;
@@ -1230,3 +1240,35 @@ implemented and covered by `tests/`; none is frozen until spec 1.0.
    were; two files of one name in different folders are refused, and files
    at the top are still taken. `pulli new` and `pulli add` write into
    `code/`, and Pattarai saves each kind of file in its folder.
+40. **A stretched sprite mirrored** (§3), awaiting approval. `sspr` takes
+   `flip_x` and `flip_y` after its size, as `spr` does: the same source
+   pixels, read from the right or the bottom. A game drawn larger than its
+   sprites (Nizhalattam's world at twice the size) needs its characters
+   facing both ways.
+41. **The GPU keeps the sprites it is sent** (§1, two-chip console),
+   awaiting approval. The GPU chip holds one 128 KB sprite atlas, so as
+   written a `sheet.load` there means sending a whole sheet over the link,
+   3-5 ms at 25-40 MB/s; a frame that draws from four sheets (a world's, a
+   boss's, the characters', the effects') would spend most of its time
+   sending. Instead the CPU sends a sprite's pixels the first time it is
+   drawn and the GPU keeps them in its atlas memory as a cache of cells,
+   keyed by sheet and cell, letting go the least recently drawn when it is
+   full; a draw command names the cell, and only cells not yet held are
+   sent (a 48 x 56 frame is under 3 KB). `sheet.load` and `spr` are
+   unchanged for games. The one-chip console is unaffected: there a sheet
+   is used where it lies and a change of sheet costs nothing. Until then
+   games keep changes of sheet few: each sheet drawn from at most once a
+   frame.
+42. **A palette of up to 256 colours** (§1, §2, §3, §5, §8.3), approved 30
+   October 2026. The palette grows from 64 colours to 256, the hard cap: a
+   pixel is one byte, and more would double both framebuffers past what the
+   GPU chip holds. A game chooses 64, 128 or 256 colours of its own by the
+   length of its `palette.pal`; past them the built-in colours stay, and
+   `pulli pack` matches pictures to the game's own only. A 64-colour palette
+   made before keeps working. Colour numbers wrap at 256 instead of 64. The
+   built-in 256 are the original 64 then three more blocks laid out the same
+   way, so `pal(c, c+32)` still darkens. Drawing costs the same: the
+   framebuffer, the sheets and the backdrop are unchanged; the palette
+   tables grow by under 2 KB. The table sprites draw through holds 16 bits
+   an entry, since every byte is now a colour and none is left to mean "not
+   drawn".

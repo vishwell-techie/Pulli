@@ -54,7 +54,7 @@ export const SIGS = {
   "shade": ["c, lights, edge", "darkness with lights cut out of it"],
   "sheet.load": ["name", "use another sprite sheet from the package"],
   "spr": ["n, x, y, w, h, flip_x, flip_y", "n = sprite index; w,h in 8px cells"],
-  "sspr": ["sx,sy,sw,sh, dx,dy, dw,dh", "stretched blit"],
+  "sspr": ["sx,sy,sw,sh, dx,dy, dw,dh, flip_x, flip_y", "stretched blit, mirrored if asked"],
   "stat": ["\"what\"", "\"fps\", \"mem\", \"cpu\", \"frame\" or \"active\" (KB of the package in memory)"],
   "sys.has": ["cap", "\"video\",\"wifi\",\"cart\",\"rumble\",\"link\" -- hardware varies by variant"],
   "text_size": ["text", "width of the widest line and height of all, in pixels"],

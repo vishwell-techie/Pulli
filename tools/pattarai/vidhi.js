@@ -5,17 +5,24 @@
 // sound's file with a button to hear it. Check runs the game for two
 // seconds with no window and lists its errors by line.
 import { FOLDERS, base, named, place, inFolder, sheets, backdrops } from "./lib/layout.js";
-import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE, help } from "./app.js";
+import { api, h, shared, status, refreshFiles, soundInfo, CHANNEL_NOTE, help, openIn, editorOf } from "./app.js";
 import { css } from "./lib/palette.js";
 import { highlight, callAt, numbered, wordBefore, complete, callHint, SIGS } from "./lib/lua.js";
 const SIGS_OF = (n) => SIGS[n];
 
 export function vidhi(root) {
   let path = "", saved = "", sheetZoom = 2, tab = "sprites";
+  // The files open, each in a tab: its text, the text last saved, where the
+  // cursor and the view were. `path` and `saved` are the shown one's.
+  const docs = [];
+  let cur = null;
+  const closed = new Set(["music", "sfx"]);                  // folders shut in the explorer
   const sounds = new Map();
   let audio = null;
 
-  const files = h("select", { title: "Lua files in the game folder", "data-empty": "no Lua files yet: New…" });
+  const explorer = h("div", { className: "explorer" });
+  const filter = h("input", { placeholder: "find a file", className: "explorer-find", oninput: () => drawExplorer() });
+  const docTabs = h("div", { className: "doctabs" });
   const area = h("textarea", { spellcheck: false, wrap: "off", className: "code-in",
     oninput: () => { paint(); link(); suggest(); }, onscroll: () => { sync(); hidePop(); },
     onkeyup: (e) => { link(); if (!["ArrowUp", "ArrowDown", "Enter", "Tab", "Escape"].includes(e.key)) showHint(); },
@@ -42,14 +49,14 @@ export function vidhi(root) {
     tabs[k] = h("button", { onclick: () => { tab = k; drawAssets(); } }, label);
 
   root.append(
-    h("div", { className: "bar" }, files,
-      h("button", { onclick: open }, "Open"),
+    h("div", { className: "bar" },
       h("button", { onclick: create }, "New…"),
       h("button", { onclick: save, title: "Ctrl+S" }, "Save"),
       h("span", { className: "sep" }),
       h("button", { onclick: check, title: "Save, then run the game for two seconds with no window and list its errors" }, "✓ Check")),
     h("div", { className: "cols", style: "flex-wrap:nowrap" },
-      h("div", { className: "wide", style: "min-width:0" }, findBar,
+      h("div", { className: "box files-box", style: "width:210px;flex:none" }, h("h3", {}, "Files"), filter, explorer),
+      h("div", { className: "wide", style: "min-width:0" }, docTabs, findBar,
         h("div", { className: "code" }, gutter, h("div", { className: "code-box" }, pre, area, pop)), hint, problems),
       h("div", { className: "box", style: "width:360px;flex:none" },
         h("h3", {}, "Under the cursor"), card,
@@ -64,7 +71,10 @@ export function vidhi(root) {
     sync();
   }
   function sync() { pre.scrollTop = gutter.scrollTop = area.scrollTop; pre.scrollLeft = area.scrollLeft; }
-  const dirty = () => path && area.value !== saved;
+  const textOf = (d) => (d === cur ? area.value : d.text);
+  const changedDoc = (d) => textOf(d) !== d.saved;
+  const dirty = () => docs.some(changedDoc);
+  area.addEventListener("input", () => drawTabs());
 
   area.addEventListener("keydown", (e) => {
     if (pop.style.display !== "none") {           // the list of names is open
@@ -310,35 +320,95 @@ export function vidhi(root) {
   }
 
   // ---- files and checking ---------------------------------------------------------
-  async function open() {
-    if (!files.value) return;
-    if (dirty() && !confirm(`${path} has changes that are not saved. Open another anyway?`)) return;
+  // ---- the files: the explorer, and a tab for each one open ------------------
+  function stash() {                                 // the shown file's state, kept in its tab
+    if (!cur) return;
+    Object.assign(cur, { text: area.value, top: area.scrollTop, left: area.scrollLeft, from: area.selectionStart, to: area.selectionEnd });
+  }
+  function show(d) {
+    stash();
+    cur = d;
+    path = d ? d.path : ""; saved = d ? d.saved : "";
+    area.value = d ? d.text : "";
+    area.disabled = !d;
+    paint();
+    if (d) { area.scrollTop = d.top || 0; area.scrollLeft = d.left || 0; area.setSelectionRange(d.from || 0, d.to || 0); sync(); }
+    drawTabs(); drawExplorer(); link();
+  }
+  async function open(file) {
+    if (!file) return;
+    const had = docs.find((d) => d.path === file);
+    if (had) return show(had);
     try {
-      area.value = saved = await api.readText(files.value);
-      path = files.value;
-      area.scrollTop = 0;
-      paint();
-      status(`Opened ${path}.`);
+      const text = await api.readText(file);
+      const d = { path: file, text, saved: text };
+      docs.push(d);
+      show(d);
+      area.focus();
+      status(`Opened ${file}.`);
     } catch (e) { status(e.message, true); }
+  }
+  function close(d) {
+    if (changedDoc(d) && !confirm(`${d.path} has changes that are not saved. Close it anyway?`)) return;
+    const i = docs.indexOf(d);
+    docs.splice(i, 1);
+    if (d === cur) { cur = null; show(docs[Math.min(i, docs.length - 1)] || null); } else drawTabs();
+  }
+  function drawTabs() {
+    docTabs.replaceChildren(...docs.map((d) => h("div", { className: "doctab" + (d === cur ? " on" : ""), title: d.path,
+      onclick: () => d !== cur && show(d), onauxclick: (e) => { if (e.button === 1) close(d); } },
+      d.path.slice(d.path.lastIndexOf("/") + 1), changedDoc(d) ? h("span", { className: "dot" }, " •") : "",
+      h("button", { className: "x", title: "Close (middle click)", onclick: (e) => { e.stopPropagation(); close(d); } }, "✕"))));
+  }
+  const rank = (dir) => (dir === "code" ? 0 : dir === "" ? 9 : 1);    // code first, the game folder's own files last
+  const ICON = { vidhi: "λ", kolam: "▦", ooru: "▤", backdrop: "◩", oli: "♪", isai: "♫" };
+  function drawExplorer() {
+    const q = filter.value.trim().toLowerCase();
+    const shown = shared.files.filter((f) => !q || f.toLowerCase().includes(q));
+    const folders = new Map([["", []]]);
+    for (const f of shown) {
+      const dir = f.includes("/") ? f.slice(0, f.lastIndexOf("/")) : "";
+      if (!folders.has(dir)) folders.set(dir, []);
+      folders.get(dir).push(f);
+    }
+    const row = (f) => {
+      const ed = editorOf(f), mine = ed === "vidhi";
+      return h("div", { className: "file" + (f === path ? " on" : "") + (ed ? "" : " plain"), title: mine ? f : ed ? `${f}: opens in its editor` : f,
+        onclick: () => (mine ? open(f) : ed ? openIn(f) : null) },
+        h("span", { className: "ic" }, ICON[ed] || "·"), f.slice(f.lastIndexOf("/") + 1),
+        docs.some((d) => d.path === f && changedDoc(d)) ? " •" : "");
+    };
+    const out = [];
+    for (const [dir, list] of [...folders].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))) {
+      if (!list.length) continue;
+      if (dir) {
+        const shut = closed.has(dir) && !q;
+        out.push(h("div", { className: "folder", onclick: () => { closed.has(dir) ? closed.delete(dir) : closed.add(dir); drawExplorer(); } },
+          shut ? "▸ " : "▾ ", dir + "/", h("span", { className: "muted" }, ` ${list.length}`)));
+        if (!shut) out.push(h("div", { className: "in" }, ...list.sort().map(row)));
+      } else out.push(...list.sort().map(row));
+    }
+    explorer.replaceChildren(...out);
   }
   async function create() {
     const name = prompt("Name of the new Lua file (kept in code/)", "enemy.lua");
     if (!name) return;
     if (!/^[\w-]+\.lua$/.test(name)) return status("A Lua file's name ends in .lua; it is kept in code/.", true);
     if (named(shared.files, name)) return status(`${name} exists; open it instead.`, true);
-    path = place(FOLDERS.code, name);
-    area.value = `-- ${name}: used with require("${name.replace(/\.lua$/, "")}")\nlocal M = {}\n\nreturn M\n`;
-    saved = "";
-    paint();
+    const text = `-- ${name}: used with require("${name.replace(/\.lua$/, "")}")\nlocal M = {}\n\nreturn M\n`;
+    const d = { path: place(FOLDERS.code, name), text, saved: "" };
+    docs.push(d);
+    show(d);
     await save();
   }
   async function save() {
     if (!path) return false;
     try {
-      await api.write(path, area.value);
-      saved = area.value;
+      const d = cur;
+      await api.write(d.path, area.value);
+      saved = d.saved = area.value;
       await refreshFiles();
-      files.value = path;
+      drawTabs();
       status(`Saved ${path}.`);
       return true;
     } catch (e) { status("Not saved: " + e.message, true); return false; }
@@ -359,7 +429,7 @@ export function vidhi(root) {
     } catch (e) { status(e.message, true); }
   }
   async function go(file, line) {
-    if (file !== path) { files.value = file; await open(); }
+    if (file !== path) await open(shared.files.find((f) => f === file || f.endsWith("/" + file)) || file);
     const at = area.value.split("\n").slice(0, line - 1).join("\n").length + (line > 1 ? 1 : 0);
     area.focus();
     area.setSelectionRange(at, at);
@@ -369,12 +439,10 @@ export function vidhi(root) {
 
   shared.listeners.push((what) => {
     if (what === "files") {
-      const was = files.value;
-      files.replaceChildren(...shared.files.filter((f) => f.endsWith(".lua")).map((f) => h("option", { value: f }, f)));
-      files.value = was || named(shared.files, "main.lua") || files.value;
-      if (!path && files.value) open();
+      drawExplorer();
+      if (!docs.length && named(shared.files, "main.lua")) open(named(shared.files, "main.lua"));
     }
-    if (what === "files" || what === "sheet" || (what === "pixels" && tab === "sprites")) drawAssets();
+    if (what === "files" || what === "sheet" || what === "palette" || (what === "pixels" && tab === "sprites")) drawAssets();
   });
   shared.dirtyChecks.push(dirty);
   paint();

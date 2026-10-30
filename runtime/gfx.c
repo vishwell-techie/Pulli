@@ -75,20 +75,36 @@ PULLI_HOT static void hline(pulli_gfx *g, int x0, int x1, int y, int c) {
     memset(g->fb + sy0 * PULLI_SCREEN_W + sx0, g->pal_map[c & PULLI_COLOR_MASK], (size_t)(sx1 - sx0));
 }
 
-/* 32 base hues, then the same hues at 9/16 brightness 32 indices later, so
- * pal(c, c+32) darkens anything. */
-static const uint32_t BASE_RGB[32] = {
+/* Four blocks of 64: 32 base hues, then the same hues at 9/16 brightness 32
+ * indices later, so pal(c, c+32) darkens anything in any block. The first
+ * block is the original 64; the second adds skin and earth, brass, maroons,
+ * greens, blues, purples and greys; the third saffron, teal, indigo, rose
+ * and olive ramps; the fourth sand, wood, moss, sea, sky, crimson, gold and
+ * cool greys. */
+static const uint32_t BASE_RGB[128] = {
     0x000000,0x1D2B53,0x7E2553,0x008751,0xAB5236,0x5F574F,0xC2C3C7,0xFFF1E8,
     0xFF004D,0xFFA300,0xFFEC27,0x00E436,0x29ADFF,0x83769C,0xFF77A8,0xFFCCAA,
     0x291814,0x111D35,0x422136,0x125359,0x742F29,0x49333B,0xA28879,0xF3EF7D,
-    0xBE1250,0xFF6C24,0xA8E72E,0x00B543,0x065AB5,0x754665,0xFF6E59,0xFF9D81
+    0xBE1250,0xFF6C24,0xA8E72E,0x00B543,0x065AB5,0x754665,0xFF6E59,0xFF9D81,
+    0xF6D2B5,0xE8B08A,0xD08C5E,0xB06E44,0x8C5232,0x6A3C24,0x4C2A1A,0x2E1A10,
+    0xFFE7A0,0xF2C14E,0xC8962A,0x9A6B1C,0xE84A3C,0xB0202E,0x7A1028,0x4E0A1E,
+    0x9ED36A,0x5FA845,0x2F7A3A,0x14492A,0x8FD3FF,0x4A8FE0,0x2E4BB0,0x1E2470,
+    0xC27BE0,0x8A3FB0,0xF4A6C8,0xD0607A,0xF4F4F0,0xB8B4AC,0x7A7670,0x3E3A38,
+    0xFFD27A,0xFFB03A,0xE58A12,0xB8640A,0x9CF0E0,0x3CC8B4,0x1A8C84,0x0E5458,
+    0xB4B8FF,0x7078E8,0x4040B8,0x24207A,0xFFC4D0,0xF0889C,0xC84868,0x8A2444,
+    0xE4E89A,0xB8C055,0x868C30,0x565A1C,0xFFF4D8,0xE0D4B8,0xA89C88,0x6C6458,
+    0xE8C8F8,0xB890E0,0x7C58B0,0x4A2C78,0xFFE8C0,0xF8C890,0xE0A070,0xB87850,
+    0xF0DCA8,0xD8BC80,0xB89A5C,0x8C7040,0xC08858,0x985E34,0x6E3E20,0x4A2814,
+    0xBCE08C,0x84B858,0x5A8C38,0x3A6024,0x7CE0F0,0x38A8D0,0x1C70A8,0x10447A,
+    0xD8F0FF,0xA8D4F8,0xFF4040,0xC8102C,0xFFE060,0xE0B020,0xDCE4EC,0x9CA8B8,
+    0x707C8C,0x404858,0xF8F0B0,0xD8C870,0x60C0A0,0x2E8A6C,0xA03018,0x601808
 };
 
 void pulli_default_palette(uint16_t out[PULLI_PALETTE_LEN]) {
     for (int i = 0; i < PULLI_PALETTE_LEN; i++) {
-        uint32_t c = BASE_RGB[i % 32];
+        uint32_t c = BASE_RGB[i / 64 * 32 + i % 32];
         uint32_t r = (c >> 16) & 0xFF, gr = (c >> 8) & 0xFF, b = c & 0xFF;
-        if (i >= 32) { r = r * 9 / 16; gr = gr * 9 / 16; b = b * 9 / 16; }
+        if (i % 64 >= 32) { r = r * 9 / 16; gr = gr * 9 / 16; b = b * 9 / 16; }
         out[i] = (uint16_t)(((r >> 3) << 11) | ((gr >> 2) << 5) | (b >> 3));
     }
 }
@@ -300,7 +316,7 @@ PULLI_HOT static void spr_in(pulli_gfx *g, const box *cb, int n, int x, int y, i
     if (flip_x) { int lo = dx + pw - (g->atlas_w - ax); if (x0 < lo) x0 = lo; }
     else        { int hi = dx + g->atlas_w - ax;       if (x1 > hi) x1 = hi; }
     if (x0 >= x1) return;
-    const uint8_t *lut = g->sprite_lut;
+    const uint16_t *lut = g->sprite_lut;
     const int run = x1 - x0;
     for (int sy0 = y0; sy0 < y1; sy0++) {
         int j = sy0 - dy;
@@ -310,14 +326,14 @@ PULLI_HOT static void spr_in(pulli_gfx *g, const box *cb, int n, int x, int y, i
         if (flip_x) {
             const uint8_t *src = g->atlas + sy * g->atlas_w + ax + pw - 1 - (x0 - dx);
             for (int k = 0; k < run; k++) {
-                uint8_t v = lut[src[-k] & PULLI_COLOR_MASK];
-                if (v != 0xFF) dst[k] = v;
+                uint16_t v = lut[src[-k] & PULLI_COLOR_MASK];
+                if (v != PULLI_LUT_SKIP) dst[k] = v;
             }
         } else {
             const uint8_t *src = g->atlas + sy * g->atlas_w + ax + (x0 - dx);
             for (int k = 0; k < run; k++) {
-                uint8_t v = lut[src[k] & PULLI_COLOR_MASK];
-                if (v != 0xFF) dst[k] = v;
+                uint16_t v = lut[src[k] & PULLI_COLOR_MASK];
+                if (v != PULLI_LUT_SKIP) dst[k] = v;
             }
         }
     }
@@ -333,7 +349,7 @@ PULLI_HOT void pulli_spr(pulli_gfx *g, int n, int x, int y, int cw, int ch,
  * Destination column i reads source column sx + floor(i * sw / dw); the
  * quotient is carried from one column to the next instead of divided out
  * for each pixel. */
-typedef struct { pulli_gfx *g; int sx, sy, sw, sh, dx, dy, dw, dh; } sspr_job;
+typedef struct { pulli_gfx *g; int sx, sy, sw, sh, dx, dy, dw, dh; bool fx, fy; } sspr_job;
 
 PULLI_HOT static void sspr_half(void *arg, int half) {
     const sspr_job *J = arg;
@@ -346,17 +362,17 @@ PULLI_HOT static void sspr_half(void *arg, int half) {
     const int step_q = sw / dw, step_r = sw % dw;
     for (int sy0 = y0; sy0 < y1; sy0++) {
         int j = sy0 - oy;
-        int ty = sy + (int)(((long long)j * sh) / dh);
+        int ty = sy + (int)(((long long)(J->fy ? dh - 1 - j : j) * sh) / dh);
         if (ty < 0 || ty >= g->atlas_h) continue;
         const uint8_t *src = g->atlas + ty * g->atlas_w;
         uint8_t *dst = g->fb + sy0 * PULLI_SCREEN_W;
         long long first = (long long)(x0 - ox) * sw;
         int q = (int)(first / dw), r = (int)(first % dw);
         for (int sx0 = x0; sx0 < x1; sx0++) {
-            int tx = sx + q;
+            int tx = J->fx ? sx + sw - 1 - q : sx + q;     /* mirrored: the same columns, read from the right */
             if (tx >= 0 && tx < g->atlas_w) {
-                uint8_t v = g->sprite_lut[src[tx] & PULLI_COLOR_MASK];
-                if (v != 0xFF) dst[sx0] = v;
+                uint16_t v = g->sprite_lut[src[tx] & PULLI_COLOR_MASK];
+                if (v != PULLI_LUT_SKIP) dst[sx0] = (uint8_t)v;
             }
             q += step_q; r += step_r;
             if (r >= dw) { q++; r -= dw; }
@@ -365,9 +381,9 @@ PULLI_HOT static void sspr_half(void *arg, int half) {
 }
 
 PULLI_HOT void pulli_sspr(pulli_gfx *g, int sx, int sy, int sw, int sh,
-                int dx, int dy, int dw, int dh) {
+                int dx, int dy, int dw, int dh, bool flip_x, bool flip_y) {
     if (!g->atlas || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
-    sspr_job J = { g, sx, sy, sw, sh, dx, dy, dw, dh };
+    sspr_job J = { g, sx, sy, sw, sh, dx, dy, dw, dh, flip_x, flip_y };
     in_halves(g, sspr_half, &J);
 }
 
@@ -569,11 +585,11 @@ void pulli_clip(pulli_gfx *g, int x, int y, int w, int h) {
     g->clip_h = h > 0 ? h : 0;
 }
 
-/* Sprites look up each pixel's colour on screen, or 0xFF for one not
+/* Sprites look up each pixel's colour on screen, or PULLI_LUT_SKIP for one not
  * drawn, in one table; pal() and palt() keep it up to date, changing only
  * the entry they touch unless they reset everything. */
 static void refresh_lut_entry(pulli_gfx *g, int i) {
-    g->sprite_lut[i] = g->transparent[i] ? 0xFF : g->pal_map[i];
+    g->sprite_lut[i] = g->transparent[i] ? PULLI_LUT_SKIP : g->pal_map[i];
 }
 
 static void refresh_lut(pulli_gfx *g) {
@@ -634,14 +650,14 @@ void pulli_load_palette(pulli_gfx *g, const uint16_t rgb565[PULLI_PALETTE_LEN]) 
  * atlas: what most of map.draw is made of. It draws what pulli_spr would,
  * without the checks for rows and columns that might be cut off, and with
  * loops of a known length the compiler can unroll. */
-PULLI_HOT static void tile8(const uint8_t *lut, const uint8_t *src, int stride,
+PULLI_HOT static void tile8(const uint16_t *lut, const uint8_t *src, int stride,
                             uint8_t *dst, bool flip_x, bool flip_y) {
     if (flip_y) { src += 7 * stride; stride = -stride; }
     for (int j = 0; j < 8; j++, src += stride, dst += PULLI_SCREEN_W) {
-        uint8_t p[8];
+        uint16_t p[8];
         if (flip_x) for (int k = 0; k < 8; k++) p[k] = lut[src[7 - k] & PULLI_COLOR_MASK];
         else        for (int k = 0; k < 8; k++) p[k] = lut[src[k] & PULLI_COLOR_MASK];
-        for (int k = 0; k < 8; k++) if (p[k] != 0xFF) dst[k] = p[k];
+        for (int k = 0; k < 8; k++) if (p[k] != PULLI_LUT_SKIP) dst[k] = (uint8_t)p[k];
     }
 }
 

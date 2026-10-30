@@ -12,7 +12,7 @@
                                                            run it with no window
     (--debug keeps the game's line numbers, so an error says where it happened)
     python3 tools/pulli.py palette [<dir|game.pulli>] <out.gpl|out.hex|out.png>
-                                                           the 64 colours, standard or a
+                                                           the 256 colours, standard or a
                                                            game's own, for a paint program
     python3 tools/pulli.py add    [<dir> helper...]        copy SDK helpers into a game to
                                                            change them; alone, list them
@@ -238,9 +238,9 @@ def gather(srcdir: str, notes=None, fast=False, swap=None):
         raise PackageError(f"{srcdir} has both palette.hex and palette.gpl; keep one")
     if "palette.pal" in names and sources:
         raise PackageError(f"{srcdir} has both palette.pal and {sources[0]}; keep one")
-    colours = game_palette(srcdir)
+    colours, size = game_palette(srcdir)
     if sources:
-        entries.append(("palette.pal", palette_entry(colours)))
+        entries.append(("palette.pal", palette_entry(colours[:size])))
     for n in names:
         stem, ext = os.path.splitext(n)
         ext = ext.lower()
@@ -258,7 +258,7 @@ def gather(srcdir: str, notes=None, fast=False, swap=None):
     for entry, source in sorted(made.items()):
         if entry.endswith(".kolam"):
             with open(real(source), "rb") as f:
-                entries.append((entry, kolam_from_png(f.read(), source, notes, colours)))
+                entries.append((entry, kolam_from_png(f.read(), source, notes, colours and colours[:size])))
     for name, blob in entries:
         if name == "sprites.kolam":
             sheet_columns = struct.unpack("<H", blob[4:6])[0] // CELL
@@ -355,8 +355,12 @@ def kolam(width: int, height: int, pixels: bytes) -> bytes:
 
 # ---- pictures -----------------------------------------------------------
 
+COLOURS = 256                               # the palette's length, the hard cap (SPEC §8.3); a pixel is one byte
+SIZES = (64, 128, 256)                      # a game chooses how many are its own
+
+
 def palette():
-    """The 64 colours as (red, green, blue), in palette order."""
+    """The 256 colours as (red, green, blue), in palette order."""
     import refgfx
     return [((c >> 16) & 255, (c >> 8) & 255, c & 255) for c in refgfx.DEFAULT_PALETTE]
 
@@ -461,8 +465,15 @@ def write_png(width: int, height: int, rgb: bytes) -> bytes:
 
 
 def read_palette(data: bytes, name: str = "palette"):
-    """The 64 colours of a palette.hex (one rrggbb per line) or palette.gpl
-    (GIMP, Aseprite and Krita's format), as (red, green, blue)."""
+    """The 256 colours of a palette.hex (one rrggbb per line) or palette.gpl
+    (GIMP, Aseprite and Krita's format), as (red, green, blue). A game
+    chooses 64, 128 or 256 colours of its own; past those, the standard ones
+    stay."""
+    colours = _own_colours(data, name)
+    return colours + palette()[len(colours):]
+
+
+def _own_colours(data: bytes, name: str):
     text = data.decode("utf-8", "replace")
     colours = []
     for line in text.splitlines():
@@ -479,28 +490,40 @@ def read_palette(data: bytes, name: str = "palette"):
             colours.append(tuple(int(p) for p in parts[:3]))
         else:
             raise PackageError(f"{name}: cannot read the line {line!r}")
-    if len(colours) != 64:
-        raise PackageError(f"{name}: has {len(colours)} colours; a palette has exactly 64")
+    if len(colours) not in SIZES:
+        raise PackageError(f"{name}: has {len(colours)} colours; a palette has 64, 128 or 256")
     return colours
 
 
 def read_palette_entry(data: bytes, name: str = "palette.pal"):
     """The colours in a palette.pal."""
-    if len(data) != 196 or data[:4] != b"PAL1":
-        raise PackageError(f"{name}: not a palette of 64 colours")
-    return [tuple(data[4 + 3 * i:7 + 3 * i]) for i in range(64)]
+    if len(data) not in (4 + 3 * n for n in SIZES) or data[:4] != b"PAL1":
+        raise PackageError(f"{name}: not a palette of 64, 128 or 256 colours")
+    n = (len(data) - 4) // 3
+    return [tuple(data[4 + 3 * i:7 + 3 * i]) for i in range(n)] + palette()[n:]
+
+
+def palette_size(data: bytes, name: str = "palette") -> int:
+    """How many colours are a game's own in a palette file: its choice of
+    64, 128 or 256."""
+    if name.endswith(".pal"):
+        read_palette_entry(data, name)
+        return (len(data) - 4) // 3
+    return len(_own_colours(data, name))
 
 
 def game_palette(srcdir: str):
     """A game folder's own colours, from palette.hex, palette.gpl or a
-    ready-made palette.pal, or None if it uses the standard ones."""
+    ready-made palette.pal: all 256 (the standard ones past the game's own)
+    and how many are its own, or (None, 256) if it uses the standard ones."""
     for name in ("palette.hex", "palette.gpl", "palette.pal"):
         path = os.path.join(srcdir, name)
         if os.path.isfile(path):
             with open(path, "rb") as f:
                 data = f.read()
-            return read_palette_entry(data, name) if name.endswith(".pal") else read_palette(data, name)
-    return None
+            full = read_palette_entry(data, name) if name.endswith(".pal") else read_palette(data, name)
+            return full, palette_size(data, name)
+    return None, COLOURS
 
 
 def palette_entry(colours) -> bytes:
@@ -510,7 +533,7 @@ def palette_entry(colours) -> bytes:
 
 def kolam_from_png(data: bytes, name: str = "picture", notes=None, colours=None) -> bytes:
     """Turn a PNG into a sprite sheet. A see-through pixel becomes colour 0;
-    any other becomes the nearest of colours 1 to 63, so solid black is
+    any other becomes the nearest of the palette's colours (from 1), so solid black is
     colour 32 and stays visible. Says so in `notes` if colours had to move."""
     w, h, pixels = read_png(data, name)
     if w % CELL or h % CELL:
@@ -1122,7 +1145,7 @@ def cmd_list(path):
     for name, blob in read(path):
         print(f"{len(blob):>8}  {name}")
         if blob[:4] == b"PAL1":
-            print(f"            this game's own 64 colours")
+            print(f"            this game's own {(len(blob) - 4) // 3} colours")
         if blob[:4] == b"KLM1":
             w, h = struct.unpack("<HH", blob[4:8])
             print(f"            {w}x{h} pixels, sprites 0 to {(w // CELL) * (h // CELL) - 1}")
@@ -1157,7 +1180,7 @@ def cmd_palette(*args):
     if len(args) == 2:
         game = args[0]
         if os.path.isdir(game):
-            own = game_palette(game)
+            own, size = game_palette(game)
         else:
             entries = dict(read(game))
             own = read_palette_entry(entries["palette.pal"]) if "palette.pal" in entries else None
@@ -1173,12 +1196,12 @@ def cmd_palette(*args):
     elif ext == ".hex":                                 # one colour per line
         data = "".join(f"{r:02x}{g:02x}{b:02x}\n" for r, g, b in colours).encode()
     elif ext == ".png":                                 # one pixel per colour, 8 across
-        data = write_png(8, 8, bytes(v for c in colours for v in c))
+        data = write_png(8, COLOURS // 8, bytes(v for c in colours for v in c))
     else:
         raise PackageError("the palette can be written as .gpl, .hex or .png")
     with open(out, "wb") as f:
         f.write(data)
-    print(f"wrote {whose} 64 colours to {out}{why}. Colour 0 is see-through in sprites.")
+    print(f"wrote {whose} {COLOURS} colours to {out}{why}. Colour 0 is see-through in sprites.")
 
 
 def sdk_dir():
@@ -1291,7 +1314,8 @@ def cmd_check(target, *options):
 # only on 127.0.0.1 and only to requests addressed to it there.
 
 EDIT_TYPES = {".lua": "text/plain; charset=utf-8", ".png": "image/png", ".tmx": "application/xml", ".tsx": "application/xml", ".wav": "audio/wav",
-              ".json": "application/json", ".hex": "text/plain", ".gpl": "text/plain"}
+              ".json": "application/json", ".hex": "text/plain", ".gpl": "text/plain",
+              ".kolam": "application/octet-stream"}
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
                 ".json": "application/json; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
@@ -1373,6 +1397,17 @@ def game_settings(game: str):
     return {"target": target, "strict": bool(got.get("strict")), "limits": limits}
 
 
+def game_signature(game: str):
+    """Every file in the game folder with its size and time: what changes when any does."""
+    out = []
+    for top, dirs, names in os.walk(game):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for n in sorted(names):
+            st = os.stat(os.path.join(top, n))
+            out.append((os.path.relpath(os.path.join(top, n), game), st.st_mtime_ns, st.st_size))
+    return tuple(out)
+
+
 def budget(game: str, swap=None):
     """What the game takes against its target and limits, measured as pack
     would make it (quickly: music is sized, not squeezed). Returns a dict;
@@ -1411,6 +1446,7 @@ def edit_server(game: str, port: int = 0, token: str = None):
     token = token or secrets.token_urlsafe(24)
     here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pattarai")
     game = os.path.abspath(game)
+    wav_seen, budget_seen = {}, {}                       # what was measured, until its files change
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -1469,20 +1505,27 @@ def edit_server(game: str, port: int = 0, token: str = None):
                         for n, name in enumerate(names):
                             row = {"n": n, "path": f"{kind}/{name}"}
                             try:
-                                with open(os.path.join(folder, name), "rb") as f:
-                                    rate, channels, samples, loop = read_wav(f.read(), f"{kind}/{name}")
-                                frames = len(samples) // channels
+                                full = os.path.join(folder, name)
+                                st = os.stat(full)
+                                key = (full, st.st_mtime_ns, st.st_size)
+                                if key not in wav_seen:       # a WAV is read once, until it changes
+                                    with open(full, "rb") as f:
+                                        rate, channels, samples, loop = read_wav(f.read(), f"{kind}/{name}")
+                                    wav_seen[key] = (rate, channels, len(samples) // channels, loop or 0)
+                                rate, channels, frames, loop = wav_seen[key]
                                 packed = frames * channels * 2 if kind == "sfx" else (frames * channels + 1) // 2
-                                row.update(rate=rate, channels=channels, seconds=frames / rate, packed=packed,
-                                           loop=loop or 0)
+                                row.update(rate=rate, channels=channels, seconds=frames / rate, packed=packed, loop=loop)
                             except (PackageError, OSError) as e:
                                 row["error"] = str(e)
                             rows.append(row)
                         out[kind] = rows
                     out["max"] = CLIP_MAX
                     return self.reply(200, json.dumps(out), "application/json")
-                if url.path == "/api/budget":
-                    return self.reply(200, json.dumps(budget(game)), "application/json")
+                if url.path == "/api/budget":         # measured again only when a file has changed
+                    sig = game_signature(game)
+                    if budget_seen.get("sig") != sig:
+                        budget_seen.update(sig=sig, out=budget(game))
+                    return self.reply(200, json.dumps(budget_seen["out"]), "application/json")
                 if url.path == "/api/live":           # the running game's last word on a reload
                     running = bool(live["proc"] and live["proc"].poll() is None)
                     return self.reply(200, json.dumps({"mode": live["on"] or "", "running": running,

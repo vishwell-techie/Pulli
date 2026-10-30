@@ -14,3 +14,8 @@ It contains a font made from Noto Sans Tamil, which keeps its own licence:
                    Copyright 2022 The Noto Project Authors
                    runtime/font_ta.txt and runtime/font_ta.c; licence and
                    source font in third_party/noto-sans-tamil/
+
+The example games' art, music and sound (under examples/) are licensed
+under Creative Commons Attribution 4.0 (CC BY 4.0,
+https://creativecommons.org/licenses/by/4.0/):
+  Copyright 2026 VishWell and contributors

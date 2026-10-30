@@ -137,7 +137,7 @@ def main():
     refuses("a PNG whose size does not match its data is refused",
             lambda: pulli.read_png(rgba_png(w, h + 1, picture)), "damaged")
     t.check("a PNG written by the tool reads back the same",
-            pulli.read_png(pulli.write_png(8, 8, bytes(v for c in colours for v in c)))[2]
+            pulli.read_png(pulli.write_png(8, 32, bytes(v for c in colours for v in c)))[2]
             == [c + (255,) for c in colours])
 
     # ---- pictures into sprite sheets ------------------------------------------
@@ -175,15 +175,23 @@ def main():
 
     # ---- a game's own palette ------------------------------------------------------
     mine = [((i * 4) % 256, (i * 9) % 256, (i * 17) % 256) for i in range(64)]
+    full = mine + pulli.palette()[64:]         # a palette of 64: the rest are the standard ones
+    wide = [((i * 2) % 256, (i * 5) % 256, (i * 11) % 256) for i in range(128)]
+    every = [((i * 3) % 256, (i * 7) % 256, (i * 13) % 256) for i in range(256)]
     hexfile = "".join("%02x%02x%02x\n" % c for c in mine).encode()
     gpl = ("GIMP Palette\nName: Mine\nColumns: 8\n# a comment\n" +
            "".join(f"{r:3} {g:3} {b:3}\tcolour {i}\n" for i, (r, g, b) in enumerate(mine))).encode()
-    t.check("a palette.hex is read", pulli.read_palette(hexfile) == mine)
-    t.check("a GIMP .gpl palette, as Aseprite and Krita write it, is read", pulli.read_palette(gpl) == mine)
+    t.check("a palette.hex is read; one of 64 takes the standard colours for 64-255", pulli.read_palette(hexfile) == full)
+    t.check("a palette.hex of 128 colours takes the standard ones for 128-255, and says it chose 128",
+            pulli.read_palette("".join("%02x%02x%02x\n" % c for c in wide).encode()) == wide + pulli.palette()[128:]
+            and pulli.palette_size("".join("%02x%02x%02x\n" % c for c in wide).encode()) == 128)
+    t.check("a palette.hex of 256 colours is read as it is",
+            pulli.read_palette("".join("%02x%02x%02x\n" % c for c in every).encode()) == every)
+    t.check("a GIMP .gpl palette, as Aseprite and Krita write it, is read", pulli.read_palette(gpl) == full)
     t.check("a hex palette may use # before each colour and blank lines",
-            pulli.read_palette(b"\n".join(b"#" + l for l in hexfile.split()) + b"\n\n") == mine)
+            pulli.read_palette(b"\n".join(b"#" + l for l in hexfile.split()) + b"\n\n") == full)
     refuses("a palette of 63 colours is refused", lambda: pulli.read_palette(b"\n".join(hexfile.split()[:63]), "p.hex"),
-            "p.hex", "63", "exactly 64")
+            "p.hex", "63", "64, 128 or 256")
     refuses("a palette line that is not a colour is refused", lambda: pulli.read_palette(hexfile + b"purple\n", "p.hex"), "purple")
     refuses("a colour above 255 in a .gpl is refused", lambda: pulli.read_palette(gpl.replace(b"  4   9", b"400   9"), "p.gpl"), "400")
     t.check("a palette.pal entry holds the colours after a magic and nothing else",
@@ -200,7 +208,7 @@ def main():
                            ("sprites.png", rgba_png(8, 8, [mine[30] + (255,)] * 64))):
             open(os.path.join(tmp, name), "wb").write(data)
         packed = dict(pulli.parse(pulli.build(tmp)))
-        t.check("pack turns palette.hex into palette.pal, leaves the source out, and matches pictures to it",
+        t.check("pack turns palette.hex into palette.pal of the game's 64, leaves the source out, and matches pictures to it",
                 packed["palette.pal"] == pulli.palette_entry(mine) and "palette.hex" not in packed
                 and set(packed["sprites.kolam"][8:]) == {30})
         os.remove(os.path.join(tmp, "palette.hex"))
@@ -214,10 +222,10 @@ def main():
         os.remove(os.path.join(tmp, "palette.gpl"))
         open(os.path.join(tmp, "palette.pal"), "wb").write(pulli.palette_entry(mine))
         packed = dict(pulli.parse(pulli.build(tmp)))
-        t.check("a ready-made palette.pal is packed, and pictures are matched to it too",
+        t.check("a ready-made palette.pal of 64 colours is packed as it is, and pictures are matched to it too",
                 packed["palette.pal"] == pulli.palette_entry(mine) and set(packed["sprites.kolam"][8:]) == {30})
         open(os.path.join(tmp, "palette.pal"), "wb").write(b"PAL1" + bytes(10))
-        refuses("a ready-made palette.pal that is not 64 colours is refused", lambda: pulli.build(tmp), "palette.pal")
+        refuses("a ready-made palette.pal that is not 64, 128 or 256 colours is refused", lambda: pulli.build(tmp), "palette.pal")
 
         # The palette command, for a paint program: the standard colours, or a game's own.
         tool = [sys.executable, os.path.join(ROOT, "tools", "pulli.py"), "palette"]
@@ -226,7 +234,7 @@ def main():
         out = os.path.join(tmp, "out.gpl")
         r = subprocess.run(tool + [tmp, out], capture_output=True, text=True)
         t.check("pulli.py palette <game> writes the game's own colours",
-                r.returncode == 0 and pulli.read_palette(open(out, "rb").read()) == mine and "own" in r.stdout, r.stdout + r.stderr)
+                r.returncode == 0 and pulli.read_palette(open(out, "rb").read()) == full and "own" in r.stdout, r.stdout + r.stderr)
         pkg = os.path.join(tmp, "game.pulli")
         open(pkg, "wb").write(pulli.build(tmp))
         for ext in ("gpl", "hex", "png"):
@@ -234,7 +242,7 @@ def main():
             subprocess.run(tool + [pkg, out], capture_output=True)
             data = open(out, "rb").read()
             got = [p[:3] for p in pulli.read_png(data)[2]] if ext == "png" else pulli.read_palette(data)
-            t.check(f"pulli.py palette <game.pulli> writes the game's own colours as .{ext}", got == mine)
+            t.check(f"pulli.py palette <game.pulli> writes the game's own colours as .{ext}", got == full)
         os.remove(os.path.join(tmp, "palette.hex"))
         r = subprocess.run(tool + [tmp, out], capture_output=True, text=True)
         t.check("for a game with no palette of its own, the standard colours are written, and it says so",
@@ -383,6 +391,19 @@ def main():
     r = t.run_game("function draw() cls(0) rectfill(10, 10, 10, 10, 9) end", extra=own)
     t.check("a game with its own palette shows its colours",
             r.code == 0 and px(r, 0, 0) == rgb565(mine[0]) and px(r, 15, 15) == rgb565(mine[9]), r.err)
+    r = t.run_game("function draw() cls(0) rectfill(10, 10, 10, 10, 70) end", extra=own)
+    t.check("a game's palette.pal of 64 colours keeps the standard colours 64-255",
+            r.code == 0 and px(r, 15, 15) == rgb565(pulli.palette()[70]) and px(r, 0, 0) == rgb565(mine[0]), r.err)
+    wide_pal = {"palette.pal": pulli.palette_entry(wide)}
+    r = t.run_game("function draw() cls(0) rectfill(10, 10, 10, 10, 100) end", extra=wide_pal)
+    t.check("a game's palette.pal of 128 colours sets all of them",
+            r.code == 0 and px(r, 15, 15) == rgb565(wide[100]) and px(r, 0, 0) == rgb565(wide[0]), r.err)
+    r = t.run_game("function draw() cls(0) rectfill(10, 10, 10, 10, 200) end", extra=wide_pal)
+    t.check("a game's palette.pal of 128 colours keeps the standard colours 128-255",
+            r.code == 0 and px(r, 15, 15) == rgb565(pulli.palette()[200]), r.err)
+    r = t.run_game("function draw() cls(0) rectfill(10, 10, 10, 10, 250) end", extra={"palette.pal": pulli.palette_entry(every)})
+    t.check("a game's palette.pal of 256 colours sets all of them",
+            r.code == 0 and px(r, 15, 15) == rgb565(every[250]) and px(r, 0, 0) == rgb565(every[0]), r.err)
     r = t.run_game("function draw() cls(0) palette(0, 255, 255, 255) palette() rectfill(10, 10, 10, 10, 9) end", extra=own)
     t.check("palette() puts back the game's own colours, not the standard ones",
             r.code == 0 and px(r, 0, 0) == rgb565(mine[0]) and px(r, 15, 15) == rgb565(mine[9]), r.err)
@@ -393,8 +414,8 @@ def main():
     std = refgfx.RefGfx()
     want = "\t".join(str(v) for v in std.colour(8))
     expect_lines("palette(c) tells what colour c looks like, to the precision the screen keeps",
-                 "dbg(palette(8)) palette(9, 255, 0, 128) dbg(palette(9)) palette(73, 1, 2, 3) dbg(palette(9))"
-                 " palette() dbg(palette(9)) dbg(palette(0)) dbg(palette(64 + 7))",
+                 "dbg(palette(8)) palette(9, 255, 0, 128) dbg(palette(9)) palette(265, 1, 2, 3) dbg(palette(9))"
+                 " palette() dbg(palette(9)) dbg(palette(0)) dbg(palette(256 + 7))",
                  [want, "255\t0\t132", "0\t0\t0", "\t".join(str(v) for v in std.colour(9)), "0\t0\t0",
                   "\t".join(str(v) for v in std.colour(7))])
     ownref = refgfx.RefGfx()
