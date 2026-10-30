@@ -65,7 +65,7 @@ return {
   seed_help2 = "%s set    %s new each run    %s back",
   pick_box = "Roles for each run",
   pick_tear = "Change your roles, once",
-  pick_lend = "The %s lends a role. Give up:",
+  pick_lend = "The %s lends a role",
   keep_roles = "Keep the roles I carry",
   done_pick = "Done",
   swapped = "Already changed in this run",

@@ -59,7 +59,7 @@ local NOBODY = { x = -999, y = -999, w = 0, h = 0 }
 
 local function caption(key)
   font("small")
-  said = table.concat(text.wrap(WORDS[lines.lang][key], 40), "\n")
+  said = table.concat(text.wrap(WORDS[lines.lang][key], 38), "\n")   -- inside the screen, ringed
   font()
 end
 
@@ -178,11 +178,11 @@ function scene.draw()
   sheet.load("actors.kolam")
   fx.draw()
   -- the line, in a dark band along the foot
-  rectfill(0, 186, 320, 54, C.ink)
-  line(0, 186, 319, 186, C.marigold)
+  rectfill(0, 180, 320, 60, C.ink)                       -- room for three lines of Tamil
+  line(0, 180, 319, 180, C.marigold)
   font("small")
   local h, n = text.height(said:match("[^\n]+")) + 2, select(2, said:gsub("\n", "")) + 1
-  local y = 213 - h * n // 2
+  local y = 210 - h * n // 2
   for l in said:gmatch("[^\n]+") do
     text.outline(l, 160 - text.width(l) // 2, y, C.glow, C.ink)
     y = y + h
@@ -191,4 +191,5 @@ function scene.draw()
   pal()
 end
 
+scene.WORDS = WORDS                         -- (for the tests: each caption fits its band)
 return scene
